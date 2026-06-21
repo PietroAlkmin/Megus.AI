@@ -104,10 +104,17 @@ export class ConversationStateMachine {
     let contact = await this.d.contacts.findByCpf(integration.id, cpf.digits);
     const now = new Date();
     if (!contact) {
-      contact = {
-        id: randomUUID(), integrationId: integration.id, whatsappNumber: conv.whatsappNumber,
-        fullName, cpf: cpf.digits, cpfNameVerified: true, createdAt: now, updatedAt: now,
-      };
+      // Não existe contato com esse CPF: reutiliza o contato existente por WhatsApp
+      // (criado quando a conversa chegou) ou cria um novo se não houver nenhum.
+      const byWhatsapp = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+      if (byWhatsapp) {
+        contact = { ...byWhatsapp, fullName, cpf: cpf.digits, cpfNameVerified: true, updatedAt: now };
+      } else {
+        contact = {
+          id: randomUUID(), integrationId: integration.id, whatsappNumber: conv.whatsappNumber,
+          fullName, cpf: cpf.digits, cpfNameVerified: true, createdAt: now, updatedAt: now,
+        };
+      }
     } else {
       contact = { ...contact, fullName, cpfNameVerified: true, updatedAt: now };
     }
