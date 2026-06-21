@@ -39,7 +39,7 @@ describe("Aceite: caminho feliz do piloto (§7)", () => {
 
     expect(sentMedia).toHaveLength(1);
     expect(sentMedia[0].mimetype).toBe("application/pdf");
-    const conv = await repos.conversations.getOrCreate("int1", "x", from);
-    expect(conv.state).toBe(ConversationState.Done);
+    const conv = await repos.conversations.findByWhatsappNumber("int1", from);
+    expect(conv?.state).toBe(ConversationState.Done);
   });
 });

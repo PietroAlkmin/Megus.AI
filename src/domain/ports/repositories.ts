@@ -29,6 +29,7 @@ export interface IConversationRepository {
     contactId: string,
     number: string,
   ): Promise<Conversation>;
+  findByWhatsappNumber(integrationId: string, number: string): Promise<Conversation | null>;
   save(conversation: Conversation): Promise<void>;
   appendMessage(message: Message): Promise<void>;
   getHistory(conversationId: string, limit: number): Promise<Message[]>;

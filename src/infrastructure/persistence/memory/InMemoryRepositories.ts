@@ -60,7 +60,7 @@ export class InMemoryRepositories {
 
   conversations: IConversationRepository = {
     getOrCreate: async (integrationId, contactId, number) => {
-      let conv = this._conversations.find((c) => c.integrationId === integrationId && (c.contactId === contactId || c.whatsappNumber === number));
+      let conv = this._conversations.find((c) => c.contactId === contactId && c.integrationId === integrationId);
       if (!conv) {
         const now = new Date();
         conv = {
@@ -72,6 +72,8 @@ export class InMemoryRepositories {
       }
       return conv;
     },
+    findByWhatsappNumber: async (integrationId, number) =>
+      this._conversations.find((c) => c.integrationId === integrationId && c.whatsappNumber === number) ?? null,
     save: async (conv) => {
       const i = this._conversations.findIndex((c) => c.id === conv.id);
       if (i >= 0) this._conversations[i] = conv;
