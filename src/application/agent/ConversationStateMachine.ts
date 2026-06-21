@@ -69,17 +69,19 @@ export class ConversationStateMachine {
     const decision = await this.d.brain.decide(await this.context(conv, cfg));
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
-    const cpf = Cpf.tryCreate(cpfRaw);
 
-    if (!fullName || !cpf) {
+    // Identidade ainda não fornecida: strings vazias → pede de novo sem contar tentativa.
+    if (!fullName || !cpfRaw) {
       await this.send(conv, ["Preciso do seu nome completo e CPF para emitir a nota. Pode mandar?"]);
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
       return;
     }
 
-    const lookup = await this.d.cpf.lookupName(cpf.digits);
-    const ok = lookup.found && lookup.name != null && nameMatch(fullName, lookup.name);
+    // Nome e CPF foram fornecidos: valida CPF e cruzamento nome↔CPF.
+    const cpf = Cpf.tryCreate(cpfRaw);
+    const lookup = cpf ? await this.d.cpf.lookupName(cpf.digits) : { found: false, name: null };
+    const ok = !!cpf && lookup.found && lookup.name != null && nameMatch(fullName, lookup.name);
     if (!ok) {
       const n = (this.attempts.get(conv.id) ?? 0) + 1;
       this.attempts.set(conv.id, n);
@@ -87,7 +89,10 @@ export class ConversationStateMachine {
         await this.handoff(conv, "CPF↔nome não confere após tentativas");
         return;
       }
-      await this.send(conv, ["O nome não bateu com o CPF informado. Pode conferir e mandar de novo?"]);
+      const msg = cpf
+        ? "O nome não bateu com o CPF informado. Pode conferir e mandar de novo?"
+        : "Esse CPF não parece válido. Pode conferir e mandar de novo?";
+      await this.send(conv, [msg]);
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
       return;

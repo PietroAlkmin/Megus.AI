@@ -42,7 +42,6 @@ describe("ConversationStateMachine — identidade/CPF", () => {
     await sm.advance(conv, agentConfig, integration, inbound("Sou João da Silva, CPF 529.982.247-25"));
 
     expect(deps.fiscal.upsertCustomer).toHaveBeenCalledOnce();
-    const saved = await repos.conversations.save; // estado persistido
     expect(conv.state).toBe(ConversationState.AwaitingComprovante);
   });
 
