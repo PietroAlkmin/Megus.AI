@@ -14,6 +14,7 @@ import type {
   IEmissionIntentRepository, IServiceRepository,
 } from "../../domain/ports/repositories";
 import { randomUUID } from "node:crypto";
+import { sanitizeFiscalText } from "../../domain/services/sanitizeFiscalText";
 
 export interface StateMachineDeps {
   brain: IAgentBrain;
@@ -121,8 +122,50 @@ export class ConversationStateMachine {
     await this.send(conv, ["Perfeito! Agora me envia o comprovante de pagamento (foto ou PDF) que eu emito sua nota."]);
   }
 
-  private async handleComprovante(_conv: Conversation, _cfg: AgentConfig, _integration: Integration, _inbound: InboundMessage): Promise<void> {
-    throw new Error("handleComprovante: Task 5");
+  private async handleComprovante(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
+    if (inbound.kind === "text" || !inbound.media) {
+      await this.send(conv, ["Me envia o comprovante de pagamento como foto ou PDF, por favor."]);
+      return;
+    }
+    conv.state = ConversationState.VerifyingComprovante;
+    await this.d.conversations.save(conv);
+
+    const services = await this.d.services.listByIntegration(integration.id);
+    const service = services.find((s) => cfg.capabilities.linkedServiceIds.includes(s.id)) ?? services[0];
+    if (!service) { await this.handoff(conv, "sem serviço vinculado"); return; }
+
+    const analysis = await this.d.comprovante.analyze({
+      media: { mimetype: inbound.media.mimetype, base64: inbound.media.base64, url: inbound.media.url },
+      expectedRecipientDoc: integration.fiscalDoc, expectedRecipientName: integration.fiscalName,
+    });
+
+    const amountOk = analysis.amount != null && Math.abs(analysis.amount - service.price) < 0.01;
+    const ok = analysis.recipientMatches && amountOk && analysis.confidence >= this.d.config.comprovanteMinConfidence;
+    if (!ok) { await this.handoff(conv, `comprovante não confere (conf=${analysis.confidence})`); return; }
+
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    const now = new Date();
+    const intent = {
+      id: randomUUID(), conversationId: conv.id, contactId: conv.contactId, integrationId: integration.id,
+      status: "ready" as const,
+      tomadorName: sanitizeFiscalText(contact?.fullName ?? ""), tomadorCpf: contact?.cpf ?? "",
+      serviceId: service.id, description: sanitizeFiscalText(service.description), amount: service.price,
+      paymentVerified: true, paymentConfidence: analysis.confidence,
+      fiscalKey: null, pdfUrl: null, createdAt: now, updatedAt: now,
+    };
+    await this.d.emissions.save(intent);
+
+    conv.state = ConversationState.Emitting;
+    await this.d.conversations.save(conv);
+
+    const result = await this.d.fiscal.emitNfse(intent);
+    if (!result.success || !result.pdfUrl) { await this.handoff(conv, result.message ?? "falha na emissão"); return; }
+
+    await this.d.emissions.save({ ...intent, status: "emitted", fiscalKey: result.fiscalKey, pdfUrl: result.pdfUrl, updatedAt: new Date() });
+    await this.d.messaging.sendMedia({ to: conv.whatsappNumber, mimetype: "application/pdf", url: result.pdfUrl, filename: "nota-fiscal.pdf", caption: "Sua nota fiscal está pronta! ✅" });
+
+    conv.state = ConversationState.Done;
+    await this.d.conversations.save(conv);
   }
 
   private async context(conv: Conversation, cfg: AgentConfig) {
