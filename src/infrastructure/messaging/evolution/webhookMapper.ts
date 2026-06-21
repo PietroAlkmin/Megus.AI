@@ -35,6 +35,12 @@ export function mapEvolutionWebhook(body: unknown): InboundMessage | null {
     ((msg["imageMessage"] as Record<string, unknown> | undefined)?.["mimetype"] as string | undefined) ??
     ((msg["audioMessage"] as Record<string, unknown> | undefined)?.["mimetype"] as string | undefined) ??
     ((msg["documentMessage"] as Record<string, unknown> | undefined)?.["mimetype"] as string | undefined);
+  const mediaUrl: string | undefined =
+    (msg["imageMessage"] as Record<string, unknown> | undefined)?.["url"] as string | undefined ??
+    (msg["audioMessage"] as Record<string, unknown> | undefined)?.["url"] as string | undefined ??
+    (msg["documentMessage"] as Record<string, unknown> | undefined)?.["url"] as string | undefined ??
+    (data["mediaUrl"] as string | undefined) ??
+    (data["message"] as Record<string, unknown> | undefined)?.["mediaUrl"] as string | undefined;
 
   const sender = b["sender"] as string | undefined;
   const instanceNumber = b["instanceNumber"] as string | undefined;
@@ -44,8 +50,8 @@ export function mapEvolutionWebhook(body: unknown): InboundMessage | null {
     from: jidToNumber(key?.["remoteJid"] as string | undefined),
     to: jidToNumber(sender ?? instanceNumber),
     kind,
-    text: kind === "text" ? text : text,
-    media: kind === "text" ? null : { mimetype: mimetype ?? "application/octet-stream", base64: mediaB64 },
+    text,
+    media: kind === "text" ? null : { mimetype: mimetype ?? "application/octet-stream", base64: mediaB64, url: mediaUrl }, // ⚠️ validar nomes de campo de mídia (url/base64) no smoke contra a instância real
     timestamp: new Date(),
   };
 }

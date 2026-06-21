@@ -51,9 +51,10 @@ export class EvolutionMessagingProvider implements IMessagingProvider {
   }
 
   async sendMedia(msg: OutboundMedia): Promise<void> {
+    const mediatype = msg.mimetype.startsWith("image") ? "image" : msg.mimetype.startsWith("audio") ? "audio" : "document";
     await this.req(`/message/sendMedia/${this.cfg.instance}`, "POST", {
       number: msg.to,
-      mediatype: msg.mimetype.startsWith("image") ? "image" : "document",
+      mediatype,
       mimetype: msg.mimetype,
       media: msg.url ?? msg.base64,
       fileName: msg.filename,
