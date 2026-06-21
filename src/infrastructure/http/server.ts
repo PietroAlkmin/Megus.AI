@@ -3,6 +3,8 @@ import http, { type Server } from "node:http";
 export interface HttpDeps {
   onWebhook(body: unknown): Promise<void>;
   getQr(): Promise<string | null>;
+  /** Opcional — se fornecido, habilita a rota POST /dev/inbound para injeção fake de mensagens. */
+  onDevInbound?(body: unknown): Promise<void>;
 }
 
 function readJson(req: http.IncomingMessage): Promise<unknown> {
@@ -42,6 +44,12 @@ export function createServer(deps: HttpDeps): Server {
       if (req.method === "GET" && url === "/health") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ status: "ok" }));
+        return;
+      }
+      if (req.method === "POST" && url === "/dev/inbound") {
+        const body = await readJson(req);
+        res.writeHead(200).end("ok");
+        deps.onDevInbound?.(body).catch((e: unknown) => console.error("dev/inbound erro:", e));
         return;
       }
       res.writeHead(404).end("not found");

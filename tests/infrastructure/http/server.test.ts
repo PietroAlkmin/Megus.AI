@@ -31,4 +31,30 @@ describe("http server", () => {
     const res = await fetch(`http://localhost:${port}/health`);
     expect(res.status).toBe(200);
   });
+
+  it("POST /dev/inbound chama onDevInbound e responde 200", async () => {
+    const onDevInbound = vi.fn(async () => {});
+    server = createServer({ onWebhook: async () => {}, getQr: async () => null, onDevInbound });
+    const port = await listen(server);
+    const body = { from: "5511988887777", to: "5511900000000", kind: "text", text: "quero a nota" };
+    const res = await fetch(`http://localhost:${port}/dev/inbound`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(onDevInbound).toHaveBeenCalledOnce();
+  });
+
+  it("POST /dev/inbound sem onDevInbound responde 200 sem erro", async () => {
+    server = createServer({ onWebhook: async () => {}, getQr: async () => null });
+    const port = await listen(server);
+    const res = await fetch(`http://localhost:${port}/dev/inbound`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "5511988887777", to: "5511900000000", kind: "text", text: "oi" }),
+    });
+    expect(res.status).toBe(200);
+  });
 });
