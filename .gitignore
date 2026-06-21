@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+
+# segredos
+.env
+.env.local
+
+# sessões de mensageria não-oficial (ex.: WPPConnect/Chromium profile)
+tokens/
+.wwebjs_auth/
+.wwebjs_cache/
