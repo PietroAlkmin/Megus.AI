@@ -60,7 +60,7 @@ export class InMemoryRepositories {
 
   conversations: IConversationRepository = {
     getOrCreate: async (integrationId, contactId, number) => {
-      let conv = this._conversations.find((c) => c.contactId === contactId);
+      let conv = this._conversations.find((c) => c.contactId === contactId && c.integrationId === integrationId);
       if (!conv) {
         const now = new Date();
         conv = {
