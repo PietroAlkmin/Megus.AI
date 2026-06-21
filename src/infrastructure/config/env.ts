@@ -28,6 +28,9 @@ const schema = z.object({
   COMPROVANTE_MIN_CONFIDENCE: z.coerce.number().default(0.8),
   CPF_MAX_ATTEMPTS: z.coerce.number().default(2),
 
+  // Piloto — número de WhatsApp da integração seed (E.164 sem +).
+  PILOT_WHATSAPP_NUMBER: z.string().optional(),
+
   // Persistência (Task Azure SQL). Vazio = repos in-memory (demo). Formato Node (mssql).
   DATABASE_URL: z.string().optional(),
 });
