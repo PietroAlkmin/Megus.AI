@@ -4,6 +4,7 @@ import type { Conversation } from "../entities/Conversation";
 import type { EmissionIntent } from "../entities/EmissionIntent";
 import type { Integration } from "../entities/Integration";
 import type { Message } from "../entities/Message";
+import type { Service } from "../entities/Service";
 
 /** Repositórios do banco PRÓPRIO do Megus (Postgres pendente de confirmação de infra). */
 
@@ -36,4 +37,9 @@ export interface IConversationRepository {
 export interface IEmissionIntentRepository {
   save(intent: EmissionIntent): Promise<void>;
   getById(id: string): Promise<EmissionIntent | null>;
+}
+
+export interface IServiceRepository {
+  getById(id: string): Promise<Service | null>;
+  listByIntegration(integrationId: string): Promise<Service[]>;
 }
