@@ -11,7 +11,9 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -22,7 +24,8 @@
   "devDependencies": {
     "@types/node": "^22.7.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   },
   "//deps-pendentes": "Mensageria (wppconnect/baileys/whatsapp-cloud) entra após a pesquisa wr80xu2as. Persistência (Postgres/Prisma) e Redis entram após confirmação de infra."
 }
