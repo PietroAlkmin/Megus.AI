@@ -22,7 +22,12 @@ const PILOT_SERVICE_PRICE = 180;
 
 async function bootstrap(): Promise<void> {
   const logger = pino({ level: env.LOG_LEVEL });
-  const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY ?? "placeholder-sem-chave" }) as any;
+  // fetch nativo (undici) do Node — o node-fetch que o SDK usa por padrão engasga com
+  // gzip em alguns ambientes (ERR_STREAM_PREMATURE_CLOSE), visto no VPS.
+  const openai = new OpenAI({
+    apiKey: env.OPENAI_API_KEY ?? "placeholder-sem-chave",
+    fetch: globalThis.fetch as unknown as undefined,
+  }) as any;
   const ai = new OpenAIProvider(openai);
 
   // Seleciona provider de mensageria por env
