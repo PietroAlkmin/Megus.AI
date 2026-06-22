@@ -61,4 +61,24 @@ describe("ConversationStateMachine — identidade/CPF", () => {
     expect(conv.state).toBe(ConversationState.HumanHandoff); // 2ª falha
     expect(conv.humanHandoff).toBe(true);
   });
+
+  it("grava a fala do Kaua no histórico (senão o cérebro perde contexto e não extrai)", async () => {
+    const repos = new InMemoryRepositories();
+    repos.seed({ integrations: [integration] });
+    const deps = baseDeps(repos);
+    (deps.brain.decide as any).mockResolvedValue({
+      reply: ["Me envie seu nome completo e CPF, por favor."],
+      action: { type: "request_identity" },
+    });
+
+    const sm = new ConversationStateMachine(deps);
+    const conv = await repos.conversations.getOrCreate("int1", "ct1", "5511988887777");
+    await sm.advance(conv, agentConfig, integration, inbound("oi, quero a nota"));
+
+    const history = await repos.conversations.getHistory(conv.id, 20);
+    const outbound = history.filter((m) => m.direction === "outbound");
+    expect(outbound.length).toBeGreaterThan(0);
+    expect(outbound[0]!.author).toBe("agent");
+    expect(outbound[0]!.body).toContain("CPF");
+  });
 });

@@ -187,6 +187,18 @@ export class ConversationStateMachine {
   private async send(conv: Conversation, bubbles: string[]): Promise<void> {
     for (const text of bubbles) {
       await this.d.messaging.sendText({ to: conv.whatsappNumber, text });
+      // Grava a fala do Kaua no histórico — sem isso o cérebro vê só mensagens do
+      // cliente e não reconhece a resposta de identidade para extrair nome+CPF.
+      await this.d.conversations.appendMessage({
+        id: randomUUID(),
+        conversationId: conv.id,
+        direction: "outbound",
+        author: "agent",
+        kind: "text",
+        body: text,
+        mediaUrl: null,
+        createdAt: new Date(),
+      });
     }
   }
 
