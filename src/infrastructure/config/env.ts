@@ -11,8 +11,11 @@ const schema = z.object({
   // IA — provedor-agnóstico (atrás de IAIProvider). Modelo por env, SEM hardcode de versão.
   AI_PROVIDER: z.enum(["openai"]).default("openai"),
   OPENAI_API_KEY: z.string().optional(),
-  AI_MODEL_CHAT: z.string().default("gpt-5.4-mini"), // conversa (barato/rápido) — ajustar ao id vigente
-  AI_MODEL_VISION: z.string().default("gpt-5.5"), // comprovante (visão) — ajustar ao id vigente
+  // IDs verificados na doc oficial em jun/2026 (família 5.4/5.5). Todos os modelos
+  // atuais são multimodais, então o mesmo mini barato serve p/ chat e visão.
+  // Disponibilidade varia por conta/tier — verdade-terreno: GET /v1/models.
+  AI_MODEL_CHAT: z.string().default("gpt-5.4-mini"), // conversa (barato/rápido)
+  AI_MODEL_VISION: z.string().default("gpt-5.4-mini"), // comprovante (visão); subir p/ gpt-5.5 só se errar
 
   // Mensageria — Evolution API (modo Baileys); REST + webhook.
   MESSAGING_PROVIDER: z.enum(["none", "evolution", "meta"]).default("evolution"),
