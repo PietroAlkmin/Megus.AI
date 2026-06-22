@@ -89,7 +89,8 @@ describe("ComprovanteAnalyzer", () => {
   });
 
   it("passa a imagem como parte image na mensagem user", async () => {
-    const createSpy = vi.fn(async () => ({
+    type SpyFn = (opts: import("../../../src/domain/ports/IAIProvider").AICompleteOptions) => Promise<import("../../../src/domain/ports/IAIProvider").AIToolCall>;
+    const createSpy = vi.fn<SpyFn>(async () => ({
       name: "extract_receipt",
       arguments: { confidence: 0.8 },
     }));
@@ -98,7 +99,9 @@ describe("ComprovanteAnalyzer", () => {
 
     await analyzer.analyze(INPUT);
 
-    const opts = createSpy.mock.calls[0]?.[0];
+    const call = createSpy.mock.calls[0];
+    expect(call).toBeDefined();
+    const opts = call![0];
     const userMessage = opts?.messages.find((m) => m.role === "user");
     expect(userMessage).toBeDefined();
     const content = Array.isArray(userMessage?.content) ? userMessage.content : [];

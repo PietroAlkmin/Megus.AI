@@ -15,19 +15,4 @@ describe("LogMessagingProvider", () => {
     expect(p.sent).toHaveLength(1);
   });
 
-  it("dispatchInbound entrega a mensagem ao handler registrado", async () => {
-    const p = new LogMessagingProvider();
-    const received: string[] = [];
-    p.onInboundMessage(async (m) => { received.push(m.text ?? ""); });
-    await p.dispatchInbound({
-      providerMessageId: "dev-1",
-      from: "5511988887777",
-      to: "551198888000",
-      kind: "text",
-      text: "quero a nota",
-      media: null,
-      timestamp: new Date(),
-    });
-    expect(received).toEqual(["quero a nota"]);
-  });
 });

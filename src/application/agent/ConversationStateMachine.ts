@@ -151,11 +151,15 @@ export class ConversationStateMachine {
     if (!ok) { await this.handoff(conv, `comprovante não confere (conf=${analysis.confidence})`); return; }
 
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    if (!contact || !contact.cpf || !contact.fullName) {
+      await this.handoff(conv, "dados do tomador ausentes");
+      return;
+    }
     const now = new Date();
     const intent = {
       id: randomUUID(), conversationId: conv.id, contactId: conv.contactId, integrationId: integration.id,
       status: "ready" as const,
-      tomadorName: sanitizeFiscalText(contact?.fullName ?? ""), tomadorCpf: contact?.cpf ?? "",
+      tomadorName: sanitizeFiscalText(contact.fullName), tomadorCpf: contact.cpf,
       serviceId: service.id, description: sanitizeFiscalText(service.description), amount: service.price,
       paymentVerified: true, paymentConfidence: analysis.confidence,
       fiscalKey: null, pdfUrl: null, createdAt: now, updatedAt: now,

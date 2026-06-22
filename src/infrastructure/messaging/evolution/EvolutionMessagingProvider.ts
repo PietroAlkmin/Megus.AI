@@ -38,11 +38,6 @@ export class EvolutionMessagingProvider implements IMessagingProvider {
     this.handler = handler;
   }
 
-  /** Chamado pelo servidor HTTP quando o webhook do Evolution chega. */
-  async dispatchInbound(m: InboundMessage): Promise<void> {
-    await this.handler?.(m);
-  }
-
   async sendText(msg: OutboundText): Promise<void> {
     await this.req(`/message/sendText/${this.cfg.instance}`, "POST", {
       number: msg.to,

@@ -21,14 +21,18 @@ async function bootstrap(): Promise<void> {
   const ai = new OpenAIProvider(openai);
 
   // Seleciona provider de mensageria por env
-  const messaging: IMessagingProvider =
-    env.MESSAGING_PROVIDER === "evolution"
-      ? new EvolutionMessagingProvider({
-          baseUrl: env.EVOLUTION_BASE_URL ?? "",
-          apiKey: env.EVOLUTION_API_KEY ?? "",
-          instance: env.EVOLUTION_INSTANCE,
-        })
-      : new LogMessagingProvider();
+  let messaging: IMessagingProvider;
+  if (env.MESSAGING_PROVIDER === "evolution") {
+    messaging = new EvolutionMessagingProvider({
+      baseUrl: env.EVOLUTION_BASE_URL ?? "",
+      apiKey: env.EVOLUTION_API_KEY ?? "",
+      instance: env.EVOLUTION_INSTANCE,
+    });
+  } else if (env.MESSAGING_PROVIDER === "none") {
+    messaging = new LogMessagingProvider();
+  } else {
+    throw new Error(`MESSAGING_PROVIDER='${env.MESSAGING_PROVIDER}' ainda não implementado`);
+  }
 
   // Repos in-memory + seed do piloto
   const repos = new InMemoryRepositories();

@@ -25,11 +25,6 @@ export class LogMessagingProvider implements IMessagingProvider {
     this.handler = handler;
   }
 
-  /** Injeta uma mensagem fake — usado pela rota POST /dev/inbound. */
-  async dispatchInbound(m: InboundMessage): Promise<void> {
-    await this.handler?.(m);
-  }
-
   async sendText(msg: OutboundText): Promise<void> {
     this.sent.push(msg);
     console.log(`[Kaua → ${msg.to}] ${msg.text}`);

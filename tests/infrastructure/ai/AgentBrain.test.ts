@@ -65,7 +65,8 @@ describe("AgentBrain", () => {
   });
 
   it("passa model e tool corretos para o provider", async () => {
-    const createSpy = vi.fn(async () => ({
+    type SpyFn = (opts: import("../../../src/domain/ports/IAIProvider").AICompleteOptions) => Promise<import("../../../src/domain/ports/IAIProvider").AIToolCall>;
+    const createSpy = vi.fn<SpyFn>(async () => ({
       name: "propose_next",
       arguments: { reply: [], action: { type: "reply" } },
     }));
@@ -74,13 +75,16 @@ describe("AgentBrain", () => {
 
     await brain.decide(EMPTY_CONTEXT);
 
-    const opts = createSpy.mock.calls[0]?.[0];
+    const call = createSpy.mock.calls[0];
+    expect(call).toBeDefined();
+    const opts = call![0];
     expect(opts?.model).toBe("gpt-4o-mini");
     expect(opts?.tool.name).toBe("propose_next");
   });
 
   it("inclui histórico de mensagens como user/assistant", async () => {
-    const createSpy = vi.fn(async () => ({
+    type SpyFn = (opts: import("../../../src/domain/ports/IAIProvider").AICompleteOptions) => Promise<import("../../../src/domain/ports/IAIProvider").AIToolCall>;
+    const createSpy = vi.fn<SpyFn>(async () => ({
       name: "propose_next",
       arguments: { reply: [], action: { type: "reply" } },
     }));
@@ -91,15 +95,17 @@ describe("AgentBrain", () => {
       systemInstructions: "instrução",
       state: "collecting_identity",
       history: [
-        { id: "m1", conversationId: "c1", author: "contact", body: "Oi", kind: "text", timestamp: new Date(), media: null },
-        { id: "m2", conversationId: "c1", author: "agent", body: "Olá!", kind: "text", timestamp: new Date(), media: null },
+        { id: "m1", conversationId: "c1", direction: "inbound" as const, author: "contact", body: "Oi", kind: "text", createdAt: new Date(), mediaUrl: null },
+        { id: "m2", conversationId: "c1", direction: "outbound" as const, author: "agent", body: "Olá!", kind: "text", createdAt: new Date(), mediaUrl: null },
       ],
       collected: {},
     };
 
     await brain.decide(ctx);
 
-    const opts = createSpy.mock.calls[0]?.[0];
+    const call2 = createSpy.mock.calls[0];
+    expect(call2).toBeDefined();
+    const opts = call2![0];
     // system + 2 history messages
     expect(opts?.messages).toHaveLength(3);
     expect(opts?.messages[1]?.role).toBe("user");

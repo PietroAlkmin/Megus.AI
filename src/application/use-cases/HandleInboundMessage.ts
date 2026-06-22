@@ -18,10 +18,16 @@ export class HandleInboundMessage {
 
   async execute(inbound: InboundMessage): Promise<void> {
     const integration = await this.d.integrations.getByWhatsappNumber(inbound.to);
-    if (!integration || !integration.active) return;
+    if (!integration || !integration.active) {
+      console.warn(`[inbound] nenhuma integração ativa para to=${inbound.to} (from=${inbound.from}) — mensagem ignorada`);
+      return;
+    }
 
     const agentConfig = await this.d.agentConfigs.getByIntegrationId(integration.id);
-    if (!agentConfig) return;
+    if (!agentConfig) {
+      console.warn(`[inbound] agentConfig ausente para integrationId=${integration.id} (from=${inbound.from}) — mensagem ignorada`);
+      return;
+    }
 
     let contact = await this.d.contacts.findByWhatsapp(integration.id, inbound.from);
     const now = new Date();

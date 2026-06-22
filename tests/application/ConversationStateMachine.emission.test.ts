@@ -9,7 +9,7 @@ const agentConfig: any = { id: "ag1", integrationId: "int1", name: "Kaua", instr
 
 function depsWith(repos: InMemoryRepositories): StateMachineDeps {
   return {
-    brain: { decide: vi.fn(async () => ({ reply: [], action: { type: "reply" } })) },
+    brain: { decide: vi.fn(async () => ({ reply: [], action: { type: "reply" as const } })) },
     cpf: { lookupName: vi.fn() },
     comprovante: { analyze: vi.fn() },
     fiscal: { upsertCustomer: vi.fn(), emitNfse: vi.fn(async () => ({ success: true, fiscalKey: "MOCK123", pdfUrl: "mock://nfse/MOCK123.pdf", message: null })) },
