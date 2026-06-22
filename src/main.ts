@@ -7,6 +7,8 @@ import { MockFiscalProvider } from "./infrastructure/fiscal/MockFiscalProvider";
 import { OpenAIProvider } from "./infrastructure/ai/OpenAIProvider";
 import { AgentBrain } from "./infrastructure/ai/AgentBrain";
 import { ComprovanteAnalyzer } from "./infrastructure/ai/ComprovanteAnalyzer";
+import { MockComprovanteAnalyzer } from "./infrastructure/ai/MockComprovanteAnalyzer";
+import type { IComprovanteAnalyzer } from "./domain/ports/IComprovanteAnalyzer";
 import { EvolutionMessagingProvider } from "./infrastructure/messaging/evolution/EvolutionMessagingProvider";
 import { LogMessagingProvider } from "./infrastructure/messaging/LogMessagingProvider";
 import { mapEvolutionWebhook } from "./infrastructure/messaging/evolution/webhookMapper";
@@ -14,6 +16,9 @@ import { ConversationStateMachine } from "./application/agent/ConversationStateM
 import { HandleInboundMessage } from "./application/use-cases/HandleInboundMessage";
 import { createServer } from "./infrastructure/http/server";
 import type { IMessagingProvider, InboundMessage } from "./domain/ports/IMessagingProvider";
+
+/** Preço do serviço do piloto (R$). Compartilhado entre o seed e o mock de comprovante. */
+const PILOT_SERVICE_PRICE = 180;
 
 async function bootstrap(): Promise<void> {
   const logger = pino({ level: env.LOG_LEVEL });
@@ -81,17 +86,21 @@ async function bootstrap(): Promise<void> {
         integrationId: "int-piloto",
         code: "0107",
         description: "Massagem",
-        price: 180,
+        price: PILOT_SERVICE_PRICE,
         issCode: "0107",
       },
     ],
   });
 
   const cpf = new MockCpfProvider({ "54625255830": "Pietro Augusto Mota Alkmin" });
+  const comprovante: IComprovanteAnalyzer =
+    env.COMPROVANTE_PROVIDER === "mock"
+      ? new MockComprovanteAnalyzer({ amount: PILOT_SERVICE_PRICE, confidence: 1 })
+      : new ComprovanteAnalyzer(ai, env.AI_MODEL_VISION);
   const stateMachine = new ConversationStateMachine({
     brain: new AgentBrain(ai, env.AI_MODEL_CHAT),
     cpf,
-    comprovante: new ComprovanteAnalyzer(ai, env.AI_MODEL_VISION),
+    comprovante,
     fiscal: new MockFiscalProvider(),
     messaging,
     contacts: repos.contacts,

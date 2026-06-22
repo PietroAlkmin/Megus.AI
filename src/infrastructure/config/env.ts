@@ -23,6 +23,8 @@ const schema = z.object({
   // Fiscal e CPF — mock no MVP (não fala com a Kapty por ora).
   FISCAL_PROVIDER: z.enum(["mock", "kapty"]).default("mock"),
   CPF_PROVIDER: z.enum(["mock", "serpro"]).default("mock"),
+  // Comprovante: "openai" usa visão real; "mock" auto-aprova (SÓ demo/dev).
+  COMPROVANTE_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
 
   // Regras de negócio (configuráveis).
   COMPROVANTE_MIN_CONFIDENCE: z.coerce.number().default(0.8),
