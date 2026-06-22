@@ -4,7 +4,7 @@ import { ConversationState } from "../../domain/entities/ConversationState";
 import type { Integration } from "../../domain/entities/Integration";
 import { Cpf } from "../../domain/value-objects/Cpf";
 import { nameMatch } from "../../domain/services/nameMatch";
-import type { IAgentBrain } from "../../domain/ports/IAgentBrain";
+import type { AgentDecision, IAgentBrain } from "../../domain/ports/IAgentBrain";
 import type { ICpfProvider } from "../../domain/ports/ICpfProvider";
 import type { IComprovanteAnalyzer } from "../../domain/ports/IComprovanteAnalyzer";
 import type { IFiscalProvider } from "../../domain/ports/IFiscalProvider";
@@ -43,7 +43,7 @@ export class ConversationStateMachine {
 
     switch (conversation.state) {
       case ConversationState.New:
-        return this.handleChatting(conversation, agentConfig, inbound);
+        return this.handleChatting(conversation, agentConfig, integration, inbound);
       case ConversationState.CollectingIdentity:
       case ConversationState.ValidatingCpf:
         return this.handleIdentity(conversation, agentConfig, integration, inbound);
@@ -56,8 +56,19 @@ export class ConversationStateMachine {
   }
 
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */
-  private async handleChatting(conv: Conversation, cfg: AgentConfig, inbound: InboundMessage): Promise<void> {
+  private async handleChatting(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg));
+
+    // Se o cliente já mandou nome+CPF (mesmo "no meio da conversa"), valida JÁ —
+    // não deixa a identidade fornecida sem ação esperando o próximo turno.
+    const fullName = (decision.extracted?.fullName ?? "").trim();
+    const cpfRaw = (decision.extracted?.cpf ?? "").trim();
+    if (fullName && cpfRaw) {
+      conv.state = ConversationState.CollectingIdentity;
+      await this.d.conversations.save(conv);
+      return this.processIdentity(conv, integration, decision);
+    }
+
     await this.send(conv, decision.reply);
     if (decision.action.type === "request_identity") {
       conv.state = ConversationState.CollectingIdentity;
@@ -65,9 +76,14 @@ export class ConversationStateMachine {
     }
   }
 
-  /** Coleta nome+CPF, valida dígito + CPF↔nome, cria cliente. */
+  /** Coleta nome+CPF: chama o cérebro e delega a validação. */
   private async handleIdentity(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg));
+    return this.processIdentity(conv, integration, decision);
+  }
+
+  /** Valida dígito + CPF↔nome a partir da decisão já obtida, cria cliente e avança. */
+  private async processIdentity(conv: Conversation, integration: Integration, decision: AgentDecision): Promise<void> {
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
 
