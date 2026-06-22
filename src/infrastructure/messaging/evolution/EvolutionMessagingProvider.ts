@@ -47,11 +47,20 @@ export class EvolutionMessagingProvider implements IMessagingProvider {
 
   async sendMedia(msg: OutboundMedia): Promise<void> {
     const mediatype = msg.mimetype.startsWith("image") ? "image" : msg.mimetype.startsWith("audio") ? "audio" : "document";
+    // O Evolution exige URL com TLD (hostname interno do Docker falha na validação
+    // "Owned media must be a url or base64"). Quando só temos URL, buscamos o
+    // arquivo e enviamos como base64 — robusto para qualquer origem.
+    let media = msg.base64 ?? "";
+    if (!msg.base64 && msg.url) {
+      const res = await fetch(msg.url);
+      if (!res.ok) throw new Error(`sendMedia: falha ao buscar mídia ${msg.url} → ${res.status}`);
+      media = Buffer.from(await res.arrayBuffer()).toString("base64");
+    }
     await this.req(`/message/sendMedia/${this.cfg.instance}`, "POST", {
       number: msg.to,
       mediatype,
       mimetype: msg.mimetype,
-      media: msg.url ?? msg.base64,
+      media,
       fileName: msg.filename,
       caption: msg.caption,
     });
