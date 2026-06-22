@@ -128,6 +128,10 @@ async function bootstrap(): Promise<void> {
   const server = createServer({
     onWebhook: async (body) => {
       const m = mapEvolutionWebhook(body);
+      logger.info(
+        { event: (body as { event?: string }).event, mapped: m ? { from: m.from, to: m.to, kind: m.kind } : null },
+        "[webhook] recebido",
+      );
       if (m) await handle.execute(m);
     },
     onDevInbound: async (body) => {
