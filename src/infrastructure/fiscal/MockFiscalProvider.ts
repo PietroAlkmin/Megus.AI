@@ -18,12 +18,16 @@ import type {
 export class MockFiscalProvider implements IFiscalProvider {
   private readonly customersByCpf = new Map<string, string>();
 
+  /** pdfUrl: se fornecida, é a URL REAL devolvida (PDF servido pelo app, que o
+   *  WhatsApp consegue baixar). Sem ela, cai no esquema mock:// (não enviável). */
+  constructor(private readonly pdfUrl?: string) {}
+
   async emitNfse(intent: EmissionIntent): Promise<FiscalEmissionResult> {
     const fiscalKey = `MOCK${Date.now()}${intent.tomadorCpf}`.slice(0, 44);
     return {
       success: true,
       fiscalKey,
-      pdfUrl: `mock://nfse/${fiscalKey}.pdf`,
+      pdfUrl: this.pdfUrl ?? `mock://nfse/${fiscalKey}.pdf`,
       message: "NFS-e MOCK emitida (nenhuma nota fiscal real foi gerada).",
     };
   }

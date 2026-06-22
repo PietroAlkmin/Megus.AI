@@ -28,6 +28,8 @@ const schema = z.object({
   CPF_PROVIDER: z.enum(["mock", "serpro"]).default("mock"),
   // Comprovante: "openai" usa visão real; "mock" auto-aprova (SÓ demo/dev).
   COMPROVANTE_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
+  // URL do PDF de demo servido pelo app; o mock fiscal devolve esta URL p/ o WhatsApp baixar.
+  MOCK_NOTA_PDF_URL: z.string().optional(),
 
   // Regras de negócio (configuráveis).
   COMPROVANTE_MIN_CONFIDENCE: z.coerce.number().default(0.8),

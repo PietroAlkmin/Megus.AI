@@ -106,7 +106,7 @@ async function bootstrap(): Promise<void> {
     brain: new AgentBrain(ai, env.AI_MODEL_CHAT),
     cpf,
     comprovante,
-    fiscal: new MockFiscalProvider(),
+    fiscal: new MockFiscalProvider(env.MOCK_NOTA_PDF_URL),
     messaging,
     contacts: repos.contacts,
     conversations: repos.conversations,

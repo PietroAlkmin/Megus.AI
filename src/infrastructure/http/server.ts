@@ -1,4 +1,5 @@
 import http, { type Server } from "node:http";
+import { buildNotaPdf } from "./notaPdf";
 
 export interface HttpDeps {
   onWebhook(body: unknown): Promise<void>;
@@ -39,6 +40,13 @@ export function createServer(deps: HttpDeps): Server {
         const qr = await deps.getQr();
         res.writeHead(200, { "Content-Type": "text/html" });
         res.end(qr ? `<img src="${qr}" alt="QR"/>` : "<p>Sem QR (já conectado?)</p>");
+        return;
+      }
+      if (req.method === "GET" && url.startsWith("/nota-demo.pdf")) {
+        // PDF de demo servido pelo próprio app; o Evolution busca pela rede interna.
+        const pdf = buildNotaPdf();
+        res.writeHead(200, { "Content-Type": "application/pdf", "Content-Length": pdf.length });
+        res.end(pdf);
         return;
       }
       if (req.method === "GET" && url === "/health") {
