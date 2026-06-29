@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Megus AI · App (wireframe)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#2B3A4F"/><rect x="30" y="34" width="40" height="30" rx="6" fill="#fff"/><circle cx="42" cy="49" r="3" fill="#2B3A4F"/><circle cx="58" cy="49" r="3" fill="#2B3A4F"/><rect x="47" y="24" width="6" height="8" rx="3" fill="#fff"/></svg>
+</template>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #fff; font-family: "Inter", system-ui, sans-serif; }
+  *, *::before, *::after { box-sizing: border-box; }
+  #root { min-height: 100vh; }
+  button { font-family: inherit; }
+  * { scrollbar-width: thin; scrollbar-color: #cbd3dd transparent; }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-thumb { background: #cbd3dd; border-radius: 9999px; }
+</style>
+
+<!-- React + Babel (CDN — sem build) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Tokens + serviço de auth (JS puro) -->
+<script src="src/shared/tokens.js"></script>
+<!-- URL base do backend (ajuste em produção) -->
+<script>window.MEGUS_API_BASE = "http://localhost:3000";</script>
+<script src="src/shared/apiClient.js"></script>
+<script src="src/auth/authService.js"></script>
+<script src="src/atendimentos/atendimentosService.js"></script>
+<script src="src/agente/conversasService.js"></script>
+<script src="src/cobrancas/cobrancasService.js"></script>
+<script src="src/empresa/empresaService.js"></script>
+
+<!-- Primitivos -->
+<script type="text/babel" src="src/shared/primitives.jsx"></script>
+
+<!-- Auth -->
+<script type="text/babel" src="src/auth/AuthBackdrop.jsx"></script>
+<script type="text/babel" src="src/auth/LoginScreen.jsx"></script>
+<script type="text/babel" src="src/auth/CadastroScreen.jsx"></script>
+
+<!-- Shell -->
+<script type="text/babel" src="src/shell/Shell.jsx"></script>
+
+<!-- WhatsApp flow (modais carregados antes do orquestrador) -->
+<script type="text/babel" src="src/whatsapp/AtendenteVirtualModal.jsx"></script>
+<script type="text/babel" src="src/whatsapp/WhatsAppQrModal.jsx"></script>
+<script type="text/babel" src="src/whatsapp/WhatsAppFlow.jsx"></script>
+
+<!-- Páginas internas -->
+<script type="text/babel" src="src/integracoes/IntegracoesPage.jsx"></script>
+<script type="text/babel" src="src/atendimentos/AtendimentosPage.jsx"></script>
+<script type="text/babel" src="src/agente/AgentePage.jsx"></script>
+<script type="text/babel" src="src/cobrancas/CobrancasPage.jsx"></script>
+<script type="text/babel" src="src/empresa/EmpresaPage.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+  // App encadeado. Na produção isto vira react-router + RequireAuth:
+  //   público  → /login /register
+  //   privado  → /  (shell)  com rotas internas (/integracoes, /atendimentos, …)
+  // Aqui o estado `route` simula a navegação.
+  function App() {
+    const [route, setRoute] = React.useState('login'); // login | cadastro | app
+    const [nav, setNav] = React.useState('atendimentos'); // aba ativa no shell
+    const [agente, setAgente] = React.useState(null); // agente aberto (Página do Agente)
+
+    const goNav = (n) => { setAgente(null); setNav(n); };
+    const logout = () => { setAgente(null); setNav('atendimentos'); setRoute('login'); };
+
+    if (route === 'login')
+      return <window.MegusLogin onGoCadastro={() => setRoute('cadastro')} onSuccess={() => setRoute('app')} />;
+    if (route === 'cadastro')
+      return <window.MegusCadastro onGoLogin={() => setRoute('login')} />;
+
+    // route === 'app' → shell + página interna
+    return (
+      <window.MegusShell nav={nav} onNav={goNav} onLogout={logout}>
+        {nav === 'integracoes'
+          ? <window.MegusIntegracoesPage />
+          : nav === 'cobrancas'
+          ? <window.MegusCobrancasPage />
+          : nav === 'empresa'
+          ? <window.MegusEmpresaPage />
+          : nav === 'atendimentos'
+          ? (agente
+              ? <window.MegusAgentePage agente={agente} onBack={() => setAgente(null)} />
+              : <window.MegusAtendimentosPage onOpenAgente={setAgente} />)
+          : <window.MegusEmBreve nav={nav} />}
+      </window.MegusShell>
+    );
+  }
+
+  // Placeholder das telas ainda não construídas (Atendimentos, Conversas, Ajustes).
+  window.MegusEmBreve = function ({ nav }) {
+    const T = window.MegusTokens;
+    const titulos = { atendimentos: 'Atendimentos', conversas: 'Conversas', config: 'Ajustes' };
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, color: T.text.muted, fontFamily: T.font.sans }}>
+        <window.IC.layout size={34} stroke={T.text.subtle} />
+        <div style={{ fontSize: 17, fontWeight: 700, color: T.text.secondary }}>{titulos[nav] || 'Em breve'}</div>
+        <div style={{ fontSize: 13.5 }}>Tela ainda não construída neste wireframe.</div>
+      </div>
+    );
+  };
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

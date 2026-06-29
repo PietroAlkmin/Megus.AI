@@ -7,9 +7,11 @@ import type { Message } from "../../../domain/entities/Message";
 import { ConversationState } from "../../../domain/entities/ConversationState";
 import type { Service } from "../../../domain/entities/Service";
 import { randomUUID } from "node:crypto";
+import type { User } from "../../../domain/entities/User";
 import type {
   IAgentConfigRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IIntegrationRepository, IServiceRepository,
+  IUserRepository,
 } from "../../../domain/ports/repositories";
 
 interface SeedData {
@@ -17,6 +19,7 @@ interface SeedData {
   agentConfigs?: AgentConfig[];
   contacts?: Contact[];
   services?: Service[];
+  users?: User[];
 }
 
 export class InMemoryRepositories {
@@ -27,12 +30,14 @@ export class InMemoryRepositories {
   private _messages: Message[] = [];
   private _emissions: EmissionIntent[] = [];
   private _services: Service[] = [];
+  private _users: User[] = [];
 
   seed(data: SeedData): void {
     if (data.integrations) this._integrations.push(...data.integrations);
     if (data.agentConfigs) this._agentConfigs.push(...data.agentConfigs);
     if (data.contacts) this._contacts.push(...data.contacts);
     if (data.services) this._services.push(...data.services);
+    if (data.users) this._users.push(...data.users);
   }
 
   integrations: IIntegrationRepository = {
@@ -97,5 +102,16 @@ export class InMemoryRepositories {
     getById: async (id) => this._services.find((s) => s.id === id) ?? null,
     listByIntegration: async (integrationId) =>
       this._services.filter((s) => s.integrationId === integrationId),
+  };
+
+  users: IUserRepository = {
+    findByEmail: async (email) =>
+      this._users.find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null,
+    findById: async (id) => this._users.find((u) => u.id === id) ?? null,
+    save: async (user) => {
+      const i = this._users.findIndex((u) => u.id === user.id);
+      if (i >= 0) this._users[i] = user;
+      else this._users.push(user);
+    },
   };
 }

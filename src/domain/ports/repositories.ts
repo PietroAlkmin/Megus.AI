@@ -5,8 +5,15 @@ import type { EmissionIntent } from "../entities/EmissionIntent";
 import type { Integration } from "../entities/Integration";
 import type { Message } from "../entities/Message";
 import type { Service } from "../entities/Service";
+import type { User } from "../entities/User";
 
 /** Repositórios do banco PRÓPRIO do Megus (Postgres pendente de confirmação de infra). */
+
+export interface IUserRepository {
+  findByEmail(email: string): Promise<User | null>;
+  findById(id: string): Promise<User | null>;
+  save(user: User): Promise<void>;
+}
 
 export interface IIntegrationRepository {
   getByWhatsappNumber(number: string): Promise<Integration | null>;

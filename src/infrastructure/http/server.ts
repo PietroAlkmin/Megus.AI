@@ -1,11 +1,14 @@
 import http, { type Server } from "node:http";
 import { buildNotaPdf } from "./notaPdf";
+import type { Express } from "express";
 
 export interface HttpDeps {
   onWebhook(body: unknown): Promise<void>;
   getQr(): Promise<string | null>;
   /** Opcional — se fornecido, habilita a rota POST /dev/inbound para injeção fake de mensagens. */
   onDevInbound?(body: unknown): Promise<void>;
+  /** App Express da API REST (/api/*). Tudo que começa com /api é delegado a ele. */
+  apiApp?: Express;
 }
 
 function readJson(req: http.IncomingMessage): Promise<unknown> {
@@ -28,6 +31,13 @@ function readJson(req: http.IncomingMessage): Promise<unknown> {
 export function createServer(deps: HttpDeps): Server {
   return http.createServer(async (req, res) => {
     const url = req.url ?? "";
+
+    // Tudo que começa com /api é tratado pelo Express (API REST nova).
+    if (url.startsWith("/api") && deps.apiApp) {
+      deps.apiApp(req, res);
+      return;
+    }
+
     try {
       if (req.method === "POST" && url === "/webhook/evolution") {
         const body = await readJson(req);

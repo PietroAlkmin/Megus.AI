@@ -16,9 +16,12 @@ import { ConversationStateMachine } from "./application/agent/ConversationStateM
 import { HandleInboundMessage } from "./application/use-cases/HandleInboundMessage";
 import { createServer } from "./infrastructure/http/server";
 import type { IMessagingProvider, InboundMessage } from "./domain/ports/IMessagingProvider";
+import { createApiApp } from "./infrastructure/http/api/app";
+import { RegisterUser } from "./application/use-cases/auth/RegisterUser";
 
 /** Preço do serviço do piloto (R$). Compartilhado entre o seed e o mock de comprovante. */
 const PILOT_SERVICE_PRICE = 180;
+const SEED_COMPANY_ID = "company-piloto";
 
 async function bootstrap(): Promise<void> {
   const logger = pino({ level: env.LOG_LEVEL });
@@ -130,7 +133,28 @@ async function bootstrap(): Promise<void> {
   messaging.onInboundMessage((m) => handle.execute(m));
   await messaging.start();
 
+  // App Express da API REST (/api).
+  const apiApp = createApiApp({
+    repos,
+    jwtSecret: env.JWT_SECRET,
+    corsOrigins: env.CORS_ORIGINS === "*" ? "*" : env.CORS_ORIGINS.split(",").map((s) => s.trim()),
+  });
+
+  // Usuário de teste para login imediato (gera o hash no boot): piloto@megus.ai / megus123
+  try {
+    await new RegisterUser(repos.users).execute({
+      email: "piloto@megus.ai",
+      password: "megus123",
+      displayName: "Piloto Megus",
+      companyId: SEED_COMPANY_ID,
+    });
+    logger.info("[seed] usuário de teste: piloto@megus.ai / megus123");
+  } catch {
+    /* já existe — ok */
+  }
+
   const server = createServer({
+    apiApp,
     onWebhook: async (body) => {
       const m = mapEvolutionWebhook(body);
       logger.info(

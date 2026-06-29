@@ -8,6 +8,10 @@ const schema = z.object({
   PORT: z.coerce.number().default(3000),
   LOG_LEVEL: z.string().default("info"),
 
+  // API REST (/api) — autenticação e CORS.
+  JWT_SECRET: z.string().default("dev-secret-trocar-em-producao"),
+  CORS_ORIGINS: z.string().default("*"),
+
   // IA — provedor-agnóstico (atrás de IAIProvider). Modelo por env, SEM hardcode de versão.
   AI_PROVIDER: z.enum(["openai"]).default("openai"),
   OPENAI_API_KEY: z.string().optional(),
