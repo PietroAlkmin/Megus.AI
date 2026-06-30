@@ -138,6 +138,7 @@ async function bootstrap(): Promise<void> {
     repos,
     jwtSecret: env.JWT_SECRET,
     corsOrigins: env.CORS_ORIGINS === "*" ? "*" : env.CORS_ORIGINS.split(",").map((s) => s.trim()),
+    useMock: env.USE_MOCK_DATA,
   });
 
   // Usuário de teste para login imediato (gera o hash no boot): piloto@megus.ai / megus123

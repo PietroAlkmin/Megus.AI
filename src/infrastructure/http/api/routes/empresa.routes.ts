@@ -102,11 +102,15 @@ export function empresaRoutes(deps: EmpresaRoutesDeps): Router {
 
   // DELETE /api/empresa/servicos/:id — exclui um serviço
   r.delete("/servicos/:id", async (req: Request, res: Response) => {
-    const { companyId } = req.auth as AuthContext;
-    const { id } = req.params;
-    await deps.services.delete(companyId, id);
-    ok(res, { id });
-  });
+      const { companyId } = req.auth as AuthContext;
+      const id = String(req.params.id ?? "");
+      if (!id) {
+        fail(res, "Serviço não informado.", 400, "VALIDATION");
+        return;
+      }
+      await deps.services.delete(companyId, id);
+      ok(res, { id });
+    });
 
   return r;
 }

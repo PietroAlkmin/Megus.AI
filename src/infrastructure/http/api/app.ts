@@ -6,12 +6,16 @@ import { RegisterUser } from "../../../application/use-cases/auth/RegisterUser";
 import { LoginUser } from "../../../application/use-cases/auth/LoginUser";
 import type { InMemoryRepositories } from "../../persistence/memory/InMemoryRepositories";
 import { empresaRoutes } from "./routes/empresa.routes";
+import { atendimentosRoutes } from "./routes/atendimentos.routes";
+import { createConversasRouters } from "./routes/conversas.routes";
 
 export interface ApiDeps {
   repos: InMemoryRepositories;
   jwtSecret: string;
   /** origens permitidas no CORS (ex.: a URL do front no Vercel). "*" em dev. */
   corsOrigins: string[] | "*";
+  /** quando true, rotas de painel devolvem dados de exemplo (USE_MOCK_DATA). */
+  useMock: boolean;
 }
 
 /**
@@ -42,6 +46,23 @@ export function createApiApp(deps: ApiDeps): Express {
     services: deps.repos.companyServices,
     authMiddleware,
   }));
+
+  app.use("/api/agentes", atendimentosRoutes({
+    useMock: deps.useMock,
+    integrations: deps.repos.integrations,
+    conversations: deps.repos.conversations,
+    emissions: deps.repos.emissions,
+    authMiddleware,
+  }));
+
+  // Conversas: dois routers (um em /api/agentes para .../conversas, outro em /api/conversas)
+  const conversas = createConversasRouters({
+    useMock: deps.useMock,
+    conversations: deps.repos.conversations,
+    authMiddleware,
+  });
+  app.use("/api/agentes", conversas.agentesRouter);
+  app.use("/api/conversas", conversas.conversasRouter);
 
   // 404 da API em formato ResultResponse
   app.use("/api", (_req: Request, res: Response) => {

@@ -11,6 +11,7 @@ const schema = z.object({
   // API REST (/api) — autenticação e CORS.
   JWT_SECRET: z.string().default("dev-secret-trocar-em-producao"),
   CORS_ORIGINS: z.string().default("*"),
+  USE_MOCK_DATA: z.string().default("true").transform((v) => v === "true"),
 
   // IA — provedor-agnóstico (atrás de IAIProvider). Modelo por env, SEM hardcode de versão.
   AI_PROVIDER: z.enum(["openai"]).default("openai"),
