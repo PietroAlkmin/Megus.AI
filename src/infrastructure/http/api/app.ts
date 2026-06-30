@@ -5,6 +5,7 @@ import { authRoutes } from "./routes/auth.routes";
 import { RegisterUser } from "../../../application/use-cases/auth/RegisterUser";
 import { LoginUser } from "../../../application/use-cases/auth/LoginUser";
 import type { InMemoryRepositories } from "../../persistence/memory/InMemoryRepositories";
+import { empresaRoutes } from "./routes/empresa.routes";
 
 export interface ApiDeps {
   repos: InMemoryRepositories;
@@ -35,6 +36,12 @@ export function createApiApp(deps: ApiDeps): Express {
 
   // Rotas
   app.use("/api/auth", authRoutes({ registerUser, loginUser, users: deps.repos.users, authMiddleware }));
+
+  app.use("/api/empresa", empresaRoutes({
+    profiles: deps.repos.companyProfiles,
+    services: deps.repos.companyServices,
+    authMiddleware,
+  }));
 
   // 404 da API em formato ResultResponse
   app.use("/api", (_req: Request, res: Response) => {

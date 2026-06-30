@@ -6,6 +6,7 @@ import type { Integration } from "../entities/Integration";
 import type { Message } from "../entities/Message";
 import type { Service } from "../entities/Service";
 import type { User } from "../entities/User";
+import type { CompanyProfile } from "../entities/CompanyProfile";
 
 /** Repositórios do banco PRÓPRIO do Megus (Postgres pendente de confirmação de infra). */
 
@@ -13,6 +14,28 @@ export interface IUserRepository {
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   save(user: User): Promise<void>;
+}
+
+/** Perfil cadastral + serviços da empresa, isolados por companyId (tenant). */
+export interface ICompanyProfileRepository {
+  getByCompanyId(companyId: string): Promise<CompanyProfile | null>;
+  save(profile: CompanyProfile): Promise<void>;
+}
+
+export interface CompanyServiceItem {
+  id: string;
+  companyId: string;
+  code: string;
+  nome: string;
+  iss: string;
+  preco: number;
+}
+
+export interface ICompanyServiceRepository {
+  listByCompanyId(companyId: string): Promise<CompanyServiceItem[]>;
+  getById(companyId: string, id: string): Promise<CompanyServiceItem | null>;
+  save(service: CompanyServiceItem): Promise<void>;
+  delete(companyId: string, id: string): Promise<void>;
 }
 
 export interface IIntegrationRepository {

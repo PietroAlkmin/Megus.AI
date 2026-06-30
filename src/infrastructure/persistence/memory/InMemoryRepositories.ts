@@ -8,10 +8,11 @@ import { ConversationState } from "../../../domain/entities/ConversationState";
 import type { Service } from "../../../domain/entities/Service";
 import { randomUUID } from "node:crypto";
 import type { User } from "../../../domain/entities/User";
+import type { CompanyProfile } from "../../../domain/entities/CompanyProfile";
 import type {
   IAgentConfigRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IIntegrationRepository, IServiceRepository,
-  IUserRepository,
+  IUserRepository, ICompanyProfileRepository, ICompanyServiceRepository, CompanyServiceItem,
 } from "../../../domain/ports/repositories";
 
 interface SeedData {
@@ -31,6 +32,8 @@ export class InMemoryRepositories {
   private _emissions: EmissionIntent[] = [];
   private _services: Service[] = [];
   private _users: User[] = [];
+  private _companyProfiles: CompanyProfile[] = [];
+  private _companyServices: CompanyServiceItem[] = [];
 
   seed(data: SeedData): void {
     if (data.integrations) this._integrations.push(...data.integrations);
@@ -112,6 +115,35 @@ export class InMemoryRepositories {
       const i = this._users.findIndex((u) => u.id === user.id);
       if (i >= 0) this._users[i] = user;
       else this._users.push(user);
+    },
+  };
+
+  companyProfiles: ICompanyProfileRepository = {
+    getByCompanyId: async (companyId) =>
+      this._companyProfiles.find((p) => p.companyId === companyId) ?? null,
+    save: async (profile) => {
+      const i = this._companyProfiles.findIndex((p) => p.companyId === profile.companyId);
+      if (i >= 0) this._companyProfiles[i] = profile;
+      else this._companyProfiles.push(profile);
+    },
+  };
+
+  companyServices: ICompanyServiceRepository = {
+    listByCompanyId: async (companyId) =>
+      this._companyServices.filter((s) => s.companyId === companyId),
+    getById: async (companyId, id) =>
+      this._companyServices.find((s) => s.companyId === companyId && s.id === id) ?? null,
+    save: async (service) => {
+      const i = this._companyServices.findIndex(
+        (s) => s.companyId === service.companyId && s.id === service.id,
+      );
+      if (i >= 0) this._companyServices[i] = service;
+      else this._companyServices.push(service);
+    },
+    delete: async (companyId, id) => {
+      this._companyServices = this._companyServices.filter(
+        (s) => !(s.companyId === companyId && s.id === id),
+      );
     },
   };
 }
