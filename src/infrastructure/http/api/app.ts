@@ -8,6 +8,7 @@ import type { InMemoryRepositories } from "../../persistence/memory/InMemoryRepo
 import { empresaRoutes } from "./routes/empresa.routes";
 import { atendimentosRoutes } from "./routes/atendimentos.routes";
 import { createConversasRouters } from "./routes/conversas.routes";
+import { cobrancasRoutes } from "./routes/cobrancas.routes";
 
 export interface ApiDeps {
   repos: InMemoryRepositories;
@@ -63,6 +64,14 @@ export function createApiApp(deps: ApiDeps): Express {
   });
   app.use("/api/agentes", conversas.agentesRouter);
   app.use("/api/conversas", conversas.conversasRouter);
+
+
+  app.use("/api/cobrancas", cobrancasRoutes({
+    useMock: deps.useMock,
+    conversations: deps.repos.conversations,
+    emissions: deps.repos.emissions,
+    authMiddleware,
+  }));
 
   // 404 da API em formato ResultResponse
   app.use("/api", (_req: Request, res: Response) => {

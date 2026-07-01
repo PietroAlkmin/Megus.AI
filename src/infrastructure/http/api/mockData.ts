@@ -93,5 +93,19 @@ export const mockData = {
     return porConversa[convId] ?? [];
   },
 
+  // --- Tela: Cobranças (agendamento → pagamento → nota → cobrança) ---
+  cobrancasClientes(_companyId: string) {
+    return [
+      { id: "p1", nome: "Marina Lopes", telefone: "+55 11 96622-1180", servico: "Consulta clínica", valor: 250, agendamento: "Hoje · 09:30", pago: true, pagoEm: "há 2 h", notaEmitida: true, notaNum: "2026-00481", cobrado: false, cobradoEm: null },
+      { id: "p2", nome: "Carlos Aguiar", telefone: "+55 11 98890-4471", servico: "Retorno / reavaliação", valor: 120, agendamento: "Hoje · 11:00", pago: false, pagoEm: null, notaEmitida: false, notaNum: null, cobrado: false, cobradoEm: null },
+      { id: "p3", nome: "Helena Prado", telefone: "+55 11 97001-3322", servico: "Avaliação inicial", valor: 180, agendamento: "Ontem · 16:00", pago: false, pagoEm: null, notaEmitida: false, notaNum: null, cobrado: true, cobradoEm: "ontem" },
+      { id: "p4", nome: "Rafael Dias", telefone: "+55 11 99654-8120", servico: "Consulta clínica", valor: 250, agendamento: "Ontem · 10:30", pago: true, pagoEm: "ontem", notaEmitida: true, notaNum: "2026-00479", cobrado: false, cobradoEm: null },
+      { id: "p5", nome: "Bianca Nunes", telefone: "+55 11 99012-7741", servico: "Procedimento estético", valor: 400, agendamento: "Seg · 14:00", pago: false, pagoEm: null, notaEmitida: false, notaNum: null, cobrado: false, cobradoEm: null },
+      { id: "p6", nome: "João Pereira", telefone: "+55 11 98123-9980", servico: "Consulta clínica", valor: 250, agendamento: "Seg · 09:00", pago: true, pagoEm: "seg", notaEmitida: true, notaNum: "2026-00475", cobrado: false, cobradoEm: null },
+      { id: "p7", nome: "Larissa Gomes", telefone: "+55 11 99704-1122", servico: "Retorno / reavaliação", valor: 120, agendamento: "Hoje · 08:15", pago: false, pagoEm: null, notaEmitida: false, notaNum: null, cobrado: true, cobradoEm: "há 3 h" },
+      { id: "p8", nome: "Téo Martins", telefone: "+55 11 98880-2031", servico: "Avaliação inicial", valor: 180, agendamento: "Ter · 15:30", pago: true, pagoEm: "ter", notaEmitida: true, notaNum: "2026-00482", cobrado: false, cobradoEm: null },
+    ];
+  },
+
 
 };
