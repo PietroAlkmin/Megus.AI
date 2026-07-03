@@ -20,7 +20,7 @@ const NAV_ITEMS = [
 // Dois clusters com papéis distintos:
 //   ESQUERDA = contexto  → marca + seletor de empresa (workspace)
 //   DIREITA  = você       → status do serviço + notificações + conta
-function MegusTopBar({ company, user, status, onLogout }) {
+function MegusTopBar({ company, user, status, onLogout, onMinhaConta }) {
   const [menu, setMenu] = React.useState(false);
   return (
     <header style={st.topbar}>
@@ -75,7 +75,7 @@ function MegusTopBar({ company, user, status, onLogout }) {
                     <span style={st.userRole}>{user.email || user.role}</span>
                   </span>
                 </div>
-                <button style={st.menuItem} className="ms-menuitem" onClick={() => setMenu(false)}>
+                <button style={st.menuItem} className="ms-menuitem" onClick={() => { setMenu(false); onMinhaConta && onMinhaConta(); }}>
                   <SIC.settings size={15} stroke={ST.text.muted} /> Minha conta
                 </button>
                 <span style={st.menuSep} />
@@ -121,14 +121,15 @@ function MegusSidebar({ nav, onNav }) {
 }
 
 // ── AdminLayout ───────────────────────────────────────────
-function MegusShell({ children, nav = 'integracoes', onNav, onLogout }) {
+function MegusShell({ children, nav = 'integracoes', onNav, onLogout, onMinhaConta, user, company }) {
   return (
     <div style={st.root}>
       <MegusTopBar
-        company={{ initials: 'CS', name: 'Clínica Sorriso', doc: '66.008.326/0001-73' }}
-        user={{ name: 'Pietro', role: 'Administrador', email: 'pietro@clinica.com.br' }}
+        company={company || { initials: 'CS', name: 'Clínica Sorriso', doc: '66.008.326/0001-73' }}
+        user={user || { name: 'Pietro', role: 'Administrador', email: 'pietro@clinica.com.br' }}
         status={{ count: 2 }}
-        onLogout={onLogout} />
+        onLogout={onLogout}
+        onMinhaConta={onMinhaConta} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <MegusSidebar nav={nav} onNav={onNav || (() => {})} />
         <main style={st.main}>{children}</main>

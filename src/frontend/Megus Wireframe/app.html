@@ -49,6 +49,7 @@
 
 <!-- Shell -->
 <script type="text/babel" src="src/shell/Shell.jsx"></script>
+<script type="text/babel" src="src/shell/MinhaContaModal.jsx"></script>
 
 <!-- WhatsApp flow (modais carregados antes do orquestrador) -->
 <script type="text/babel" src="src/whatsapp/AtendenteVirtualModal.jsx"></script>
@@ -74,9 +75,17 @@
     const [route, setRoute] = React.useState('login'); // login | cadastro | app
     const [nav, setNav] = React.useState('atendimentos'); // aba ativa no shell
     const [agente, setAgente] = React.useState(null); // agente aberto (Página do Agente)
+    const [user, setUser] = React.useState(null);
+                  const [contaAberta, setContaAberta] = React.useState(false);
+
+                  React.useEffect(() => {
+                    if (route === 'app' && !user) {
+                      window.MegusAuth.me().then((r) => { if (r && r.success) setUser(r.data); });
+                    }
+                  }, [route]);
 
     const goNav = (n) => { setAgente(null); setNav(n); };
-    const logout = () => { setAgente(null); setNav('atendimentos'); setRoute('login'); };
+    const logout = () => { setAgente(null); setNav('atendimentos'); setRoute('login'); setUser(null); };
 
     if (route === 'login')
       return <window.MegusLogin onGoCadastro={() => setRoute('cadastro')} onSuccess={() => setRoute('app')} />;
@@ -84,8 +93,22 @@
       return <window.MegusCadastro onGoLogin={() => setRoute('login')} />;
 
     // route === 'app' → shell + página interna
+
+    const shellUser = user ? {
+      name: user.displayName || user.email || 'Usuário',
+      role: 'Administrador',
+      email: user.email,
+      displayName: user.displayName,
+    } : null;
     return (
-      <window.MegusShell nav={nav} onNav={goNav} onLogout={logout}>
+      <window.MegusShell nav={nav} onNav={goNav} onLogout={logout}
+        user={shellUser} onMinhaConta={() => setContaAberta(true)}>
+        {contaAberta && (
+          <window.MegusMinhaContaModal
+            user={user}
+            onClose={() => setContaAberta(false)}
+            onPerfilAtualizado={(d) => setUser((u) => ({ ...u, displayName: d.displayName }))} />
+        )}
         {nav === 'integracoes'
           ? <window.MegusIntegracoesPage />
           : nav === 'cobrancas'

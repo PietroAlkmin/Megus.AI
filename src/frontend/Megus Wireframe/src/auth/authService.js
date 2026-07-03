@@ -35,6 +35,16 @@ window.MegusAuth = {
   logout() {
     window.MegusApi.logout();
   },
+
+  // PUT /api/auth/perfil — edita o nome
+  async atualizarPerfil(displayName) {
+    return window.MegusApi.put('/api/auth/perfil', { displayName });
+  },
+
+  // PUT /api/auth/senha — troca a senha
+  async trocarSenha(senhaAtual, senhaNova) {
+    return window.MegusApi.put('/api/auth/senha', { senhaAtual, senhaNova });
+  },
 };
 
 window.getFriendlyError = (response, fallback) => {
