@@ -10,3 +10,7 @@ dist/
 tokens/
 .wwebjs_auth/
 .wwebjs_cache/
+
+/src/generated/prisma
+
+/src/generated/prisma

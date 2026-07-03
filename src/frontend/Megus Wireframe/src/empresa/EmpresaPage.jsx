@@ -33,16 +33,25 @@ function MegusEmpresaPage() {
   }
 
   // serviços
-  const novoServico = () => setForm({ code: '', nome: '', iss: '', preco: '', id: null });
-  const editarServico = (s) => setForm({ ...s, preco: String(s.preco) });
+  const novoServico = () => setForm({ code: '', description: '', issCode: '', price: '', id: null });
+  const editarServico = (s) => setForm({ ...s, price: String(s.price) });
   async function salvarServico() {
-    if (!form.nome.trim()) return;
-    const r = await window.MegusEmpresa.salvarServico({ ...form, preco: parseFloat(String(form.preco).replace(',', '.')) || 0 });
-    if (r.success) {
-      setServicos((ss) => form.id ? ss.map((x) => x.id === form.id ? r.data : x) : [...ss, r.data]);
-      setForm(null);
+      if (!form.description.trim()) return;
+      // monta o payload limpo: só inclui o id se for edição (id real).
+      // serviço novo (id nulo) vai SEM o campo id — não manda null pro backend.
+      const payload = {
+        code: form.code,
+        description: form.description,
+        issCode: form.issCode,
+        price: parseFloat(String(form.price).replace(',', '.')) || 0,
+      };
+      if (form.id) payload.id = form.id;
+      const r = await window.MegusEmpresa.salvarServico(payload);
+      if (r.success) {
+        setServicos((ss) => form.id ? ss.map((x) => x.id === form.id ? r.data : x) : [...ss, r.data]);
+        setForm(null);
+      }
     }
-  }
   async function excluirServico(id) {
     await window.MegusEmpresa.excluirServico(id);
     setServicos((ss) => ss.filter((x) => x.id !== id));
@@ -63,16 +72,16 @@ function MegusEmpresaPage() {
         {/* 1 · Dados da empresa */}
         <Section icon="building" titulo="Dados da empresa" desc="Aparecem como prestador na NFS-e.">
           <div style={ep.grid}>
-            <Campo label="Razão social" value={emp.razaoSocial} onChange={(v) => set('razaoSocial', v)} span={2} />
-            <Campo label="Nome fantasia" value={emp.nomeFantasia} onChange={(v) => set('nomeFantasia', v)} />
-            <Campo label="CNPJ" value={emp.cnpj} onChange={(v) => set('cnpj', v)} mono />
-            <Campo label="Inscrição municipal" value={emp.inscricaoMunicipal} onChange={(v) => set('inscricaoMunicipal', v)} mono />
+            <Campo label="Razão social" value={emp.fiscalName} onChange={(v) => set('fiscalName', v)} span={2} />
+            <Campo label="Nome fantasia" value={emp.name} onChange={(v) => set('name', v)} />
+            <Campo label="CNPJ" value={emp.fiscalDoc} onChange={(v) => set('fiscalDoc', v)} mono />
+            <Campo label="Inscrição municipal" value={emp.municipalRegistration} onChange={(v) => set('municipalRegistration', v)} mono />
             <Campo label="E-mail" value={emp.email} onChange={(v) => set('email', v)} />
-            <Campo label="Telefone" value={emp.telefone} onChange={(v) => set('telefone', v)} mono />
-            <Campo label="CEP" value={emp.cep} onChange={(v) => set('cep', v)} mono />
-            <Campo label="Endereço" value={emp.endereco} onChange={(v) => set('endereco', v)} span={2} />
-            <Campo label="Cidade" value={emp.cidade} onChange={(v) => set('cidade', v)} />
-            <Campo label="UF" value={emp.uf} onChange={(v) => set('uf', v)} />
+            <Campo label="Telefone" value={emp.phone} onChange={(v) => set('phone', v)} mono />
+            <Campo label="CEP" value={emp.zip} onChange={(v) => set('zip', v)} mono />
+            <Campo label="Endereço" value={emp.address} onChange={(v) => set('address', v)} span={2} />
+            <Campo label="Cidade" value={emp.city} onChange={(v) => set('city', v)} />
+            <Campo label="UF" value={emp.state} onChange={(v) => set('state', v)} />
           </div>
         </Section>
 
@@ -81,14 +90,14 @@ function MegusEmpresaPage() {
           <div style={ep.grid}>
             <div style={{ ...ep.field, gridColumn: 'span 1' }}>
               <span style={ep.label}>Tipo de chave Pix</span>
-              <select value={emp.pixTipo} onChange={(e) => set('pixTipo', e.target.value)} style={ep.select}>
+              <select value={emp.pixType} onChange={(e) => set('pixType', e.target.value)} style={ep.select}>
                 {PIX_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </div>
-            <Campo label="Chave Pix" value={emp.pixChave} onChange={(v) => set('pixChave', v)} mono />
+            <Campo label="Chave Pix" value={emp.pixKey} onChange={(v) => set('pixKey', v)} mono />
             <div style={{ ...ep.field, gridColumn: 'span 2' }}>
               <span style={ep.label}>Mensagem de cobrança</span>
-              <textarea value={emp.instrucoesPagamento} onChange={(e) => set('instrucoesPagamento', e.target.value)} rows={3} style={ep.textarea} />
+              <textarea value={emp.paymentInstructions} onChange={(e) => set('paymentInstructions', e.target.value)} rows={3} style={ep.textarea} />
               <span style={ep.hint}>O Kaua envia esta mensagem (com o valor) ao cobrar um cliente que ainda não pagou.</span>
             </div>
           </div>
@@ -104,9 +113,9 @@ function MegusEmpresaPage() {
               {servicos.map((s) => (
                 <div key={s.id} style={ep.svcRow}>
                   <span style={ep.svcCode}>{s.code || '—'}</span>
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: EP.text.primary }}>{s.nome}</span>
-                  <span style={ep.svcMeta}>ISS {s.iss || '—'}</span>
-                  <span style={ep.svcPrice}>{BRL(s.preco)}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: EP.text.primary }}>{s.description}</span>
+                  <span style={ep.svcMeta}>ISS {s.issCode || '—'}</span>
+                  <span style={ep.svcPrice}>{BRL(s.price)}</span>
                   <button style={ep.iconBtn} className="ep-hover" onClick={() => editarServico(s)} title="Editar"><window.IC.edit size={14} stroke={EP.text.muted} /></button>
                   <button style={ep.iconBtn} className="ep-hover" onClick={() => excluirServico(s.id)} title="Excluir"><window.IC.trash size={14} stroke={EP.text.muted} /></button>
                 </div>
@@ -117,9 +126,9 @@ function MegusEmpresaPage() {
                 <div style={ep.svcForm}>
                   <div style={ep.svcFormGrid}>
                     <input style={ep.inputSm} placeholder="Código" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-                    <input style={{ ...ep.inputSm, gridColumn: 'span 2' }} placeholder="Nome do serviço" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-                    <input style={ep.inputSm} placeholder="ISS (ex: 4.01)" value={form.iss} onChange={(e) => setForm({ ...form, iss: e.target.value })} />
-                    <input style={ep.inputSm} placeholder="Valor (ex: 250)" value={form.preco} onChange={(e) => setForm({ ...form, preco: e.target.value })} />
+                    <input style={{ ...ep.inputSm, gridColumn: 'span 2' }} placeholder="Nome do serviço" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                    <input style={ep.inputSm} placeholder="ISS (ex: 4.01)" value={form.issCode} onChange={(e) => setForm({ ...form, issCode: e.target.value })} />
+                    <input style={ep.inputSm} placeholder="Valor (ex: 250)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
                     <button style={ep.ghostSm} onClick={() => setForm(null)}>Cancelar</button>

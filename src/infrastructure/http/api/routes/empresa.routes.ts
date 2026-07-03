@@ -18,35 +18,35 @@ export interface EmpresaRoutesDeps {
 function perfilVazio(companyId: string) {
   return {
     companyId,
-    razaoSocial: "", nomeFantasia: "", cnpj: "", inscricaoMunicipal: "",
-    email: "", telefone: "", cep: "", endereco: "", cidade: "", uf: "",
-    pixTipo: "cnpj", pixChave: "", instrucoesPagamento: "",
+    name: "", fiscalName: "", fiscalDoc: "", municipalRegistration: "",
+    email: "", phone: "", zip: "", address: "", city: "", state: "",
+    pixType: "cnpj", pixKey: "", paymentInstructions: "",
     updatedAt: new Date(),
   };
 }
 
 const empresaSchema = z.object({
-  razaoSocial: z.string().optional(),
-  nomeFantasia: z.string().optional(),
-  cnpj: z.string().optional(),
-  inscricaoMunicipal: z.string().optional(),
+  name: z.string().optional(),
+  fiscalName: z.string().optional(),
+  fiscalDoc: z.string().optional(),
+  municipalRegistration: z.string().optional(),
   email: z.string().optional(),
-  telefone: z.string().optional(),
-  cep: z.string().optional(),
-  endereco: z.string().optional(),
-  cidade: z.string().optional(),
-  uf: z.string().optional(),
-  pixTipo: z.string().optional(),
-  pixChave: z.string().optional(),
-  instrucoesPagamento: z.string().optional(),
+  phone: z.string().optional(),
+  zip: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pixType: z.string().optional(),
+  pixKey: z.string().optional(),
+  paymentInstructions: z.string().optional(),
 });
 
 const servicoSchema = z.object({
   id: z.string().optional(),
   code: z.string().optional(),
-  nome: z.string().min(1, "Informe o nome do serviço."),
-  iss: z.string().optional(),
-  preco: z.coerce.number().optional(),
+  description: z.string().min(1, "Informe o nome do serviço."),
+  issCode: z.string().optional(),
+  price: z.coerce.number().optional(),
 });
 
 export function empresaRoutes(deps: EmpresaRoutesDeps): Router {
@@ -79,7 +79,7 @@ export function empresaRoutes(deps: EmpresaRoutesDeps): Router {
   r.get("/servicos", async (req: Request, res: Response) => {
     const { companyId } = req.auth as AuthContext;
     const list = await deps.services.listByCompanyId(companyId);
-    ok(res, list.map((s) => ({ id: s.id, code: s.code, nome: s.nome, iss: s.iss, preco: s.preco })));
+    ok(res, list.map((s) => ({ id: s.id, code: s.code, description: s.description, issCode: s.issCode, price: s.price })));
   });
 
   // POST /api/empresa/servicos — cria ou atualiza um serviço
@@ -93,12 +93,11 @@ export function empresaRoutes(deps: EmpresaRoutesDeps): Router {
     const d = parsed.data;
     const id = d.id && d.id.trim() ? d.id : "svc_" + randomUUID().slice(0, 8);
     const service = {
-      id, companyId,
-      code: d.code ?? "", nome: d.nome, iss: d.iss ?? "", preco: d.preco ?? 0,
-    };
-    await deps.services.save(service);
-    ok(res, { id: service.id, code: service.code, nome: service.nome, iss: service.iss, preco: service.preco });
-  });
+          id, companyId,
+          code: d.code ?? "", description: d.description, issCode: d.issCode ?? "", price: d.price ?? 0,
+        };
+        await deps.services.save(service);
+        ok(res, { id: service.id, code: service.code, description: service.description, issCode: service.issCode, price: service.price });});
 
   // DELETE /api/empresa/servicos/:id — exclui um serviço
   r.delete("/servicos/:id", async (req: Request, res: Response) => {

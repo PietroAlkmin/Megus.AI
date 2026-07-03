@@ -17,13 +17,26 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "expresse": "^1.0.2",
+    "jsonwebtoken": "^9.0.3",
+    "mssql": "^12.6.0",
     "openai": "^4.67.0",
     "pino": "^9.5.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/mssql": "^12.3.0",
     "@types/node": "^22.7.0",
+    "prisma": "^6.19.3",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

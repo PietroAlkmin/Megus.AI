@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model AgentConfig {
+  id                 String      @id
+  integrationId      String      @unique
+  name               String
+  segment            String
+  tone               String
+  emojis             Boolean
+  lang               String
+  instructions       String      @db.NVarChar(Max)
+  capabilitiesJson   String      @db.NVarChar(Max)
+  knowledgeFilesJson String      @db.NVarChar(Max)
+  fewShotDialogsJson String      @db.NVarChar(Max)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime
+  Integration        Integration @relation(fields: [integrationId], references: [id])
+}
+
+model Company {
+  id                    String        @id
+  name                  String
+  fiscalDoc             String
+  fiscalName            String
+  fiscalProviderRef     String?
+  active                Boolean       @default(true)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime
+  municipalRegistration String?
+  email                 String?
+  phone                 String?
+  zip                   String?
+  address               String?
+  city                  String?
+  state                 String?
+  pixType               String?
+  pixKey                String?
+  paymentInstructions   String?       @db.NVarChar(Max)
+  Integration           Integration[]
+  Membership            Membership[]
+}
+
+model Contact {
+  id              String      @id
+  integrationId   String
+  whatsappNumber  String
+  fullName        String?
+  cpf             String?
+  cpfNameVerified Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime
+  Integration     Integration @relation(fields: [integrationId], references: [id])
+
+  @@index([integrationId, cpf])
+  @@index([integrationId, whatsappNumber])
+}
+
+model Conversation {
+  id             String      @id
+  integrationId  String
+  contactId      String
+  whatsappNumber String
+  state          String
+  humanHandoff   Boolean     @default(false)
+  lastInboundAt  DateTime
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime
+  Integration    Integration @relation(fields: [integrationId], references: [id])
+  Message        Message[]
+
+  @@index([integrationId, contactId])
+}
+
+model EmissionIntent {
+  id                String      @id
+  conversationId    String?
+  contactId         String?
+  integrationId     String
+  status            String
+  tomadorName       String
+  tomadorCpf        String
+  serviceId         String?
+  description       String      @db.NVarChar(Max)
+  amount            Float
+  paymentVerified   Boolean
+  paymentConfidence Float
+  fiscalKey         String?
+  pdfUrl            String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime
+  appointmentAt     DateTime?
+  paidAt            DateTime?
+  chargeSentAt      DateTime?
+  notaNumber        String?
+  Integration       Integration @relation(fields: [integrationId], references: [id])
+}
+
+model Integration {
+  id                String           @id
+  companyId         String
+  displayName       String
+  whatsappNumber    String
+  evolutionInstance String
+  active            Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime
+  AgentConfig       AgentConfig?
+  Contact           Contact[]
+  Conversation      Conversation[]
+  EmissionIntent    EmissionIntent[]
+  Company           Company          @relation(fields: [companyId], references: [id])
+  Service           Service[]
+}
+
+model Membership {
+  id        String   @id
+  userId    String
+  companyId String
+  role      String   @default("owner")
+  createdAt DateTime @default(now())
+  Company   Company  @relation(fields: [companyId], references: [id])
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, companyId])
+}
+
+model Message {
+  id             String       @id
+  conversationId String
+  direction      String
+  author         String
+  kind           String
+  body           String       @db.NVarChar(Max)
+  mediaUrl       String?
+  createdAt      DateTime     @default(now())
+  Conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+model Service {
+  id            String      @id
+  integrationId String
+  code          String
+  description   String
+  price         Float
+  issCode       String
+  Integration   Integration @relation(fields: [integrationId], references: [id])
+}
+
+model User {
+  id           String       @id
+  name         String
+  email        String       @unique
+  passwordHash String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime
+  Membership   Membership[]
+}

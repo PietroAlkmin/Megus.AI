@@ -26,16 +26,9 @@ export interface CompanyServiceItem {
   id: string;
   companyId: string;
   code: string;
-  nome: string;
-  iss: string;
-  preco: number;
-}
-
-export interface ICompanyServiceRepository {
-  listByCompanyId(companyId: string): Promise<CompanyServiceItem[]>;
-  getById(companyId: string, id: string): Promise<CompanyServiceItem | null>;
-  save(service: CompanyServiceItem): Promise<void>;
-  delete(companyId: string, id: string): Promise<void>;
+  description: string;
+  issCode: string;
+  price: number;
 }
 
 export interface IIntegrationRepository {
@@ -73,4 +66,11 @@ export interface IEmissionIntentRepository {
 export interface IServiceRepository {
   getById(id: string): Promise<Service | null>;
   listByIntegration(integrationId: string): Promise<Service[]>;
+}
+
+export interface ICompanyServiceRepository {
+  listByCompanyId(companyId: string): Promise<CompanyServiceItem[]>;
+  getById(companyId: string, id: string): Promise<CompanyServiceItem | null>;
+  save(service: CompanyServiceItem): Promise<void>;
+  delete(companyId: string, id: string): Promise<void>;
 }

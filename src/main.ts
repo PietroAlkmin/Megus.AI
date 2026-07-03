@@ -18,6 +18,9 @@ import { createServer } from "./infrastructure/http/server";
 import type { IMessagingProvider, InboundMessage } from "./domain/ports/IMessagingProvider";
 import { createApiApp } from "./infrastructure/http/api/app";
 import { RegisterUser } from "./application/use-cases/auth/RegisterUser";
+import { PrismaUserRepository } from "./infrastructure/persistence/prisma/PrismaUserRepository";
+import { PrismaCompanyProfileRepository } from "./infrastructure/persistence/prisma/PrismaCompanyProfileRepository";
+import { PrismaCompanyServiceRepository } from "./infrastructure/persistence/prisma/PrismaCompanyServiceRepository";
 
 /** Preço do serviço do piloto (R$). Compartilhado entre o seed e o mock de comprovante. */
 const PILOT_SERVICE_PRICE = 180;
@@ -99,6 +102,15 @@ async function bootstrap(): Promise<void> {
       },
     ],
   });
+
+  if (env.DATABASE_URL) {
+    repos.users = new PrismaUserRepository();
+    repos.companyProfiles = new PrismaCompanyProfileRepository();
+    repos.companyServices = new PrismaCompanyServiceRepository();
+    logger.info("[persistência] usuários + empresa + serviços usando Prisma (banco real)");
+  } else {
+    logger.info("[persistência] tudo in-memory (sem DATABASE_URL)");
+  }
 
   const cpf = new MockCpfProvider({ "54625255830": "Pietro Augusto Mota Alkmin" });
   const comprovante: IComprovanteAnalyzer =
