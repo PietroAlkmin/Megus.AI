@@ -21,6 +21,13 @@ import { RegisterUser } from "./application/use-cases/auth/RegisterUser";
 import { PrismaUserRepository } from "./infrastructure/persistence/prisma/PrismaUserRepository";
 import { PrismaCompanyProfileRepository } from "./infrastructure/persistence/prisma/PrismaCompanyProfileRepository";
 import { PrismaCompanyServiceRepository } from "./infrastructure/persistence/prisma/PrismaCompanyServiceRepository";
+import { PrismaIntegrationRepository } from "./infrastructure/persistence/prisma/PrismaIntegrationRepository";
+import { PrismaAgentConfigRepository } from "./infrastructure/persistence/prisma/PrismaAgentConfigRepository";
+import { PrismaContactRepository } from "./infrastructure/persistence/prisma/PrismaContactRepository";
+import { PrismaConversationRepository } from "./infrastructure/persistence/prisma/PrismaConversationRepository";
+import { PrismaEmissionIntentRepository } from "./infrastructure/persistence/prisma/PrismaEmissionIntentRepository";
+import { PrismaServiceRepository } from "./infrastructure/persistence/prisma/PrismaServiceRepository";
+import { seedPilot } from "./infrastructure/persistence/seedPilot";
 
 /** Preço do serviço do piloto (R$). Compartilhado entre o seed e o mock de comprovante. */
 const PILOT_SERVICE_PRICE = 180;
@@ -107,7 +114,14 @@ async function bootstrap(): Promise<void> {
     repos.users = new PrismaUserRepository();
     repos.companyProfiles = new PrismaCompanyProfileRepository();
     repos.companyServices = new PrismaCompanyServiceRepository();
-    logger.info("[persistência] usuários + empresa + serviços usando Prisma (banco real)");
+    repos.integrations = new PrismaIntegrationRepository();
+    repos.agentConfigs = new PrismaAgentConfigRepository();
+    repos.contacts = new PrismaContactRepository();
+    repos.conversations = new PrismaConversationRepository();
+    repos.emissions = new PrismaEmissionIntentRepository();
+    repos.services = new PrismaServiceRepository();
+    await seedPilot({ whatsappNumber: env.PILOT_WHATSAPP_NUMBER ?? "5511999999999" });
+    logger.info("[persistência] TODOS os repositórios usando Prisma (banco real) + piloto semeado");
   } else {
     logger.info("[persistência] tudo in-memory (sem DATABASE_URL)");
   }
