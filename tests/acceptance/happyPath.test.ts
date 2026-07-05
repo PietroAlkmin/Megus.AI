@@ -19,9 +19,9 @@ describe("Aceite: caminho feliz do piloto (§7)", () => {
     const sentMedia: any[] = [];
     const messaging: any = { start: vi.fn(), getConnectionStatus: () => "connected", getQrCode: vi.fn(), onInboundMessage: vi.fn(), sendText: vi.fn(), sendMedia: vi.fn(async (m: any) => { sentMedia.push(m); }), startTyping: vi.fn(), stopTyping: vi.fn() };
 
-    // cérebro determinístico: 1ª msg → request_identity; depois extrai nome+cpf
+    // cérebro determinístico: 1ª msg → intent_emit; depois extrai nome+cpf
     const brain: any = { decide: vi.fn()
-      .mockResolvedValueOnce({ reply: ["Oi! Posso emitir sua nota. Me manda nome completo e CPF?"], action: { type: "request_identity" } })
+      .mockResolvedValueOnce({ reply: ["Oi! Posso emitir sua nota. Me manda nome completo e CPF?"], action: { type: "intent_emit" } })
       .mockResolvedValue({ reply: ["Obrigado!"], action: { type: "reply" }, extracted: { fullName: "João da Silva", cpf: "529.982.247-25" } }) };
     const comprovante: any = { analyze: vi.fn(async () => ({ amount: 300, payerName: "João da Silva", recipientDoc: "12345678000199", recipientMatches: true, confidence: 0.95, raw: "" })) };
     const cpf = new MockCpfProvider({ "52998224725": "João da Silva" });
@@ -33,7 +33,7 @@ describe("Aceite: caminho feliz do piloto (§7)", () => {
     const from = "5511988887777"; const to = "5511999990000";
     const text = (t: string): InboundMessage => ({ providerMessageId: "x", from, to, kind: "text", text: t, media: null, timestamp: new Date() });
 
-    await uc.execute(text("agendei e já paguei, e a nota?")); // → request_identity
+    await uc.execute(text("agendei e já paguei, e a nota?")); // → intent_emit
     await uc.execute(text("João da Silva, 529.982.247-25")); // valida + cria cliente
     await uc.execute({ providerMessageId: "img", from, to, kind: "image", text: null, media: { mimetype: "image/jpeg", base64: "AAAA" }, timestamp: new Date() }); // comprovante → emite
 

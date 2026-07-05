@@ -53,9 +53,17 @@ export class ConversationStateMachine {
   ): Promise<void> {
     if (conversation.humanHandoff) return; // bot calado
 
+    // Regra dura: mídia em estado de comprovante → gate B (handleComprovante) ANTES
+    // de qualquer roteamento ao cérebro. O ato fiscal NUNCA passa pela IA.
+    if (
+      inbound.media &&
+      (conversation.state === ConversationState.AwaitingComprovante ||
+        conversation.state === ConversationState.VerifyingComprovante)
+    ) {
+      return this.handleComprovante(conversation, agentConfig, integration, inbound);
+    }
+
     switch (conversation.state) {
-      case ConversationState.New:
-        return this.handleChatting(conversation, agentConfig, integration, inbound);
       case ConversationState.CollectingIdentity:
       case ConversationState.ValidatingCpf:
         return this.handleIdentity(conversation, agentConfig, integration, inbound);
@@ -63,7 +71,9 @@ export class ConversationStateMachine {
       case ConversationState.VerifyingComprovante:
         return this.handleComprovante(conversation, agentConfig, integration, inbound);
       default:
-        return this.send(conversation, ["Um momento, já te respondo."]);
+        // New, ReadyToEmit, Done e qualquer outro estado não-fiscal → conversa livre.
+        // O default deixa de ser o "Um momento" morto: o cérebro responde em todo estado.
+        return this.handleChatting(conversation, agentConfig, integration, inbound);
     }
   }
 
@@ -82,10 +92,17 @@ export class ConversationStateMachine {
     }
 
     await this.send(conv, decision.reply);
-    // intent_emit substitui o antigo request_identity (mesmo efeito: pede identidade).
+    // Roteamento por action (nenhuma alcança o ato fiscal — quem emite é o gate C):
+    // - intent_emit substitui o antigo request_identity: só ACIONA a coleta de
+    //   identidade (move p/ CollectingIdentity). NUNCA pula portão.
+    // - handoff: transfere pro humano.
+    // - reply/answer_question/quote_price/smalltalk/provide_identity/request_comprovante:
+    //   só a resposta (já enviada); sem transição fiscal.
     if (decision.action.type === "intent_emit") {
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
+    } else if (decision.action.type === "handoff") {
+      await this.handoff(conv, decision.action.reason);
     }
   }
 

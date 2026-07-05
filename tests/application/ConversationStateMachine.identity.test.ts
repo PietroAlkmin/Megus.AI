@@ -72,7 +72,7 @@ describe("ConversationStateMachine — identidade/CPF", () => {
     // cérebro em modo conversa, mas já extraiu nome+CPF da mensagem do cliente
     (deps.brain.decide as any).mockResolvedValue({
       reply: ["Perfeito!"],
-      action: { type: "request_identity" },
+      action: { type: "intent_emit" },
       extracted: { fullName: "João da Silva", cpf: "529.982.247-25" },
     });
     (deps.cpf.lookupName as any).mockResolvedValue({ found: true, name: "João da Silva" });
@@ -92,7 +92,7 @@ describe("ConversationStateMachine — identidade/CPF", () => {
     const deps = baseDeps(repos);
     (deps.brain.decide as any).mockResolvedValue({
       reply: ["Me envie seu nome completo e CPF, por favor."],
-      action: { type: "request_identity" },
+      action: { type: "intent_emit" },
     });
 
     const sm = new ConversationStateMachine(deps);
