@@ -4,7 +4,7 @@ import { ConversationState } from "../../domain/entities/ConversationState";
 import type { Integration } from "../../domain/entities/Integration";
 import { Cpf } from "../../domain/value-objects/Cpf";
 import { nameMatch } from "../../domain/services/nameMatch";
-import type { AgentDecision, IAgentBrain } from "../../domain/ports/IAgentBrain";
+import type { AgentContext, AgentDecision, IAgentBrain } from "../../domain/ports/IAgentBrain";
 import type { ICpfProvider } from "../../domain/ports/ICpfProvider";
 import type { IComprovanteAnalyzer } from "../../domain/ports/IComprovanteAnalyzer";
 import type { IFiscalProvider } from "../../domain/ports/IFiscalProvider";
@@ -15,6 +15,18 @@ import type {
 } from "../../domain/ports/repositories";
 import { randomUUID } from "node:crypto";
 import { sanitizeFiscalText } from "../../domain/services/sanitizeFiscalText";
+import { assembleContext } from "./ContextAssembler";
+
+/** Data corrente PT-BR (America/Sao_Paulo) para o AgentContext. Runtime real — usa new Date(). */
+function formatToday(): string {
+  return new Date().toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 export interface StateMachineDeps {
   brain: IAgentBrain;
@@ -57,7 +69,7 @@ export class ConversationStateMachine {
 
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */
   private async handleChatting(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
-    const decision = await this.d.brain.decide(await this.context(conv, cfg));
+    const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
 
     // Se o cliente já mandou nome+CPF (mesmo "no meio da conversa"), valida JÁ —
     // não deixa a identidade fornecida sem ação esperando o próximo turno.
@@ -70,7 +82,8 @@ export class ConversationStateMachine {
     }
 
     await this.send(conv, decision.reply);
-    if (decision.action.type === "request_identity") {
+    // intent_emit substitui o antigo request_identity (mesmo efeito: pede identidade).
+    if (decision.action.type === "intent_emit") {
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
     }
@@ -78,7 +91,7 @@ export class ConversationStateMachine {
 
   /** Coleta nome+CPF: chama o cérebro e delega a validação. */
   private async handleIdentity(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
-    const decision = await this.d.brain.decide(await this.context(conv, cfg));
+    const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
     return this.processIdentity(conv, integration, decision);
   }
 
@@ -195,9 +208,11 @@ export class ConversationStateMachine {
     await this.d.conversations.save(conv);
   }
 
-  private async context(conv: Conversation, cfg: AgentConfig) {
+  private async context(conv: Conversation, cfg: AgentConfig, integration: Integration): Promise<AgentContext> {
+    const services = await this.d.services.listByIntegration(integration.id);
     const history = await this.d.conversations.getHistory(conv.id, 20);
-    return { systemInstructions: cfg.instructions, state: conv.state, history, collected: {} };
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    return assembleContext({ conversation: conv, agentConfig: cfg, integration, services, contact, history, today: formatToday() });
   }
 
   private async send(conv: Conversation, bubbles: string[]): Promise<void> {

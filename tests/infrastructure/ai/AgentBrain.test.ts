@@ -4,10 +4,12 @@ import type { IAIProvider } from "../../../src/domain/ports/IAIProvider";
 import type { AgentContext } from "../../../src/domain/ports/IAgentBrain";
 
 const EMPTY_CONTEXT: AgentContext = {
-  systemInstructions: "x",
+  persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "", fewShotDialogs: [] },
+  business: { companyName: "Clínica X", services: [] },
   state: "new",
   history: [],
-  collected: {},
+  collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null },
+  today: "sábado, 5 de julho de 2026",
 };
 
 describe("AgentBrain", () => {
@@ -17,7 +19,7 @@ describe("AgentBrain", () => {
         name: "propose_next",
         arguments: {
           reply: ["Me manda nome e CPF"],
-          action: { type: "request_identity" },
+          action: { type: "intent_emit" },
         },
       })),
     };
@@ -26,7 +28,7 @@ describe("AgentBrain", () => {
     const decision = await brain.decide(EMPTY_CONTEXT);
 
     expect(decision.reply).toEqual(["Me manda nome e CPF"]);
-    expect(decision.action).toEqual({ type: "request_identity" });
+    expect(decision.action).toEqual({ type: "intent_emit" });
     expect(decision.extracted).toBeUndefined();
   });
 
@@ -92,13 +94,12 @@ describe("AgentBrain", () => {
     const brain = new AgentBrain(ai, "gpt-4o");
 
     const ctx: AgentContext = {
-      systemInstructions: "instrução",
+      ...EMPTY_CONTEXT,
       state: "collecting_identity",
       history: [
         { id: "m1", conversationId: "c1", direction: "inbound" as const, author: "contact", body: "Oi", kind: "text", createdAt: new Date(), mediaUrl: null },
         { id: "m2", conversationId: "c1", direction: "outbound" as const, author: "agent", body: "Olá!", kind: "text", createdAt: new Date(), mediaUrl: null },
       ],
-      collected: {},
     };
 
     await brain.decide(ctx);
@@ -106,7 +107,7 @@ describe("AgentBrain", () => {
     const call2 = createSpy.mock.calls[0];
     expect(call2).toBeDefined();
     const opts = call2![0];
-    // system + 2 history messages
+    // system + few-shot(0) + 2 history messages
     expect(opts?.messages).toHaveLength(3);
     expect(opts?.messages[1]?.role).toBe("user");
     expect(opts?.messages[2]?.role).toBe("assistant");
