@@ -16,13 +16,13 @@ export async function seedPilot(params: { whatsappNumber: string }): Promise<voi
     create: { id: COMPANY_ID, name: "Kapty (consultório)", fiscalDoc: "66008326000173", fiscalName: "Kapty (consultório)", updatedAt: now },
   });
 
-  let integ = await prisma.integration.findFirst({ where: { companyId: COMPANY_ID } });
+  let integ = await prisma.integration.findFirst({ where: { companyId: COMPANY_ID }, orderBy: { createdAt: "asc" } });
   if (!integ) {
     integ = await prisma.integration.create({
       data: { id: "int-piloto", companyId: COMPANY_ID, displayName: "Kapty (consultório)", whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", active: true, updatedAt: now },
     });
   } else {
-    integ = await prisma.integration.update({ where: { id: integ.id }, data: { whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", updatedAt: now } });
+    integ = await prisma.integration.update({ where: { id: integ.id }, data: { displayName: "Kapty (consultório)", whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", updatedAt: now } });
   }
 
   const svcId = "svc-massagem-" + integ.id;
