@@ -28,6 +28,7 @@ import { PrismaConversationRepository } from "./infrastructure/persistence/prism
 import { PrismaEmissionIntentRepository } from "./infrastructure/persistence/prisma/PrismaEmissionIntentRepository";
 import { PrismaServiceRepository } from "./infrastructure/persistence/prisma/PrismaServiceRepository";
 import { seedPilot } from "./infrastructure/persistence/seedPilot";
+import { seedPilotAdmin } from "./infrastructure/persistence/seedPilotAdmin";
 
 /** Preço do serviço do piloto (R$). Compartilhado entre o seed e o mock de comprovante. */
 const PILOT_SERVICE_PRICE = 180;
@@ -121,7 +122,8 @@ async function bootstrap(): Promise<void> {
     repos.emissions = new PrismaEmissionIntentRepository();
     repos.services = new PrismaServiceRepository();
     await seedPilot({ whatsappNumber: env.PILOT_WHATSAPP_NUMBER ?? "5511999999999" });
-    logger.info("[persistência] TODOS os repositórios usando Prisma (banco real) + piloto semeado");
+    await seedPilotAdmin();
+    logger.info("[persistência] TODOS os repositórios usando Prisma (banco real) + piloto semeado (dados + login)");
   } else {
     logger.info("[persistência] tudo in-memory (sem DATABASE_URL)");
   }
@@ -167,17 +169,21 @@ async function bootstrap(): Promise<void> {
     useMock: env.USE_MOCK_DATA,
   });
 
-  // Usuário de teste para login imediato (gera o hash no boot): piloto@megus.ai / megus123
-  try {
-    await new RegisterUser(repos.users).execute({
-      email: "piloto@megus.ai",
-      password: "megus123",
-      displayName: "Piloto Megus",
-      companyId: SEED_COMPANY_ID,
-    });
-    logger.info("[seed] usuário de teste: piloto@megus.ai / megus123");
-  } catch {
-    /* já existe — ok */
+  // Sem banco (dev local/sandbox): usuário de teste para login imediato via
+  // repositório in-memory. Com banco, o login já foi reconciliado pelo
+  // seedPilotAdmin() acima (co-piloto, determinístico).
+  if (!env.DATABASE_URL) {
+    try {
+      await new RegisterUser(repos.users).execute({
+        email: "piloto@megus.ai",
+        password: "megus123",
+        displayName: "Piloto Megus",
+        companyId: SEED_COMPANY_ID,
+      });
+      logger.info("[seed] usuário de teste: piloto@megus.ai / megus123");
+    } catch {
+      /* já existe — ok */
+    }
   }
 
   const server = createServer({
