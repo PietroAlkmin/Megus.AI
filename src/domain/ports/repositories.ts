@@ -36,6 +36,12 @@ export interface IIntegrationRepository {
   getById(id: string): Promise<Integration | null>;
   /** 1ª integração da empresa (tenant) — usada pra resolver o agente do painel. */
   getFirstByCompanyId(companyId: string): Promise<Integration | null>;
+  /**
+   * 1ª integração da empresa OU cria uma "Padrão" se não houver nenhuma.
+   * Torna a ordem de cadastro irrelevante (configurar o agente antes de
+   * cadastrar qualquer serviço/WhatsApp real não deve mais 404).
+   */
+  ensureDefaultForCompany(companyId: string): Promise<Integration>;
 }
 
 export interface IAgentConfigRepository {

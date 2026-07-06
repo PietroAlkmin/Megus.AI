@@ -51,6 +51,28 @@ export class InMemoryRepositories {
     // Simplificação do piloto: há sempre 1 integração seedada, então devolvemos a
     // primeira. A resolução real por companyId acontece no PrismaIntegrationRepository.
     getFirstByCompanyId: async (_companyId) => this._integrations[0] ?? null,
+    // Idem: sem companyId modelado aqui, "a empresa" no in-memory é sempre a única
+    // que existe no teste. Se já há alguma integração, devolve a 1ª (nunca duplica);
+    // senão cria uma "Padrão" e a guarda em _integrations. A resolução real por
+    // companyId (múltiplos tenants) é responsabilidade do PrismaIntegrationRepository.
+    ensureDefaultForCompany: async (_companyId) => {
+      const existing = this._integrations[0];
+      if (existing) return existing;
+      const now = new Date();
+      const created: Integration = {
+        id: "int_" + randomUUID().slice(0, 8),
+        displayName: "Padrão",
+        whatsappNumber: "",
+        fiscalDoc: "",
+        fiscalName: "",
+        fiscalProviderRef: null,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this._integrations.push(created);
+      return created;
+    },
   };
 
   agentConfigs: IAgentConfigRepository = {

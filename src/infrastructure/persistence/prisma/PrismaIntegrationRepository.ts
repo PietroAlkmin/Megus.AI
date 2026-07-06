@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "./client";
 import type { IIntegrationRepository } from "../../../domain/ports/repositories";
 import type { Integration } from "../../../domain/entities/Integration";
@@ -20,5 +21,34 @@ export class PrismaIntegrationRepository implements IIntegrationRepository {
       include: { Company: true },
     });
     return r ? integrationToDomain(r, r.Company) : null;
+  }
+
+  /**
+   * 1ª integração da empresa OU cria uma "Padrão" (mesmo padrão de
+   * ensureDefaultIntegration em PrismaCompanyServiceRepository). A Company já
+   * existe — quem chama isto é sempre um usuário logado com companyId no JWT.
+   */
+  async ensureDefaultForCompany(companyId: string): Promise<Integration> {
+    const existing = await prisma.integration.findFirst({
+      where: { companyId },
+      orderBy: { createdAt: "asc" },
+      include: { Company: true },
+    });
+    if (existing) return integrationToDomain(existing, existing.Company);
+
+    const id = "int_" + randomUUID().slice(0, 8);
+    const created = await prisma.integration.create({
+      data: {
+        id,
+        companyId,
+        displayName: "Padrão",
+        whatsappNumber: "",
+        evolutionInstance: "",
+        active: true,
+        updatedAt: new Date(),
+      },
+      include: { Company: true },
+    });
+    return integrationToDomain(created, created.Company);
   }
 }

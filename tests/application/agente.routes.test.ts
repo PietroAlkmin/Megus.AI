@@ -160,6 +160,48 @@ describe("GET/PUT /api/agente", () => {
     expect(saved?.id).toBe("ag1");
   });
 
+  it("empresa SEM integração ainda: PUT /api/agente cria a integração e salva a persona (200, não 404)", async () => {
+    // Cadastro do zero: nenhuma integração seedada (nem serviço, nem WhatsApp
+    // configurado antes). Configurar o agente deve funcionar mesmo assim.
+    const repos = new InMemoryRepositories();
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false });
+    const listening = await listen(app);
+    server = listening.server;
+    const token = makeToken("company-nova");
+
+    const putRes = await fetch(`http://localhost:${listening.port}/api/agente`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: "Kaua",
+        segment: "estetica",
+        tone: "descontraido",
+        emojis: true,
+        lang: "pt",
+        instructions: "Seja animado.",
+        fewShotDialogs: [],
+      }),
+    });
+    expect(putRes.status).toBe(200);
+    const putBody = await readJson(putRes);
+    expect(putBody.success).toBe(true);
+    expect(putBody.data.name).toBe("Kaua");
+    expect(putBody.data.integrationId).toBeTruthy();
+
+    // a integração "Padrão" foi criada de fato (não é um efeito só da resposta)
+    const created = await repos.integrations.getFirstByCompanyId("company-nova");
+    expect(created).not.toBeNull();
+    expect(created?.displayName).toBe("Padrão");
+
+    const getRes = await fetch(`http://localhost:${listening.port}/api/agente`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const getBody = await readJson(getRes);
+    expect(getRes.status).toBe(200);
+    expect(getBody.data.name).toBe("Kaua");
+    expect(getBody.data.tone).toBe("descontraido");
+  });
+
   it("PUT com dados inválidos responde 400", async () => {
     const repos = seedRepos();
     const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false });

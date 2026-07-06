@@ -86,11 +86,9 @@ export function agenteRoutes(deps: AgenteRoutesDeps): Router {
       return;
     }
 
-    const integ = await deps.integrations.getFirstByCompanyId(companyId);
-    if (!integ) {
-      fail(res, "Nenhuma integração encontrada para esta empresa.", 404, "NOT_FOUND");
-      return;
-    }
+    // Configurar o agente cria a integração "Padrão" se a empresa ainda não tiver
+    // nenhuma — a ordem de cadastro (agente x serviço x WhatsApp) não deve importar.
+    const integ = await deps.integrations.ensureDefaultForCompany(companyId);
 
     const existing = await deps.agentConfigs.getByIntegrationId(integ.id);
     const now = new Date();
