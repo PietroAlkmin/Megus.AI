@@ -73,6 +73,11 @@ export class InMemoryRepositories {
       this._integrations.push(created);
       return created;
     },
+    updateConnection: async (integrationId, evolutionInstance, whatsappNumber) => {
+      const i = this._integrations.findIndex((integ) => integ.id === integrationId);
+      if (i < 0) return;
+      this._integrations[i] = { ...this._integrations[i]!, evolutionInstance, whatsappNumber, updatedAt: new Date() };
+    },
   };
 
   agentConfigs: IAgentConfigRepository = {

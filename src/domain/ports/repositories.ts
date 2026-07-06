@@ -42,6 +42,11 @@ export interface IIntegrationRepository {
    * cadastrar qualquer serviço/WhatsApp real não deve mais 404).
    */
   ensureDefaultForCompany(companyId: string): Promise<Integration>;
+  /**
+   * Grava o resultado do pareamento WhatsApp (provisionamento multi-tenant):
+   * o nome da instância Evolution e o número real (do ownerJid — nunca de input).
+   */
+  updateConnection(integrationId: string, evolutionInstance: string, whatsappNumber: string): Promise<void>;
 }
 
 export interface IAgentConfigRepository {

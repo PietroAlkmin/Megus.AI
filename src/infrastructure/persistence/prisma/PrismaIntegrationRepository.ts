@@ -51,4 +51,11 @@ export class PrismaIntegrationRepository implements IIntegrationRepository {
     });
     return integrationToDomain(created, created.Company);
   }
+
+  async updateConnection(integrationId: string, evolutionInstance: string, whatsappNumber: string): Promise<void> {
+    await prisma.integration.update({
+      where: { id: integrationId },
+      data: { evolutionInstance, whatsappNumber, updatedAt: new Date() },
+    });
+  }
 }
