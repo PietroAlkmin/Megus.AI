@@ -14,3 +14,8 @@ tokens/
 /src/generated/prisma
 
 /src/generated/prisma
+
+# Artefatos de dev (nao versionar — pedido do Pietro 05/07)
+docs/superpowers/
+.superpowers/
+.claude/
