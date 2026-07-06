@@ -6,6 +6,7 @@ import { RegisterUser } from "../../../application/use-cases/auth/RegisterUser";
 import { LoginUser } from "../../../application/use-cases/auth/LoginUser";
 import type { InMemoryRepositories } from "../../persistence/memory/InMemoryRepositories";
 import { empresaRoutes } from "./routes/empresa.routes";
+import { agenteRoutes } from "./routes/agente.routes";
 import { atendimentosRoutes } from "./routes/atendimentos.routes";
 import { createConversasRouters } from "./routes/conversas.routes";
 import { cobrancasRoutes } from "./routes/cobrancas.routes";
@@ -45,6 +46,12 @@ export function createApiApp(deps: ApiDeps): Express {
   app.use("/api/empresa", empresaRoutes({
     profiles: deps.repos.companyProfiles,
     services: deps.repos.companyServices,
+    authMiddleware,
+  }));
+
+  app.use("/api/agente", agenteRoutes({
+    integrations: deps.repos.integrations,
+    agentConfigs: deps.repos.agentConfigs,
     authMiddleware,
   }));
 
