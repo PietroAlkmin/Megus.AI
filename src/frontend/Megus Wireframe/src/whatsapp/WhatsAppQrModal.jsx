@@ -1,34 +1,12 @@
 /* global React */
 // MegusWhatsAppQr · conexão do número de produção via QR Code.
-// Abre depois de salvar o Atendente Virtual. QR (mock determinístico), passo a
-// passo e aviso forte sobre usar o número definitivo. Espelha WhatsAppQrModal
-// do Kapty, com tokens Megus.
+// Abre depois de salvar o Atendente Virtual. QR REAL (Evolution API via
+// window.MegusWhatsApp), passo a passo e aviso forte sobre usar o número
+// definitivo. Espelha WhatsAppQrModal do Kapty, com tokens Megus.
 
 const QT = window.MegusTokens;
-const { useState: useStQr, useEffect: useEffQr } = React;
+const { useState: useStQr, useEffect: useEffQr, useCallback: useCbQr } = React;
 const WA = QT.status.whatsapp;
-
-function qrMatrix() {
-  const N = 25;
-  const local = (r, c, br, bc) => {
-    const lr = r - br, lc = c - bc;
-    if (lr === 0 || lr === 6 || lc === 0 || lc === 6) return true;
-    if (lr >= 2 && lr <= 4 && lc >= 2 && lc <= 4) return true;
-    return false;
-  };
-  let seed = 7331;
-  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-  const cells = [];
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-    const inTL = r < 7 && c < 7, inTR = r < 7 && c >= N - 7, inBL = r >= N - 7 && c < 7;
-    if (inTL) cells.push(local(r, c, 0, 0));
-    else if (inTR) cells.push(local(r, c, 0, N - 7));
-    else if (inBL) cells.push(local(r, c, N - 7, 0));
-    else if ((r < 8 && c < 8) || (r < 8 && c >= N - 8) || (r >= N - 8 && c < 8)) cells.push(false);
-    else cells.push(rnd() > 0.52);
-  }
-  return { N, cells };
-}
 
 const QR_STEPS = [
   'Abra o WhatsApp no celular que será usado no atendimento',
@@ -37,9 +15,10 @@ const QR_STEPS = [
 ];
 
 function MegusWhatsAppQr({ onClose, onDone, agentName = 'Kaua' }) {
-  const [m] = useStQr(qrMatrix);
+  const [qr, setQr] = useStQr(null); // base64/data-url devolvido pelo backend
+  const [error, setError] = useStQr(null);
   const [connected, setConnected] = useStQr(false);
-  const cell = 7;
+  const [number, setNumber] = useStQr(null);
 
   useEffQr(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -47,63 +26,103 @@ function MegusWhatsAppQr({ onClose, onDone, agentName = 'Kaua' }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Mock: simula o pareamento (em produção, polling do status na Evolution).
+  // Cria a instância + pede o QR (POST /api/agente/whatsapp/connect).
+  const carregarQr = useCbQr(async () => {
+    setError(null);
+    try {
+      const r = await window.MegusWhatsApp.conectar();
+      if (r && r.success && r.data && r.data.qr) {
+        setQr(r.data.qr);
+      } else {
+        setError((r && r.message) || 'Não foi possível gerar a conexão com o WhatsApp.');
+      }
+    } catch (e) {
+      setError('Não foi possível conectar ao servidor.');
+    }
+  }, []);
+  useEffQr(() => { carregarQr(); }, [carregarQr]);
+
+  // Polling do pareamento (GET /api/agente/whatsapp/status) a cada 3s até conectar.
   useEffQr(() => {
     if (connected) return undefined;
-    const t = setTimeout(() => setConnected(true), 5500);
-    return () => clearTimeout(t);
+    const t = setInterval(async () => {
+      try {
+        const r = await window.MegusWhatsApp.status();
+        if (r && r.success && r.data && r.data.connected) {
+          setConnected(true);
+          setNumber(r.data.number || null);
+        }
+      } catch (e) {
+        // silencioso: tenta de novo no próximo tick
+      }
+    }, 3000);
+    return () => clearInterval(t);
   }, [connected]);
+
+  const qrSrc = qr ? (qr.startsWith('data:') ? qr : 'data:image/png;base64,' + qr) : null;
 
   return (
     <React.Fragment>
-      <div onClick={onClose} style={qr.overlay} />
-      <div style={qr.shell} role="dialog" aria-modal="true">
-        <div style={qr.header}>
-          <span style={qr.waLogo}><window.IC.chat size={22} stroke={WA} /></span>
+      <div onClick={onClose} style={qr_.overlay} />
+      <div style={qr_.shell} role="dialog" aria-modal="true">
+        <div style={qr_.header}>
+          <span style={qr_.waLogo}><window.IC.chat size={22} stroke={WA} /></span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={qr.crumb}>WhatsApp <span style={{ opacity: 0.5 }}>›</span> Conexão</div>
-            <h2 style={qr.title}>Conectar número do WhatsApp</h2>
+            <div style={qr_.crumb}>WhatsApp <span style={{ opacity: 0.5 }}>›</span> Conexão</div>
+            <h2 style={qr_.title}>Conectar número do WhatsApp</h2>
           </div>
-          <button onClick={onClose} style={qr.closeBtn} title="Fechar (Esc)"><window.IC.x size={16} stroke={QT.text.muted} /></button>
+          <button onClick={onClose} style={qr_.closeBtn} title="Fechar (Esc)"><window.IC.x size={16} stroke={QT.text.muted} /></button>
         </div>
 
-        <div style={qr.body}>
-          <div style={qr.left}>
-            <div style={qr.frame}>
+        <div style={qr_.body}>
+          <div style={qr_.left}>
+            <div style={qr_.frame}>
               {connected ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 20 }}>
-                  <span style={qr.successRing}><window.IC.check size={30} stroke="#fff" sw={3} /></span>
+                  <span style={qr_.successRing}><window.IC.check size={30} stroke="#fff" sw={3} /></span>
                   <div style={{ fontSize: 14, fontWeight: 800, color: QT.text.primary, marginTop: 12 }}>Conectado!</div>
-                  <div style={{ fontSize: 11.5, color: QT.text.muted, marginTop: 3, textAlign: 'center' }}>{agentName} já está ativo neste número.</div>
-                </div>
-              ) : (
-                <React.Fragment>
-                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${m.N}, ${cell}px)`, gridTemplateRows: `repeat(${m.N}, ${cell}px)` }}>
-                    {m.cells.map((on, i) => (<span key={i} style={{ width: cell, height: cell, background: on ? '#101A26' : 'transparent' }} />))}
+                  <div style={{ fontSize: 11.5, color: QT.text.muted, marginTop: 3, textAlign: 'center' }}>
+                    {number ? `${agentName} já está ativo no número ${number}.` : `${agentName} já está ativo neste número.`}
                   </div>
-                  <span style={qr.centerLogo}><window.IC.robot size={22} stroke={QT.brand.primary} /></span>
-                </React.Fragment>
+                </div>
+              ) : error ? (
+                <div style={qr_.frameMsg}>
+                  <window.IC.alert size={24} stroke={QT.status.warning} />
+                  <div style={{ fontSize: 12, fontWeight: 700, color: QT.text.secondary, marginTop: 10, textAlign: 'center', padding: '0 12px' }}>{error}</div>
+                  <button onClick={carregarQr} style={qr_.retryBtn}><window.IC.refresh size={13} stroke={QT.brand.primary} /> Tentar novamente</button>
+                </div>
+              ) : qrSrc ? (
+                <img src={qrSrc} alt="QR Code para conectar o WhatsApp" style={qr_.qrImage} />
+              ) : (
+                <div style={qr_.frameMsg}>
+                  <window.IC.refresh size={22} stroke={QT.text.subtle} style={{ animation: 'megusSpin 1s linear infinite' }} />
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: QT.text.muted, marginTop: 10 }}>Gerando conexão…</div>
+                </div>
               )}
             </div>
-            <div style={qr.status}>
+            <div style={qr_.status}>
               {connected
-                ? <React.Fragment><span style={{ ...qr.dot, background: WA }} /> Pareado com sucesso</React.Fragment>
-                : <React.Fragment><span style={{ ...qr.dot, background: '#E0A11E', animation: 'megusQrPulse 1.4s ease-in-out infinite' }} /> Aguardando leitura…</React.Fragment>}
+                ? <React.Fragment><span style={{ ...qr_.dot, background: WA }} /> Pareado com sucesso</React.Fragment>
+                : error
+                ? <React.Fragment><span style={{ ...qr_.dot, background: QT.status.warning }} /> Falha ao gerar conexão</React.Fragment>
+                : !qrSrc
+                ? <React.Fragment><span style={{ ...qr_.dot, background: QT.text.subtle }} /> Preparando…</React.Fragment>
+                : <React.Fragment><span style={{ ...qr_.dot, background: '#E0A11E', animation: 'megusQrPulse 1.4s ease-in-out infinite' }} /> Aguardando leitura…</React.Fragment>}
             </div>
           </div>
 
-          <div style={qr.right}>
+          <div style={qr_.right}>
             <div style={{ fontSize: 13, fontWeight: 800, color: QT.text.primary, marginBottom: 12, fontFamily: QT.font.brand }}>Como conectar</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 18 }}>
               {QR_STEPS.map((s, i) => (
                 <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                  <span style={qr.stepNum}>{i + 1}</span>
+                  <span style={qr_.stepNum}>{i + 1}</span>
                   <span style={{ fontSize: 12.5, color: QT.text.secondary, lineHeight: 1.45, paddingTop: 2 }}>{s}</span>
                 </div>
               ))}
             </div>
-            <div style={qr.warn}>
-              <span style={qr.warnIcon}><window.IC.alert size={15} stroke={QT.status.warning} /></span>
+            <div style={qr_.warn}>
+              <span style={qr_.warnIcon}><window.IC.alert size={15} stroke={QT.status.warning} /></span>
               <div>
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: QT.status.warning, marginBottom: 3 }}>Use o número definitivo</div>
                 <div style={{ fontSize: 11.5, color: '#9A5B12', lineHeight: 1.5 }}>
@@ -111,18 +130,18 @@ function MegusWhatsAppQr({ onClose, onDone, agentName = 'Kaua' }) {
                 </div>
               </div>
             </div>
-            <div style={qr.tip}><window.IC.phone size={13} stroke={QT.text.muted} /><span>Dica: prefira um número exclusivo (WhatsApp Business), não o pessoal da equipe.</span></div>
+            <div style={qr_.tip}><window.IC.phone size={13} stroke={QT.text.muted} /><span>Dica: prefira um número exclusivo (WhatsApp Business), não o pessoal da equipe.</span></div>
           </div>
         </div>
 
-        <div style={qr.footer}>
+        <div style={qr_.footer}>
           <span style={{ fontSize: 11.5, color: QT.text.muted, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <window.IC.refresh size={13} stroke={QT.text.subtle} /> O código expira em 60s e é renovado automaticamente.
           </span>
           <div style={{ flex: 1 }} />
           {connected
-            ? <button onClick={() => (onDone || onClose)()} style={qr.primaryBtn}><window.IC.check size={15} stroke="#fff" sw={2.5} /> Concluir</button>
-            : <button onClick={onClose} style={qr.cancelBtn}>Conectar depois</button>}
+            ? <button onClick={() => (onDone || onClose)()} style={qr_.primaryBtn}><window.IC.check size={15} stroke="#fff" sw={2.5} /> Concluir</button>
+            : <button onClick={onClose} style={qr_.cancelBtn}>Conectar depois</button>}
         </div>
       </div>
     </React.Fragment>
@@ -130,7 +149,7 @@ function MegusWhatsAppQr({ onClose, onDone, agentName = 'Kaua' }) {
 }
 window.MegusWhatsAppQr = MegusWhatsAppQr;
 
-const qr = {
+const qr_ = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(27,35,48,.45)', zIndex: 310 },
   shell: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'min(720px, 95vw)', maxHeight: '92vh', zIndex: 311, background: '#fff', borderRadius: 16, boxShadow: '0 24px 70px rgba(27,35,48,.30)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: QT.font.sans, animation: 'megusPop .24s cubic-bezier(.2,.7,.3,1)' },
   header: { padding: '15px 18px', borderBottom: `1px solid ${QT.surface.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, background: `linear-gradient(90deg, ${WA}12, #fff 60%)` },
@@ -141,7 +160,9 @@ const qr = {
   body: { display: 'flex', flex: 1, minHeight: 0 },
   left: { width: 280, flexShrink: 0, padding: '24px 20px', borderRight: `1px solid ${QT.surface.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: QT.surface.cardMuted },
   frame: { position: 'relative', width: 200, height: 200, background: '#fff', borderRadius: 14, border: `1px solid ${QT.surface.borderStrong}`, boxShadow: '0 6px 20px rgba(27,35,48,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  centerLogo: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 38, height: 38, borderRadius: 10, background: '#fff', border: '3px solid #fff', boxShadow: `0 0 0 1px ${QT.surface.borderStrong}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  qrImage: { width: 180, height: 180, objectFit: 'contain', borderRadius: 4 },
+  frameMsg: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 18 },
+  retryBtn: { marginTop: 12, padding: '7px 12px', fontSize: 11.5, fontWeight: 700, fontFamily: QT.font.sans, cursor: 'pointer', borderRadius: 8, border: `1px solid ${QT.surface.borderStrong}`, background: '#fff', color: QT.brand.primary, display: 'inline-flex', alignItems: 'center', gap: 6 },
   successRing: { width: 60, height: 60, borderRadius: 99, background: WA, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 18px ${WA}55` },
   status: { marginTop: 16, fontSize: 12, fontWeight: 700, color: QT.text.secondary, display: 'inline-flex', alignItems: 'center', gap: 7 },
   dot: { width: 8, height: 8, borderRadius: 99, display: 'inline-block' },
@@ -158,6 +179,6 @@ const qr = {
 if (typeof document !== 'undefined' && !document.getElementById('megus-qr-anim')) {
   const s = document.createElement('style');
   s.id = 'megus-qr-anim';
-  s.textContent = '@keyframes megusPop{from{transform:translate(-50%,-46%);opacity:.6}to{transform:translate(-50%,-50%);opacity:1}}@keyframes megusQrPulse{0%,100%{opacity:1}50%{opacity:.3}}';
+  s.textContent = '@keyframes megusPop{from{transform:translate(-50%,-46%);opacity:.6}to{transform:translate(-50%,-50%);opacity:1}}@keyframes megusQrPulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes megusSpin{to{transform:rotate(360deg)}}';
   document.head.appendChild(s);
 }
