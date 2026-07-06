@@ -7,6 +7,10 @@ import Shell from "@/components/Shell";
 import Login from "@/pages/Login";
 import Cadastro from "@/pages/Cadastro";
 import Home from "@/pages/Home";
+import Empresa from "@/pages/Empresa";
+import Agente from "@/pages/Agente";
+import ConectarWhatsApp from "@/pages/ConectarWhatsApp";
+import Onboarding from "@/pages/Onboarding";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +41,10 @@ export default function App() {
               }
             >
               <Route index element={<Home />} />
+              <Route path="empresa" element={<Empresa />} />
+              <Route path="agente" element={<Agente />} />
+              <Route path="conectar" element={<ConectarWhatsApp />} />
+              <Route path="onboarding" element={<Onboarding />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1,15 +1,16 @@
-import { Outlet, useNavigate } from "react-router-dom";
-import { Building2, LogOut, Users, Zap } from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Bot, Building2, LogOut, Users, Zap } from "lucide-react";
 import Brand from "@/components/Brand";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
-// Só "Atendimentos" está de fato roteado nesta etapa (única rota protegida =
-// "/"). Empresa/Integrações entram no próximo grupo (Empresa/Agente/Conectar
-// WhatsApp) — ficam visíveis mas desabilitadas, igual ao wireframe (`wired`).
+// Empresa e Agente entram nesta etapa (Task 2 — onboarding) com rota própria.
+// Integrações segue reservada para o próximo canal além do WhatsApp.
 const NAV_ITEMS = [
-  { id: "atendimentos", label: "Atendimentos", icon: Users, wired: true },
-  { id: "empresa", label: "Empresa", icon: Building2, wired: false },
-  { id: "integracoes", label: "Integrações", icon: Zap, wired: false },
+  { id: "atendimentos", label: "Atendimentos", icon: Users, to: "/" as const },
+  { id: "empresa", label: "Empresa", icon: Building2, to: "/empresa" as const },
+  { id: "agente", label: "Agente", icon: Bot, to: "/agente" as const },
+  { id: "integracoes", label: "Integrações", icon: Zap, to: null },
 ] as const;
 
 export default function Shell() {
@@ -48,33 +49,50 @@ export default function Shell() {
           <nav className="flex flex-1 flex-col gap-1 p-1.5 pt-2.5">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
+
+              if (!item.to) {
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled
+                    title={`${item.label} (em breve)`}
+                    className="flex flex-col items-center justify-center gap-1 rounded-md py-2 disabled:cursor-default"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-[9px] text-muted-foreground/50">
+                      <Icon size={20} strokeWidth={2} />
+                    </span>
+                    <span className="text-[10px] font-bold text-muted-foreground/50">{item.label}</span>
+                  </button>
+                );
+              }
+
               return (
-                <button
+                <NavLink
                   key={item.id}
-                  type="button"
-                  disabled={!item.wired}
-                  title={item.wired ? item.label : `${item.label} (em breve)`}
-                  className="flex flex-col items-center justify-center gap-1 rounded-md py-2 disabled:cursor-default"
+                  to={item.to}
+                  end={item.to === "/"}
+                  title={item.label}
+                  className="flex flex-col items-center justify-center gap-1 rounded-md py-2"
                 >
-                  <span
-                    className={
-                      item.wired
-                        ? "flex h-10 w-10 items-center justify-center rounded-[9px] bg-primary text-primary-foreground shadow-[0_4px_14px_rgba(27,35,48,0.3)]"
-                        : "flex h-10 w-10 items-center justify-center rounded-[9px] text-muted-foreground/50"
-                    }
-                  >
-                    <Icon size={20} strokeWidth={item.wired ? 2.4 : 2} />
-                  </span>
-                  <span
-                    className={
-                      item.wired
-                        ? "text-[10px] font-bold text-primary"
-                        : "text-[10px] font-bold text-muted-foreground/50"
-                    }
-                  >
-                    {item.label}
-                  </span>
-                </button>
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-[9px] transition-colors",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-[0_4px_14px_rgba(27,35,48,0.3)]"
+                            : "text-muted-foreground hover:bg-secondary",
+                        )}
+                      >
+                        <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
+                      </span>
+                      <span className={cn("text-[10px] font-bold", isActive ? "text-primary" : "text-muted-foreground")}>
+                        {item.label}
+                      </span>
+                    </>
+                  )}
+                </NavLink>
               );
             })}
           </nav>
