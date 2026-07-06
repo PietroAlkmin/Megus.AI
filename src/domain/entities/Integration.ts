@@ -6,7 +6,10 @@
 export interface Integration {
   id: string;
   displayName: string; // nome do cliente
-  whatsappNumber: string; // número conectado (E.164)
+  whatsappNumber: string; // número conectado (E.164) — só gravado a partir do ownerJid real
+  // Nome da instância Evolution deste tenant (multi-tenant). Opcional/"" = ainda
+  // não provisionada — o envio cai no fallback global (compat piloto).
+  evolutionInstance?: string;
 
   // Identidade fiscal do CLIENTE (prestador) — usada na conferência do comprovante e na emissão
   fiscalDoc: string; // CNPJ (ou CPF) do prestador

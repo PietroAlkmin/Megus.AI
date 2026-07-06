@@ -115,6 +115,32 @@ describe("ConversationStateMachine — conversa (des-engessado)", () => {
     }
   });
 
+  it("multi-tenant: usa integration.evolutionInstance no envio (sendText)", async () => {
+    const repos = new InMemoryRepositories();
+    const deps = depsWith(repos);
+    (deps.brain.decide as any).mockResolvedValue({ reply: ["oi"], action: { type: "reply" } });
+    const tenantIntegration = { ...integration, evolutionInstance: "inst-x" };
+    repos.seed({ integrations: [tenantIntegration] });
+    const conv = await repos.conversations.getOrCreate("int1", "ct1", "5511988887777");
+    const sm = new ConversationStateMachine(deps);
+
+    await sm.advance(conv, agentConfig, tenantIntegration, textInbound("oi"));
+
+    expect(deps.messaging.sendText).toHaveBeenCalledWith(expect.objectContaining({ instance: "inst-x" }));
+  });
+
+  it("multi-tenant: integration.evolutionInstance vazio → instance undefined (fallback global no provider)", async () => {
+    const repos = new InMemoryRepositories();
+    const deps = depsWith(repos);
+    (deps.brain.decide as any).mockResolvedValue({ reply: ["oi"], action: { type: "reply" } });
+    const conv = await newConversation(repos); // integration base, sem evolutionInstance
+    const sm = new ConversationStateMachine(deps);
+
+    await sm.advance(conv, agentConfig, integration, textInbound("oi"));
+
+    expect(deps.messaging.sendText).toHaveBeenCalledWith(expect.objectContaining({ instance: undefined }));
+  });
+
   it("mídia em AwaitingComprovante vai pro gate B (handleComprovante), não pro brain", async () => {
     const repos = new InMemoryRepositories();
     const deps = depsWith(repos);

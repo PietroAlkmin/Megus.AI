@@ -27,6 +27,8 @@ export interface InboundMessage {
 export interface OutboundText {
   to: string;
   text: string;
+  /** Instância Evolution do tenant (multi-tenant). Vazio/ausente → fallback pro global (compat piloto). */
+  instance?: string;
 }
 
 export interface OutboundMedia {
@@ -36,6 +38,8 @@ export interface OutboundMedia {
   url?: string;
   filename?: string;
   caption?: string;
+  /** Instância Evolution do tenant (multi-tenant). Vazio/ausente → fallback pro global (compat piloto). */
+  instance?: string;
 }
 
 export type ConnectionStatus =

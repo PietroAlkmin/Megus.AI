@@ -39,13 +39,15 @@ export class EvolutionMessagingProvider implements IMessagingProvider {
   }
 
   async sendText(msg: OutboundText): Promise<void> {
-    await this.req(`/message/sendText/${this.cfg.instance}`, "POST", {
+    const instance = msg.instance ?? this.cfg.instance;
+    await this.req(`/message/sendText/${instance}`, "POST", {
       number: msg.to,
       text: msg.text,
     });
   }
 
   async sendMedia(msg: OutboundMedia): Promise<void> {
+    const instance = msg.instance ?? this.cfg.instance;
     const mediatype = msg.mimetype.startsWith("image") ? "image" : msg.mimetype.startsWith("audio") ? "audio" : "document";
     // O Evolution exige URL com TLD (hostname interno do Docker falha na validação
     // "Owned media must be a url or base64"). Quando só temos URL, buscamos o
@@ -56,7 +58,7 @@ export class EvolutionMessagingProvider implements IMessagingProvider {
       if (!res.ok) throw new Error(`sendMedia: falha ao buscar mídia ${msg.url} → ${res.status}`);
       media = Buffer.from(await res.arrayBuffer()).toString("base64");
     }
-    await this.req(`/message/sendMedia/${this.cfg.instance}`, "POST", {
+    await this.req(`/message/sendMedia/${instance}`, "POST", {
       number: msg.to,
       mediatype,
       mimetype: msg.mimetype,

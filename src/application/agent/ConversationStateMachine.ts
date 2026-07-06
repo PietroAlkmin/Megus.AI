@@ -80,6 +80,7 @@ export class ConversationStateMachine {
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */
   private async handleChatting(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
+    const instance = integration.evolutionInstance || undefined;
 
     // Se o cliente já mandou nome+CPF (mesmo "no meio da conversa"), valida JÁ —
     // não deixa a identidade fornecida sem ação esperando o próximo turno.
@@ -91,7 +92,7 @@ export class ConversationStateMachine {
       return this.processIdentity(conv, integration, decision);
     }
 
-    await this.send(conv, decision.reply);
+    await this.send(conv, decision.reply, instance);
     // Roteamento por action (nenhuma alcança o ato fiscal — quem emite é o gate C):
     // - intent_emit substitui o antigo request_identity: só ACIONA a coleta de
     //   identidade (move p/ CollectingIdentity). NUNCA pula portão.
@@ -102,7 +103,7 @@ export class ConversationStateMachine {
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
     } else if (decision.action.type === "handoff") {
-      await this.handoff(conv, decision.action.reason);
+      await this.handoff(conv, decision.action.reason, instance);
     }
   }
 
@@ -114,12 +115,13 @@ export class ConversationStateMachine {
 
   /** Valida dígito + CPF↔nome a partir da decisão já obtida, cria cliente e avança. */
   private async processIdentity(conv: Conversation, integration: Integration, decision: AgentDecision): Promise<void> {
+    const instance = integration.evolutionInstance || undefined;
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
 
     // Identidade ainda não fornecida: strings vazias → pede de novo sem contar tentativa.
     if (!fullName || !cpfRaw) {
-      await this.send(conv, ["Preciso do seu nome completo e CPF para emitir a nota. Pode mandar?"]);
+      await this.send(conv, ["Preciso do seu nome completo e CPF para emitir a nota. Pode mandar?"], instance);
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
       return;
@@ -133,13 +135,13 @@ export class ConversationStateMachine {
       const n = (this.attempts.get(conv.id) ?? 0) + 1;
       this.attempts.set(conv.id, n);
       if (n >= this.d.config.cpfMaxAttempts) {
-        await this.handoff(conv, "CPF↔nome não confere após tentativas");
+        await this.handoff(conv, "CPF↔nome não confere após tentativas", instance);
         return;
       }
       const msg = cpf
         ? "O nome não bateu com o CPF informado. Pode conferir e mandar de novo?"
         : "Esse CPF não parece válido. Pode conferir e mandar de novo?";
-      await this.send(conv, [msg]);
+      await this.send(conv, [msg], instance);
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
       return;
@@ -172,12 +174,13 @@ export class ConversationStateMachine {
     conv.contactId = contact.id;
     conv.state = ConversationState.AwaitingComprovante;
     await this.d.conversations.save(conv);
-    await this.send(conv, ["Perfeito! Agora me envia o comprovante de pagamento (foto ou PDF) que eu emito sua nota."]);
+    await this.send(conv, ["Perfeito! Agora me envia o comprovante de pagamento (foto ou PDF) que eu emito sua nota."], instance);
   }
 
   private async handleComprovante(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
+    const instance = integration.evolutionInstance || undefined;
     if (inbound.kind === "text" || !inbound.media) {
-      await this.send(conv, ["Me envia o comprovante de pagamento como foto ou PDF, por favor."]);
+      await this.send(conv, ["Me envia o comprovante de pagamento como foto ou PDF, por favor."], instance);
       return;
     }
     conv.state = ConversationState.VerifyingComprovante;
@@ -185,7 +188,7 @@ export class ConversationStateMachine {
 
     const services = await this.d.services.listByIntegration(integration.id);
     const service = services.find((s) => cfg.capabilities.linkedServiceIds.includes(s.id)) ?? services[0];
-    if (!service) { await this.handoff(conv, "sem serviço vinculado"); return; }
+    if (!service) { await this.handoff(conv, "sem serviço vinculado", instance); return; }
 
     const analysis = await this.d.comprovante.analyze({
       media: { mimetype: inbound.media.mimetype, base64: inbound.media.base64, url: inbound.media.url },
@@ -194,11 +197,11 @@ export class ConversationStateMachine {
 
     const amountOk = analysis.amount != null && Math.abs(analysis.amount - service.price) < 0.01;
     const ok = analysis.recipientMatches && amountOk && analysis.confidence >= this.d.config.comprovanteMinConfidence;
-    if (!ok) { await this.handoff(conv, `comprovante não confere (conf=${analysis.confidence})`); return; }
+    if (!ok) { await this.handoff(conv, `comprovante não confere (conf=${analysis.confidence})`, instance); return; }
 
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
     if (!contact || !contact.cpf || !contact.fullName) {
-      await this.handoff(conv, "dados do tomador ausentes");
+      await this.handoff(conv, "dados do tomador ausentes", instance);
       return;
     }
     const now = new Date();
@@ -216,10 +219,10 @@ export class ConversationStateMachine {
     await this.d.conversations.save(conv);
 
     const result = await this.d.fiscal.emitNfse(intent);
-    if (!result.success || !result.pdfUrl) { await this.handoff(conv, result.message ?? "falha na emissão"); return; }
+    if (!result.success || !result.pdfUrl) { await this.handoff(conv, result.message ?? "falha na emissão", instance); return; }
 
     await this.d.emissions.save({ ...intent, status: "emitted", fiscalKey: result.fiscalKey, pdfUrl: result.pdfUrl, updatedAt: new Date() });
-    await this.d.messaging.sendMedia({ to: conv.whatsappNumber, mimetype: "application/pdf", url: result.pdfUrl, filename: "nota-fiscal.pdf", caption: "Sua nota fiscal está pronta! ✅" });
+    await this.d.messaging.sendMedia({ to: conv.whatsappNumber, mimetype: "application/pdf", url: result.pdfUrl, filename: "nota-fiscal.pdf", caption: "Sua nota fiscal está pronta! ✅", instance });
 
     conv.state = ConversationState.Done;
     await this.d.conversations.save(conv);
@@ -232,9 +235,9 @@ export class ConversationStateMachine {
     return assembleContext({ conversation: conv, agentConfig: cfg, integration, services, contact, history, today: formatToday() });
   }
 
-  private async send(conv: Conversation, bubbles: string[]): Promise<void> {
+  private async send(conv: Conversation, bubbles: string[], instance?: string): Promise<void> {
     for (const text of bubbles) {
-      await this.d.messaging.sendText({ to: conv.whatsappNumber, text });
+      await this.d.messaging.sendText({ to: conv.whatsappNumber, text, instance });
       // Grava a fala do Kaua no histórico — sem isso o cérebro vê só mensagens do
       // cliente e não reconhece a resposta de identidade para extrair nome+CPF.
       await this.d.conversations.appendMessage({
@@ -250,11 +253,11 @@ export class ConversationStateMachine {
     }
   }
 
-  private async handoff(conv: Conversation, reason: string): Promise<void> {
+  private async handoff(conv: Conversation, reason: string, instance?: string): Promise<void> {
     conv.humanHandoff = true;
     conv.state = ConversationState.HumanHandoff;
     await this.d.conversations.save(conv);
-    await this.send(conv, ["Vou te transferir para um atendente humano para finalizar, tá? Já já alguém te responde."]);
+    await this.send(conv, ["Vou te transferir para um atendente humano para finalizar, tá? Já já alguém te responde."], instance);
     void reason;
   }
 }
