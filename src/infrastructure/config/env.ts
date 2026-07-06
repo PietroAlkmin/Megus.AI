@@ -27,6 +27,9 @@ const schema = z.object({
   EVOLUTION_BASE_URL: z.string().optional(),
   EVOLUTION_API_KEY: z.string().optional(),
   EVOLUTION_INSTANCE: z.string().default("megus"),
+  // Webhook do Evolution (mesma URL pra toda instância criada no provisionamento
+  // multi-tenant) — hostname do serviço dentro da rede Docker do VPS.
+  PUBLIC_WEBHOOK_URL: z.string().default("http://megus-app:3000/webhook/evolution"),
 
   // Fiscal e CPF — mock no MVP (não fala com a Kapty por ora).
   FISCAL_PROVIDER: z.enum(["mock", "kapty"]).default("mock"),

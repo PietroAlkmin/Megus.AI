@@ -1,10 +1,14 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import jwt from "jsonwebtoken";
 import type { Server } from "node:http";
 import { createApiApp } from "../../src/infrastructure/http/api/app";
 import { InMemoryRepositories } from "../../src/infrastructure/persistence/memory/InMemoryRepositories";
+import type { IWhatsAppProvisioner } from "../../src/domain/ports/IWhatsAppProvisioner";
 
 const JWT_SECRET = "test-secret-agente";
+
+// Rotas de agente não usam o provisioner — stub só pra satisfazer o tipo de ApiDeps.
+const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
 
 interface Persona {
   integrationId: string | null;
@@ -83,7 +87,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("GET devolve a persona da integração da empresa logada", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");
@@ -109,7 +113,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("GET sem token responde 401", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
     const listening = await listen(app);
     server = listening.server;
 
@@ -119,7 +123,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("PUT muda o tom, o GET seguinte reflete, e preserva linkedServiceIds/knowledgeFiles", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");
@@ -164,7 +168,7 @@ describe("GET/PUT /api/agente", () => {
     // Cadastro do zero: nenhuma integração seedada (nem serviço, nem WhatsApp
     // configurado antes). Configurar o agente deve funcionar mesmo assim.
     const repos = new InMemoryRepositories();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-nova");
@@ -204,7 +208,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("PUT com dados inválidos responde 400", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");

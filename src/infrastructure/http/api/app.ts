@@ -10,6 +10,8 @@ import { agenteRoutes } from "./routes/agente.routes";
 import { atendimentosRoutes } from "./routes/atendimentos.routes";
 import { createConversasRouters } from "./routes/conversas.routes";
 import { cobrancasRoutes } from "./routes/cobrancas.routes";
+import { whatsappRoutes } from "./routes/whatsapp.routes";
+import type { IWhatsAppProvisioner } from "../../../domain/ports/IWhatsAppProvisioner";
 
 export interface ApiDeps {
   repos: InMemoryRepositories;
@@ -18,6 +20,8 @@ export interface ApiDeps {
   corsOrigins: string[] | "*";
   /** quando true, rotas de painel devolvem dados de exemplo (USE_MOCK_DATA). */
   useMock: boolean;
+  /** provisionamento de instância WhatsApp por tenant (Evolution admin API). */
+  provisioner: IWhatsAppProvisioner;
 }
 
 /**
@@ -77,6 +81,12 @@ export function createApiApp(deps: ApiDeps): Express {
     useMock: deps.useMock,
     conversations: deps.repos.conversations,
     emissions: deps.repos.emissions,
+    authMiddleware,
+  }));
+
+  app.use("/api/agente/whatsapp", whatsappRoutes({
+    integrations: deps.repos.integrations,
+    provisioner: deps.provisioner,
     authMiddleware,
   }));
 

@@ -10,6 +10,7 @@ import { ComprovanteAnalyzer } from "./infrastructure/ai/ComprovanteAnalyzer";
 import { MockComprovanteAnalyzer } from "./infrastructure/ai/MockComprovanteAnalyzer";
 import type { IComprovanteAnalyzer } from "./domain/ports/IComprovanteAnalyzer";
 import { EvolutionMessagingProvider } from "./infrastructure/messaging/evolution/EvolutionMessagingProvider";
+import { EvolutionProvisioner } from "./infrastructure/messaging/evolution/EvolutionProvisioner";
 import { LogMessagingProvider } from "./infrastructure/messaging/LogMessagingProvider";
 import { mapEvolutionWebhook } from "./infrastructure/messaging/evolution/webhookMapper";
 import { ConversationStateMachine } from "./application/agent/ConversationStateMachine";
@@ -57,6 +58,14 @@ async function bootstrap(): Promise<void> {
   } else {
     throw new Error(`MESSAGING_PROVIDER='${env.MESSAGING_PROVIDER}' ainda não implementado`);
   }
+
+  // Provisionamento de instância WhatsApp por empresa (Evolution admin API) —
+  // usado pelas rotas /api/agente/whatsapp/connect e /status.
+  const provisioner = new EvolutionProvisioner({
+    baseUrl: env.EVOLUTION_BASE_URL ?? "",
+    apiKey: env.EVOLUTION_API_KEY ?? "",
+    webhookUrl: env.PUBLIC_WEBHOOK_URL,
+  });
 
   // Repos in-memory + seed do piloto
   const repos = new InMemoryRepositories();
@@ -167,6 +176,7 @@ async function bootstrap(): Promise<void> {
     jwtSecret: env.JWT_SECRET,
     corsOrigins: env.CORS_ORIGINS === "*" ? "*" : env.CORS_ORIGINS.split(",").map((s) => s.trim()),
     useMock: env.USE_MOCK_DATA,
+    provisioner,
   });
 
   // Sem banco (dev local/sandbox): usuário de teste para login imediato via
