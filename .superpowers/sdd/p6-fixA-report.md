@@ -28,7 +28,7 @@ Rodei o teste novo antes da mudança em `agente.routes.ts` (com `ensureDefaultFo
 
 ## Commit
 
-`feat(agente): PUT /api/agente cria integracao Padrao se a empresa ainda nao tiver (ensureDefaultForCompany)` — sem trailer de co-autoria. Hash: ver `git log -1` após o commit (registrado na mensagem final ao Pietro).
+`e5f6659` — `fix(agente): PUT /api/agente cria integracao Padrao se a empresa ainda nao tiver` — sem trailer de co-autoria.
 
 ## Concerns / pontos em aberto
 
