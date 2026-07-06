@@ -30,6 +30,25 @@ const DOCS = [
 let _avId = 0;
 const novoId = () => `sv_${++_avId}_${Date.now()}`;
 
+// Modo edição: `initial` é a persona devolvida por GET /api/agente
+// (name, segment, tone, emojis, lang, instructions, fewShotDialogs).
+// Mapa backend → cfg do modal. Campos fora do escopo desta fase
+// (capabilities/knowledge — serviços e arquivos) não vêm do backend;
+// ficam com defaults locais e NÃO são enviados no PUT (backend preserva).
+const IDIOMA_BACKEND_PARA_CFG = { pt: 'pt-BR', en: 'en', es: 'es' };
+function mapPersonaParaCfg(p) {
+  return {
+    nome: p.name || 'Kaua',
+    segmento: p.segment || 'saude',
+    tom: p.tone || 'equilibrado',
+    emojis: p.emojis !== false,
+    idioma: IDIOMA_BACKEND_PARA_CFG[p.lang] || p.lang || 'pt-BR',
+    instrucoes: p.instructions || '',
+    emitirNota: true, tipoDoc: 'NFS-e', servicos: [], arquivos: [],
+    exemplos: (p.fewShotDialogs || []).map((e) => ({ id: novoId(), cliente: e.q || '', agente: e.a || '' })),
+  };
+}
+
 function Toggle({ on, onClick }) {
   return (
     <button onClick={onClick} aria-pressed={on} style={{ ...av.toggle, background: on ? AT.brand.primary : AT.surface.borderStrong }}>
@@ -57,16 +76,43 @@ function Secao({ n, titulo, desc, aberta, onToggle, children }) {
   );
 }
 
-function MegusAtendenteModal({ onClose, onSaved }) {
+function MegusAtendenteModal({ onClose, onSaved, initial }) {
+  const isEdit = !!initial;
   const [aberta, setAberta] = useStAv(1);
-  const [cfg, setCfg] = useStAv({
+  const [cfg, setCfg] = useStAv(() => (initial ? mapPersonaParaCfg(initial) : {
     nome: 'Kaua', segmento: 'saude', tom: 'equilibrado', emojis: true, idioma: 'pt-BR',
     instrucoes: '', emitirNota: true, tipoDoc: 'NFS-e', servicos: [], arquivos: [], exemplos: [],
-  });
+  }));
   const [svForm, setSvForm] = useStAv(null);
+  const [salvando, setSalvando] = useStAv(false);
+  const [salvarMsg, setSalvarMsg] = useStAv(null); // { erro, txt }
   const fileRef = useRefAv(null);
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
   const toggleSecao = (n) => setAberta((a) => (a === n ? 0 : n));
+
+  // Modo edição: salva via PUT /api/agente (só persona); modo onboarding
+  // (sem `initial`) mantém o comportamento original — onSaved(cfg) abre o QR.
+  async function handleSalvar() {
+    if (!isEdit) { (onSaved || onClose)(cfg); return; }
+    setSalvarMsg(null);
+    setSalvando(true);
+    const r = await window.MegusAgente.salvar({
+      name: cfg.nome,
+      segment: cfg.segmento,
+      tone: cfg.tom,
+      emojis: cfg.emojis,
+      lang: cfg.idioma === 'pt-BR' ? 'pt' : cfg.idioma,
+      instructions: cfg.instrucoes,
+      fewShotDialogs: (cfg.exemplos || []).map((e) => ({ q: e.cliente, a: e.agente })),
+    });
+    setSalvando(false);
+    if (r.success) {
+      setSalvarMsg({ erro: false, txt: 'Persona salva com sucesso!' });
+      setTimeout(() => (onSaved || onClose)(cfg), 900);
+    } else {
+      setSalvarMsg({ erro: true, txt: r.message || 'Não foi possível salvar. Tente novamente.' });
+    }
+  }
 
   useEffAv(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -97,8 +143,8 @@ function MegusAtendenteModal({ onClose, onSaved }) {
         <div style={av.header}>
           <span style={av.waLogo}><window.IC.robot size={22} stroke={AT.brand.primary} /></span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={av.crumb}>WhatsApp <span style={{ opacity: 0.5 }}>›</span> Atendente Virtual <span style={av.beta}>BETA</span></div>
-            <h2 style={av.title}>Configurar Atendente Virtual</h2>
+            <div style={av.crumb}>{isEdit ? 'Agente' : 'WhatsApp'} <span style={{ opacity: 0.5 }}>›</span> Atendente Virtual <span style={av.beta}>BETA</span></div>
+            <h2 style={av.title}>{isEdit ? 'Editar persona do agente' : 'Configurar Atendente Virtual'}</h2>
           </div>
           <button onClick={onClose} style={av.closeBtn} title="Fechar (Esc)"><window.IC.x size={16} stroke={AT.text.muted} /></button>
         </div>
@@ -262,10 +308,19 @@ function MegusAtendenteModal({ onClose, onSaved }) {
         </div>
 
         <div style={av.footer}>
-          <span style={{ fontSize: 12.5, color: AT.text.muted, display: 'inline-flex', alignItems: 'center', gap: 6 }}><window.IC.info size={14} stroke={AT.text.subtle} /> Você poderá editar tudo isso depois.</span>
+          {isEdit && salvarMsg ? (
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: salvarMsg.erro ? AT.status.danger : AT.status.success, display: 'inline-flex', alignItems: 'center', gap: 6 }}>{salvarMsg.txt}</span>
+          ) : (
+            <span style={{ fontSize: 12.5, color: AT.text.muted, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <window.IC.info size={14} stroke={AT.text.subtle} />
+              {isEdit ? 'As alterações valem a partir da próxima mensagem no WhatsApp.' : 'Você poderá editar tudo isso depois.'}
+            </span>
+          )}
           <div style={{ flex: 1 }} />
-          <button style={av.btnGhost} onClick={onClose}>Cancelar</button>
-          <button style={av.btnPrimary} onClick={() => (onSaved || onClose)(cfg)}>Salvar e gerar conexão <window.IC.chevronR size={15} stroke="#fff" /></button>
+          <button style={av.btnGhost} onClick={onClose} disabled={salvando}>Cancelar</button>
+          <button style={av.btnPrimary} onClick={handleSalvar} disabled={salvando}>
+            {isEdit ? (salvando ? 'Salvando…' : 'Salvar alterações') : 'Salvar e gerar conexão'} <window.IC.chevronR size={15} stroke="#fff" />
+          </button>
         </div>
       </div>
     </React.Fragment>

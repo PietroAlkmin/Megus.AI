@@ -30,7 +30,19 @@ function MegusAgentePage({ agente, onBack }) {
   const [tab, setTab] = useStAg('conversas');
   const [paused, setPaused] = useStAg(agente.status === 'pausado');
   const [flowOpen, setFlowOpen] = useStAg(false);
+  // Edição direta da persona (GET/PUT /api/agente) — separado do
+  // MegusWhatsAppFlow acima (que é o onboarding: options → agent → QR).
+  const [personaInitial, setPersonaInitial] = useStAg(null);
+  const [personaOpen, setPersonaOpen] = useStAg(false);
+  const [personaErro, setPersonaErro] = useStAg(null);
   const sc = AG_STATUS[paused ? 'pausado' : agente.status] || AG_STATUS.desconectado;
+
+  const abrirConfigurarAgente = async () => {
+    setPersonaErro(null);
+    const r = await window.MegusAgente.carregar();
+    if (r.success) { setPersonaInitial(r.data); setPersonaOpen(true); }
+    else setPersonaErro(r.message || 'Não foi possível carregar a persona do agente.');
+  };
 
   return (
     <div style={ag.page}>
@@ -49,11 +61,15 @@ function MegusAgentePage({ agente, onBack }) {
         </div>
         <span style={{ ...ag.badge, color: sc.fg, background: sc.bg }}><span style={{ width: 6, height: 6, borderRadius: 99, background: sc.dot }} /> {sc.label}</span>
         <div style={{ flex: 1 }} />
+        {personaErro && <span style={{ fontSize: 12, color: AG.status.danger }}>{personaErro}</span>}
         <button style={ag.ghost} className="ag-hover" onClick={() => setPaused((v) => !v)}>
           <window.IC.clock size={14} stroke={AG.text.secondary} /> {paused ? 'Retomar agente' : 'Pausar agente'}
         </button>
-        <button style={ag.ghost} className="ag-hover" onClick={() => setFlowOpen(true)}>
-          <window.IC.settings size={14} stroke={AG.text.secondary} /> Configurar
+        <button style={ag.ghost} className="ag-hover" onClick={abrirConfigurarAgente}>
+          <window.IC.robot size={14} stroke={AG.text.secondary} /> Configurar agente
+        </button>
+        <button style={ag.ghost} className="ag-hover" onClick={() => setFlowOpen(true)} title="Assistente de onboarding (reconectar número via QR)">
+          <window.IC.settings size={14} stroke={AG.text.secondary} /> Reconectar
         </button>
       </div>
 
@@ -75,7 +91,7 @@ function MegusAgentePage({ agente, onBack }) {
       <div style={ag.body}>
         {tab === 'conversas' && <ConversasTab agente={agente} paused={paused} />}
         {tab === 'config' && <Placeholder icon="settings" titulo="Configuração do agente"
-          texto="Identidade, tom, instruções, capacidades e serviços vinculados." cta="Abrir configuração" onCta={() => setFlowOpen(true)} />}
+          texto="Identidade, tom, instruções, capacidades e serviços vinculados." cta="Configurar agente" onCta={abrirConfigurarAgente} />}
         {tab === 'conhecimento' && <Placeholder icon="fileText" titulo="Conhecimento e treinamento"
           texto="Arquivos e exemplos de conversa que o agente usa como base." />}
         {tab === 'historico' && <Placeholder icon="doc" titulo="Histórico de notas"
@@ -83,6 +99,13 @@ function MegusAgentePage({ agente, onBack }) {
       </div>
 
       {flowOpen && window.MegusWhatsAppFlow && <window.MegusWhatsAppFlow onClose={() => setFlowOpen(false)} />}
+      {personaOpen && window.MegusAtendenteModal && (
+        <window.MegusAtendenteModal
+          initial={personaInitial}
+          onClose={() => setPersonaOpen(false)}
+          onSaved={() => setPersonaOpen(false)}
+        />
+      )}
     </div>
   );
 }
