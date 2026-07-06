@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens da marca Megus — HSL derivado 1:1 de
+ * `src/frontend/Megus Wireframe/src/shared/tokens.js` (fonte única de verdade
+ * do design). Qualquer alteração de cor entra ali primeiro.
+ *
+ *   brand.primary       #2B3A4F -> 215 30% 24%
+ *   brand.primaryDark   #1B2736 -> 213 33% 16%
+ *   brand.primaryDarker #101A26 -> 213 41% 11%
+ *   brand.primaryLight  #3B4A5E -> 214 23% 30%
+ *   brand.accent        #3E6CA8 -> 214 46% 45%
+ *   surface.page        #F4F6F8 -> 210 22% 96%
+ *   surface.card        #FFFFFF -> 0 0% 100%
+ *   surface.border      #E1E6ED -> 215 25% 91%
+ *   surface.divider      #EEF1F5 -> 214 26% 95%
+ *   text.primary        #1B2330 -> 217 28% 15%
+ *   text.muted          #6B7686 -> 216 11% 47%
+ *   status.danger       #B42318 -> 4 76% 40%
+ *   status.success      #0F6E56 -> 165 76% 25%
+ *   status.whatsapp     #1FA855 -> 144 69% 39%
+ */
+@layer base {
+  :root {
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-brand: "Sora", "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+    --background: 210 22% 96%;
+    --foreground: 217 28% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 217 28% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 28% 15%;
+
+    --primary: 215 30% 24%;
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 213 33% 16%;
+    --primary-darker: 213 41% 11%;
+    --primary-light: 214 23% 30%;
+
+    --secondary: 214 26% 95%;
+    --secondary-foreground: 217 28% 15%;
+
+    --muted: 214 26% 95%;
+    --muted-foreground: 216 11% 47%;
+
+    --accent: 214 46% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 4 76% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 165 76% 25%;
+    --success-foreground: 0 0% 100%;
+
+    --whatsapp: 144 69% 39%;
+
+    --border: 215 25% 91%;
+    --input: 215 25% 91%;
+    --ring: 214 46% 45%;
+
+    /* raio "lg" da marca (14px) — sm/md/xl derivam dele no tailwind.config.ts */
+    --radius: 0.875rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Scrollbar fina — mesmo tratamento do WebStatic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
