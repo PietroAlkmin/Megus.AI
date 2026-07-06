@@ -1,7 +1,7 @@
 /* global React */
 // MegusIntegracoesPage · landing pós-login (dentro do shell). Lista os
-// conectores; o card WhatsApp abre o fluxo (MegusWhatsAppFlow). Espelha a
-// IntegracoesPage do Kapty, enxuta para o Megus.
+// conectores; o card WhatsApp abre o fluxo (MegusWhatsAppFlow). Espelha uma
+// IntegracoesPage de referência interna, enxuta para o Megus.
 
 const IT = window.MegusTokens;
 const { useState: useStInt } = React;
@@ -11,7 +11,7 @@ const CONECTORES = [
   { id: 'whatsapp', nome: 'WhatsApp', icon: 'chat', cor: WA_IT, status: 'conectar',
     desc: 'Atendente virtual (Kaua) que conversa, valida dados, confere o pagamento e emite a nota.', wired: true },
   { id: 'erp', nome: 'ERP / Provedor fiscal', icon: 'layers', cor: IT.brand.accent, status: 'em breve',
-    desc: 'Conecte o backend fiscal (Kapty ou outro ERP) para a emissão real das notas.', wired: false },
+    desc: 'Conecte o backend fiscal (um ERP externo) para a emissão real das notas.', wired: false },
 ];
 
 function MegusIntegracoesPage() {

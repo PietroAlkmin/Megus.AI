@@ -1,6 +1,6 @@
 /* global React */
 // AuthBackdrop · formas decorativas da marca no FUNDO das telas de auth.
-// Mesmo papel do AuthBackdrop.tsx do Kapty: fica atrás do conteúdo, não captura
+// Mesmo papel de um AuthBackdrop.tsx de referência interna: fica atrás do conteúdo, não captura
 // clique, o container recorta o que sangra. Escondido abaixo de lg (1024px) —
 // no mobile o fundo fica branco limpo. Tons da marca Megus (ardósia).
 
@@ -31,7 +31,7 @@ function AuthBackdrop() {
 }
 window.AuthBackdrop = AuthBackdrop;
 
-// Esconde o backdrop abaixo de lg (igual Kapty) — injeta a media query uma vez.
+// Esconde o backdrop abaixo de lg (mesmo padrão de referência interna) — injeta a media query uma vez.
 if (typeof document !== 'undefined' && !document.getElementById('megus-backdrop-css')) {
   const s = document.createElement('style');
   s.id = 'megus-backdrop-css';

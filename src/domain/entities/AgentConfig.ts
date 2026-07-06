@@ -1,6 +1,6 @@
 /**
  * Configuração do agente ("Kaua") por cliente/integração.
- * Espelha o AtendenteVirtualModal do wireframe (Kapty.WireFrame/wireframe-v2).
+ * Espelha o AtendenteVirtualModal do wireframe (referência interna/wireframe-v2).
  */
 export type AgentTone = "formal" | "equilibrado" | "descontraido";
 export type AgentLang = "pt" | "en" | "es";

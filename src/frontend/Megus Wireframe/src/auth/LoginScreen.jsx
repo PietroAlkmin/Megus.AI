@@ -1,6 +1,6 @@
 /* global React */
 // MegusLogin · tela de login full-screen (card centralizado sobre backdrop da
-// marca). Mesma estrutura das telas de auth do Kapty (Login.tsx): logo no topo,
+// marca). Mesma estrutura das telas de auth de referência interna (Login.tsx): logo no topo,
 // card translúcido, social (desabilitado), divisor "OU", e-mail + senha, CTA,
 // link para cadastro, rodapé de termos.
 //

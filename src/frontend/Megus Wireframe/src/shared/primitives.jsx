@@ -1,5 +1,5 @@
 /* global React */
-// Primitivos compartilhados do wireframe Megus — mesma filosofia do Kapty:
+// Primitivos compartilhados do wireframe Megus — mesma filosofia de referência interna:
 // pequenos, presentacionais, prontos para virar componentes shadcn na produção.
 //   window.IC.<nome>   → ícones (SVG via dangerouslySetInnerHTML)
 //   window.AuthField   → label + input padrão das telas de auth

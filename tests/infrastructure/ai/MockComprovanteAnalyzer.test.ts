@@ -5,7 +5,7 @@ import type { ComprovanteInput } from "../../../src/domain/ports/IComprovanteAna
 const INPUT: ComprovanteInput = {
   media: { mimetype: "image/jpeg", url: "http://x/fake.jpg" },
   expectedRecipientDoc: "66.008.326/0001-73",
-  expectedRecipientName: "Kapty (consultório)",
+  expectedRecipientName: "Consultório",
 };
 
 describe("MockComprovanteAnalyzer", () => {

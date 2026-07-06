@@ -29,7 +29,7 @@ export async function seedPilot(params: { whatsappNumber: string }): Promise<voi
   await prisma.integration.upsert({
     where: { id: INTEGRATION_ID },
     update: { whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", updatedAt: now },
-    create: { id: INTEGRATION_ID, companyId: COMPANY_ID, displayName: "Kapty (consultório)", whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", active: true, updatedAt: now },
+    create: { id: INTEGRATION_ID, companyId: COMPANY_ID, displayName: "Consultório", whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", active: true, updatedAt: now },
   });
 
   await prisma.service.upsert({

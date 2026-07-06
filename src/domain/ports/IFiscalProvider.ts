@@ -3,8 +3,8 @@ import type { EmissionIntent } from "../entities/EmissionIntent";
 /**
  * Porta de BACKEND FISCAL — abstrai a emissão de NFS-e e o cadastro do cliente.
  *
- * Hoje: MOCK (a startup não fala com a Kapty por ora).
- * Futuro: adapter Kapty (via X-API-KEY/ThirdPartyIntegration) ou outro ERP.
+ * Hoje: MOCK (a startup não fala com um provedor real por ora).
+ * Futuro: adapter de um ERP (via X-API-KEY/ThirdPartyIntegration).
  *
  * A IA NUNCA implementa isto. A emissão é DETERMINÍSTICA e recebe dados já validados.
  */

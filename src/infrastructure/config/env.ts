@@ -31,8 +31,8 @@ const schema = z.object({
   // multi-tenant) — hostname do serviço dentro da rede Docker do VPS.
   PUBLIC_WEBHOOK_URL: z.string().default("http://megus-app:3000/webhook/evolution"),
 
-  // Fiscal e CPF — mock no MVP (não fala com a Kapty por ora).
-  FISCAL_PROVIDER: z.enum(["mock", "kapty"]).default("mock"),
+  // Fiscal e CPF — mock no MVP (não fala com um provedor real por ora).
+  FISCAL_PROVIDER: z.enum(["mock", "erp"]).default("mock"),
   CPF_PROVIDER: z.enum(["mock", "serpro"]).default("mock"),
   // Comprovante: "openai" usa visão real; "mock" auto-aprova (SÓ demo/dev).
   COMPROVANTE_PROVIDER: z.enum(["openai", "mock"]).default("openai"),

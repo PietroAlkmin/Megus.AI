@@ -13,10 +13,10 @@ por enquanto — ver seção 8 sobre quando e como aposentá-la.
 
 Stack: **Vite + React 18 + TypeScript strict**, Tailwind CSS + shadcn/ui,
 `react-router-dom` v6, `@tanstack/react-query` para todo estado de servidor,
-`react-hook-form` + `zod` para formulários. É o mesmo padrão já usado no
-`Kapty.WebStatic` (outro produto do mesmo grupo) — escolhido deliberadamente
+`react-hook-form` + `zod` para formulários. É o mesmo padrão de mercado usado
+em outro produto de referência interna — escolhido deliberadamente
 para reaproveitar know-how e configuração, não porque o Megus precise de algo
-idêntico ao Kapty visualmente. O **look e os tokens de cor da marca Megus**
+visualmente idêntico a essa referência. O **look e os tokens de cor da marca Megus**
 foram preservados 1:1 a partir do wireframe antigo (`tokens.js`) — a
 re-plataforma trocou a stack técnica, não o design.
 
@@ -206,8 +206,8 @@ Confirmado rodando neste repositório: os dois passam sem erro (build gera
 `dist/` com ~507kB de JS minificado — 1 aviso de chunk grande, não é erro,
 apenas sinaliza que dividir em lazy-imports seria uma melhoria futura).
 `tsconfig.app.json` está com `strict` completo, incluindo
-`noUnusedLocals`/`noUnusedParameters` — mais rígido que o do `Kapty.WebStatic`
-(que relaxa esses três por dívida técnica antiga); como projeto novo, não há
+`noUnusedLocals`/`noUnusedParameters` — mais rígido que o da referência interna
+usada como base (que relaxa esses três por dívida técnica antiga); como projeto novo, não há
 dívida herdada a acomodar.
 
 **Validação no navegador ainda não foi feita** neste ambiente de
@@ -261,7 +261,7 @@ deveria nascer ali.
   simples, mas é uma heurística: não valida completude "de verdade" (ex.: não
   exige nenhum serviço cadastrado antes de liberar a conexão do WhatsApp).
 - **Um `apiFetch` só, sem camada de geração de cliente.** Consistente com o
-  padrão do `Kapty.WebStatic`; qualquer endpoint novo só precisa de uma
+  padrão de mercado adotado; qualquer endpoint novo só precisa de uma
   função em `services/`, sem gerar tipos a partir de OpenAPI/Swagger (que o
   backend também não expõe hoje).
 

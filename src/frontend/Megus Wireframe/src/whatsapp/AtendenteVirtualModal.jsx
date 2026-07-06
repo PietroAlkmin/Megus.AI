@@ -1,6 +1,6 @@
 /* global React */
 // MegusAtendenteModal · "Configurar Atendente Virtual" como MODAL CENTRAL
-// (padrão Kapty: overlay + shell + header com breadcrumb/BETA + seções recolhíveis).
+// (padrão de referência interna: overlay + shell + header com breadcrumb/BETA + seções recolhíveis).
 // Conteúdo portado do BotWizard do sócio: identidade/segmento, tom, instruções,
 // ações (emitir nota → NFS-e + serviços), treinamento. onSaved(cfg) → abre o QR.
 

@@ -531,7 +531,7 @@ malformado. Nenhuma tem valor obrigatório sem default hoje (ver ressalva do
 | `EVOLUTION_API_KEY` | — | Chave de API do Evolution |
 | `EVOLUTION_INSTANCE` | `megus` | Instância global (fallback do piloto pré-multi-tenant) |
 | `PUBLIC_WEBHOOK_URL` | `http://megus-app:3000/webhook/evolution` | URL que o `EvolutionProvisioner` registra como webhook de toda instância nova — hostname do serviço dentro da rede Docker |
-| `FISCAL_PROVIDER` | `mock` | Declarado (`mock`/`kapty`), **mas não lido em `main.ts`** — ver seção 12 |
+| `FISCAL_PROVIDER` | `mock` | Declarado (`mock`/`erp`), **mas não lido em `main.ts`** — ver seção 12 |
 | `CPF_PROVIDER` | `mock` | Declarado (`mock`/`serpro`), **mas não lido em `main.ts`** — ver seção 12 |
 | `COMPROVANTE_PROVIDER` | `openai` | Este SIM é lido: `mock` (auto-aprova, só demo) vs `openai` (visão real) |
 | `MOCK_NOTA_PDF_URL` | — | URL do PDF que o `MockFiscalProvider` devolve (para o WhatsApp conseguir baixar de verdade) |
@@ -679,7 +679,7 @@ Checklist de produção — itens conhecidos e ainda pendentes, ver seção 11.
 - **Mensageria/fiscal/CPF atrás de portas desde o início**, mesmo com só um
   adapter real (Evolution) e dois mocks (fiscal, CPF): o produto nasceu
   citando explicitamente "hoje X, amanhã Y" (WPP não-oficial → Meta Cloud
-  API; mock → Kapty ou outro ERP; mock → SERPRO ou serviço pago) — a
+  API; mock → um ERP externo; mock → SERPRO ou serviço pago) — a
   abstração existe para essa troca não exigir tocar em domínio/aplicação.
 - **`AtendenteVirtualModal`/persona editável sem afetar o onboarding.** O
   modal do painel antigo aceita um modo de edição (`initial` presente) que
@@ -691,15 +691,15 @@ Checklist de produção — itens conhecidos e ainda pendentes, ver seção 11.
 
 | Domínio | Estado real | Onde trocar |
 |---|---|---|
-| **Backend fiscal** (`IFiscalProvider`) | `MockFiscalProvider` sempre — devolve chave/PDF fake. **`main.ts` não lê `env.FISCAL_PROVIDER`** (o enum existe no schema de env, mas não há `if` que troque de implementação — só `AI_PROVIDER`/`MESSAGING_PROVIDER`/`COMPROVANTE_PROVIDER` são de fato branchados). | Escrever `KaptyFiscalProvider implements IFiscalProvider` (ou de outro ERP) em `src/infrastructure/fiscal/`, e **adicionar** o branch por `env.FISCAL_PROVIDER` em `main.ts` (hoje inexistente) na hora de trocar. |
+| **Backend fiscal** (`IFiscalProvider`) | `MockFiscalProvider` sempre — devolve chave/PDF fake. **`main.ts` não lê `env.FISCAL_PROVIDER`** (o enum existe no schema de env, mas não há `if` que troque de implementação — só `AI_PROVIDER`/`MESSAGING_PROVIDER`/`COMPROVANTE_PROVIDER` são de fato branchados). | Escrever `ErpFiscalProvider implements IFiscalProvider` (adapter de um ERP) em `src/infrastructure/fiscal/`, e **adicionar** o branch por `env.FISCAL_PROVIDER` em `main.ts` (hoje inexistente) na hora de trocar. |
 | **CPF↔nome** (`ICpfProvider`) | `MockCpfProvider` sempre, com um único CPF seedado no código (`main.ts`). Mesma observação: **`env.CPF_PROVIDER` também não é lido** em lugar nenhum. | Escrever `SerproCpfProvider` (ou serviço pago equivalente — BrasilAPI não tem endpoint de CPF, conferido) em `src/infrastructure/cpf/`, e adicionar o branch por `env.CPF_PROVIDER` em `main.ts`. |
 | **Comprovante de pagamento** (`IComprovanteAnalyzer`) | **Já real por padrão** (`COMPROVANTE_PROVIDER=openai`): `ComprovanteAnalyzer` usa visão via `IAIProvider`/OpenAI de verdade. `MockComprovanteAnalyzer` (auto-aprova, confiança 1) só existe atrás de `COMPROVANTE_PROVIDER=mock`, para demonstrar o fluxo completo sem precisar montar um comprovante real que bata com o prestador — **nunca deve rodar assim em produção**. | Nada a implementar; falta validar contra comprovantes reais variados (formatos de banco, qualidade de foto) — ainda não houve smoke real com fotos de comprovante de clientes. |
 | **Mensageria** | Evolution API real (`EvolutionMessagingProvider`) é o caminho de produção; `LogMessagingProvider` (`MESSAGING_PROVIDER=none`) só para dev/harness. Meta Cloud API é porta prevista, não implementada. | Escrever `MetaMessagingProvider implements IMessagingProvider` quando fizer sentido migrar de canal. |
 
 ## 13. O que falta / próximos passos
 
-- **Fiscal real:** implementar o adapter (Kapty via chave de API, ou outro
-  ERP) e ligar o branch por `env.FISCAL_PROVIDER` em `main.ts` (hoje ausente —
+- **Fiscal real:** implementar o adapter (um ERP via chave de API) e ligar o
+  branch por `env.FISCAL_PROVIDER` em `main.ts` (hoje ausente —
   ver tabela acima).
 - **CPF real:** implementar o adapter (SERPRO ou serviço pago) e ligar o
   branch por `env.CPF_PROVIDER` em `main.ts` (idem).

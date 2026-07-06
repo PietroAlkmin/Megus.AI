@@ -15,7 +15,7 @@ export interface Integration {
   fiscalDoc: string; // CNPJ (ou CPF) do prestador
   fiscalName: string; // razão/nome do prestador
 
-  // Referência opaca ao backend fiscal (ex.: companyId/apiKey no Kapty). null = mock.
+  // Referência opaca ao backend fiscal (ex.: companyId/apiKey no ERP). null = mock.
   fiscalProviderRef: string | null;
 
   active: boolean;

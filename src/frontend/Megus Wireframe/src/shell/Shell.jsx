@@ -1,6 +1,6 @@
 /* global React */
 // Megus · App Shell — TopBar + Sidebar + área de conteúdo.
-// Mesma anatomia do AdminLayout do Kapty (topbar fixa, sidebar de 72px com
+// Mesma anatomia de um AdminLayout de referência interna (topbar fixa, sidebar de 72px com
 // item ativo realçado), porém enxuta para o escopo do Megus (atendente de
 // WhatsApp). Tudo lê de window.MegusTokens — vira AdminLayout.tsx + AppSidebar
 // na produção shadcn.

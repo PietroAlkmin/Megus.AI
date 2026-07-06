@@ -2,7 +2,7 @@
 // MegusWhatsAppQr · conexão do número de produção via QR Code.
 // Abre depois de salvar o Atendente Virtual. QR REAL (Evolution API via
 // window.MegusWhatsApp), passo a passo e aviso forte sobre usar o número
-// definitivo. Espelha WhatsAppQrModal do Kapty, com tokens Megus.
+// definitivo. Espelha um modal de QR de referência interna, com tokens Megus.
 
 const QT = window.MegusTokens;
 const { useState: useStQr, useEffect: useEffQr, useCallback: useCbQr } = React;

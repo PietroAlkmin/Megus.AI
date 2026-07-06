@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 
 /**
  * Envelope de resposta — MESMO contrato que os services do front esperam
- * (espelha o ResultResponse da Kapty). O front lê { success, data, message, ... }.
+ * (envelope de resposta padrão). O front lê { success, data, message, ... }.
  *
  *   ResultResponse<T> = { success, data, message, errors, correlationId, statusCode }
  */

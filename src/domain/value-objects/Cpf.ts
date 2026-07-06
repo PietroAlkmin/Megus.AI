@@ -2,7 +2,7 @@
  * Value Object: CPF do paciente/tomador.
  *
  * A validação de dígito verificador é portada (verificada) de
- * Kapty.WebStatic/src/utils/brDocuments.ts → isValidCPF.
+ * uma implementação de referência (brDocuments.ts) → isValidCPF.
  *
  * IMPORTANTE: isto valida apenas que o CPF é um número VÁLIDO (formato + dígito).
  * Validar CPF↔NOME (a parte que mata o erro de cadastro) NÃO está aqui — é uma

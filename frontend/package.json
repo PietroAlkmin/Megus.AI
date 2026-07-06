@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "Megus AI — painel web (login/cadastro, empresa, agente, WhatsApp). Vite + React + TS, padrão Kapty.WebStatic.",
+  "description": "Megus AI — painel web (login/cadastro, empresa, agente, WhatsApp). Vite + React + TS, padrão de mercado.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

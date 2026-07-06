@@ -73,10 +73,10 @@ async function bootstrap(): Promise<void> {
     integrations: [
       {
         id: "int-piloto",
-        displayName: "Kapty (consultório)",
+        displayName: "Consultório",
         whatsappNumber: env.PILOT_WHATSAPP_NUMBER ?? "5511999999999",
         fiscalDoc: "66008326000173",
-        fiscalName: "Kapty (consultório)",
+        fiscalName: "Consultório",
         fiscalProviderRef: null,
         active: true,
         createdAt: new Date(),

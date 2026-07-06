@@ -8,12 +8,12 @@ import type {
 } from "../../domain/ports/IFiscalProvider";
 
 /**
- * MOCK do backend fiscal (a startup não fala com a Kapty por ora).
+ * MOCK do backend fiscal (a startup não fala com um provedor real por ora).
  *
  * - emitNfse: devolve uma chave/PDF FAKE como se a NFS-e tivesse sido emitida.
  * - upsertCustomer: dedup em memória por CPF.
  *
- * Trocar por KaptyFiscalProvider (X-API-KEY/ThirdPartyIntegration) depois — mesma porta.
+ * Trocar por um adapter real, ex.: ErpFiscalProvider (X-API-KEY/ThirdPartyIntegration) depois — mesma porta.
  */
 export class MockFiscalProvider implements IFiscalProvider {
   private readonly customersByCpf = new Map<string, string>();

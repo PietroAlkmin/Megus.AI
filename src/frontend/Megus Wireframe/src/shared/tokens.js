@@ -3,7 +3,7 @@
 // produção. Mantém o wireframe portável: estes valores mapeiam 1:1 para os
 // tokens do codebase shadcn quando a tela for promovida.
 //
-// Convenção idêntica à do Kapty (window.KaptyTokens): primitivos e telas leem
+// Convenção idêntica a um padrão de referência interna (mesmo esquema de tokens globais): primitivos e telas leem
 // daqui via `const T = window.MegusTokens`.
 
 window.MegusTokens = {

@@ -4,16 +4,16 @@ Atendente virtual de WhatsApp (**"Kaua"**): conversa com clientes 24/7, coleta e
 **valida** dados (nome + CPF), **confere** o comprovante de pagamento e **dispara**
 a emissão de uma NFS-e correta, devolvendo o PDF ao paciente.
 
-Produto **standalone** (startup à parte). A Kapty — e qualquer ERP — entra apenas
+Produto **standalone** (startup à parte). Um ERP externo entra apenas
 como um **provedor fiscal externo** atrás de uma porta. Hoje o fiscal é **mockado**
-(a startup ainda não fala com a Kapty).
+(a startup ainda não fala com um provedor real).
 
 ## Princípios de arquitetura
 
 Clean Architecture + DDD, **agnóstico de provedor** em três dimensões:
 
 - **Mensageria** (`IMessagingProvider`): WPP (não-oficial) hoje → **Meta** (Cloud API) depois.
-- **Backend fiscal** (`IFiscalProvider`): mock hoje → Kapty (X-API-KEY) ou outro ERP depois.
+- **Backend fiscal** (`IFiscalProvider`): mock hoje → um ERP (X-API-KEY) depois.
 - **CPF↔nome** (`ICpfProvider`): mock hoje → SERPRO / serviço pago depois.
 
 **Regra dura de segurança:** a camada de IA (LLM/visão) **nunca** comete o ato
