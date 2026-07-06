@@ -12,4 +12,13 @@ export class PrismaIntegrationRepository implements IIntegrationRepository {
     const r = await prisma.integration.findUnique({ where: { id }, include: { Company: true } });
     return r ? integrationToDomain(r, r.Company) : null;
   }
+
+  async getFirstByCompanyId(companyId: string): Promise<Integration | null> {
+    const r = await prisma.integration.findFirst({
+      where: { companyId },
+      orderBy: { createdAt: "asc" },
+      include: { Company: true },
+    });
+    return r ? integrationToDomain(r, r.Company) : null;
+  }
 }

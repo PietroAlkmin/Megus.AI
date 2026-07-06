@@ -34,10 +34,13 @@ export interface CompanyServiceItem {
 export interface IIntegrationRepository {
   getByWhatsappNumber(number: string): Promise<Integration | null>;
   getById(id: string): Promise<Integration | null>;
+  /** 1ª integração da empresa (tenant) — usada pra resolver o agente do painel. */
+  getFirstByCompanyId(companyId: string): Promise<Integration | null>;
 }
 
 export interface IAgentConfigRepository {
   getByIntegrationId(integrationId: string): Promise<AgentConfig | null>;
+  save(config: AgentConfig): Promise<void>;
 }
 
 export interface IContactRepository {

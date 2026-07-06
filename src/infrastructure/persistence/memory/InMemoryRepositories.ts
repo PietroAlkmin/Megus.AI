@@ -47,11 +47,20 @@ export class InMemoryRepositories {
     getByWhatsappNumber: async (n) =>
       this._integrations.find((i) => i.whatsappNumber === n) ?? null,
     getById: async (id) => this._integrations.find((i) => i.id === id) ?? null,
+    // O in-memory não modela companyId na Integration (só existe no Prisma/Company).
+    // Simplificação do piloto: há sempre 1 integração seedada, então devolvemos a
+    // primeira. A resolução real por companyId acontece no PrismaIntegrationRepository.
+    getFirstByCompanyId: async (_companyId) => this._integrations[0] ?? null,
   };
 
   agentConfigs: IAgentConfigRepository = {
     getByIntegrationId: async (id) =>
       this._agentConfigs.find((a) => a.integrationId === id) ?? null,
+    save: async (config) => {
+      const i = this._agentConfigs.findIndex((a) => a.integrationId === config.integrationId);
+      if (i >= 0) this._agentConfigs[i] = config;
+      else this._agentConfigs.push(config);
+    },
   };
 
   contacts: IContactRepository = {

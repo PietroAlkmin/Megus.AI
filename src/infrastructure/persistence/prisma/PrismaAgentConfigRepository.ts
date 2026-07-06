@@ -8,4 +8,24 @@ export class PrismaAgentConfigRepository implements IAgentConfigRepository {
     const r = await prisma.agentConfig.findUnique({ where: { integrationId } });
     return r ? agentConfigToDomain(r) : null;
   }
+
+  async save(config: AgentConfig): Promise<void> {
+    const data = {
+      name: config.name,
+      segment: config.segment,
+      tone: config.tone,
+      emojis: config.emojis,
+      lang: config.lang,
+      instructions: config.instructions,
+      capabilitiesJson: JSON.stringify(config.capabilities),
+      knowledgeFilesJson: JSON.stringify(config.knowledgeFiles),
+      fewShotDialogsJson: JSON.stringify(config.fewShotDialogs),
+      updatedAt: new Date(),
+    };
+    await prisma.agentConfig.upsert({
+      where: { integrationId: config.integrationId },
+      update: data,
+      create: { id: config.id, integrationId: config.integrationId, ...data },
+    });
+  }
 }
