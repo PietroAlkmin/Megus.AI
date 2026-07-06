@@ -42,7 +42,7 @@ No header da `MegusAgentePage` (`src/agente/AgentePage.jsx`), ao lado do botão 
 
 ## Commit
 
-`c481be0` — `feat(agente): painel edita persona via /api/agente (modal modo edicao) + base URL VPS`
+`8898d6d` — `feat(agente): painel edita persona via /api/agente (modal modo edicao) + base URL VPS`
 
 ## Concerns / só dá pra validar no navegador
 
