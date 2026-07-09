@@ -135,6 +135,7 @@ export class InMemoryRepositories {
       else this._emissions.push(intent);
     },
     getById: async (id) => this._emissions.find((e) => e.id === id) ?? null,
+    listCobrancasByCompanyId: async () => [],
   };
 
   services: IServiceRepository = {

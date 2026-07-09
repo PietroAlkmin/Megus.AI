@@ -199,6 +199,7 @@ async function bootstrap(): Promise<void> {
   const server = createServer({
     apiApp,
     onWebhook: async (body) => {
+      console.log("[webhook RAW]", JSON.stringify(body, null, 2)); // TEMPORÁRIO — ver payload real
       const m = mapEvolutionWebhook(body);
       logger.info(
         { event: (body as { event?: string }).event, mapped: m ? { from: m.from, to: m.to, kind: m.kind } : null },

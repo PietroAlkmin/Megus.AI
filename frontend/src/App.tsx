@@ -11,6 +11,7 @@ import Empresa from "@/pages/Empresa";
 import Agente from "@/pages/Agente";
 import ConectarWhatsApp from "@/pages/ConectarWhatsApp";
 import Onboarding from "@/pages/Onboarding";
+import Cobrancas from "@/pages/Cobrancas";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="agente" element={<Agente />} />
               <Route path="conectar" element={<ConectarWhatsApp />} />
               <Route path="onboarding" element={<Onboarding />} />
+              <Route path="cobrancas" element={<Cobrancas />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

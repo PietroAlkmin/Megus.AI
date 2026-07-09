@@ -1,6 +1,6 @@
 import { prisma } from "./client";
-import type { IEmissionIntentRepository } from "../../../domain/ports/repositories";
 import type { EmissionIntent, EmissionIntentStatus } from "../../../domain/entities/EmissionIntent";
+import type { IEmissionIntentRepository, CobrancaView } from "../../../domain/ports/repositories";
 
 function toDomain(r: {
   id: string; conversationId: string | null; contactId: string | null; integrationId: string; status: string;
@@ -28,5 +28,29 @@ export class PrismaEmissionIntentRepository implements IEmissionIntentRepository
   async getById(id: string): Promise<EmissionIntent | null> {
     const r = await prisma.emissionIntent.findUnique({ where: { id } });
     return r ? toDomain(r) : null;
+  }
+
+  // Percorre Company -> Integration -> EmissionIntent, devolvendo a visão de cobrança.
+  async listCobrancasByCompanyId(companyId: string): Promise<CobrancaView[]> {
+    const integrations = await prisma.integration.findMany({
+      where: { companyId }, select: { id: true },
+    });
+    const ids = integrations.map((i: { id: string }) => i.id);
+    if (ids.length === 0) return [];
+
+    const rows = await prisma.emissionIntent.findMany({
+      where: { integrationId: { in: ids } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return rows.map((r: {
+      id: string; tomadorName: string; tomadorCpf: string; description: string; amount: number;
+      status: string; appointmentAt: Date | null; paidAt: Date | null; chargeSentAt: Date | null;
+      notaNumber: string | null; createdAt: Date;
+    }) => ({
+      id: r.id, tomadorName: r.tomadorName, tomadorCpf: r.tomadorCpf, description: r.description,
+      amount: r.amount, status: r.status, appointmentAt: r.appointmentAt, paidAt: r.paidAt,
+      chargeSentAt: r.chargeSentAt, notaNumber: r.notaNumber, createdAt: r.createdAt,
+    }));
   }
 }

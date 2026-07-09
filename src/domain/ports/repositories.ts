@@ -31,6 +31,20 @@ export interface CompanyServiceItem {
   price: number;
 }
 
+export interface CobrancaView {
+  id: string;
+  tomadorName: string;
+  tomadorCpf: string;
+  description: string;
+  amount: number;
+  status: string;
+  appointmentAt: Date | null;
+  paidAt: Date | null;
+  chargeSentAt: Date | null;
+  notaNumber: string | null;
+  createdAt: Date;
+}
+
 export interface IIntegrationRepository {
   getByWhatsappNumber(number: string): Promise<Integration | null>;
   getById(id: string): Promise<Integration | null>;
@@ -75,6 +89,8 @@ export interface IConversationRepository {
 export interface IEmissionIntentRepository {
   save(intent: EmissionIntent): Promise<void>;
   getById(id: string): Promise<EmissionIntent | null>;
+  /** Lista as emissões de todas as integrações da empresa, como visão de cobrança. */
+  listCobrancasByCompanyId(companyId: string): Promise<CobrancaView[]>;
 }
 
 export interface IServiceRepository {

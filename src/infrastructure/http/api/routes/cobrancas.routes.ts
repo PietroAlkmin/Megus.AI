@@ -32,6 +32,29 @@ function calcularMetricas(clientes: ClienteCobranca[]) {
   };
 }
 
+// Converte a visão de cobrança do banco (EmissionIntent) para o formato da tela.
+// pago = tem paidAt; cobrado = tem chargeSentAt; notaEmitida = status emitido ou tem notaNumber.
+async function cobrancasReais(
+  emissions: IEmissionIntentRepository,
+  companyId: string,
+): Promise<ClienteCobranca[]> {
+  const rows = await emissions.listCobrancasByCompanyId(companyId);
+  return rows.map((r) => ({
+    id: r.id,
+    nome: r.tomadorName,
+    telefone: "",
+    servico: r.description,
+    valor: r.amount,
+    agendamento: r.appointmentAt ? r.appointmentAt.toISOString() : null,
+    pago: r.paidAt != null,
+    pagoEm: r.paidAt ? r.paidAt.toISOString() : null,
+    notaEmitida: r.status === "emitted" || r.notaNumber != null,
+    notaNum: r.notaNumber,
+    cobrado: r.chargeSentAt != null,
+    cobradoEm: r.chargeSentAt ? r.chargeSentAt.toISOString() : null,
+  })) as unknown as ClienteCobranca[];
+}
+
 export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
   const r = Router();
   r.use(deps.authMiddleware);
@@ -43,8 +66,8 @@ export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
       ok(res, mockData.cobrancasClientes(companyId));
       return;
     }
-    // --- ramo REAL: cruzar agendamentos/conversas com EmissionIntents ---
-    ok(res, []);
+// --- ramo REAL: emissões da empresa vindas do banco ---
+    ok(res, await cobrancasReais(deps.emissions, companyId));
   });
 
   // GET /api/cobrancas/metricas — resumo (pagos, pendentes, a cobrar, etc.)
@@ -52,7 +75,7 @@ export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
     const { companyId } = req.auth as AuthContext;
     const clientes = deps.useMock
       ? (mockData.cobrancasClientes(companyId) as ClienteCobranca[])
-      : [];
+      : await cobrancasReais(deps.emissions, companyId);
     ok(res, calcularMetricas(clientes));
   });
 
