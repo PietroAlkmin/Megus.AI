@@ -26,6 +26,15 @@ export class PrismaConversationRepository implements IConversationRepository {
     const r = await prisma.conversation.findFirst({ where: { integrationId, whatsappNumber: number } });
     return r ? convToDomain(r) : null;
   }
+
+  async listByIntegrationId(integrationId: string): Promise<Conversation[]> {
+    const rows = await prisma.conversation.findMany({
+      where: { integrationId },
+      orderBy: { lastInboundAt: "desc" },
+    });
+    return rows.map(convToDomain);
+  }
+  
   async save(conv: Conversation): Promise<void> {
     await prisma.conversation.upsert({
       where: { id: conv.id },

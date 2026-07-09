@@ -23,6 +23,16 @@ export class PrismaIntegrationRepository implements IIntegrationRepository {
     return r ? integrationToDomain(r, r.Company) : null;
   }
 
+  async listByCompanyId(companyId: string): Promise<Integration[]> {
+    const rows = await prisma.integration.findMany({
+      where: { companyId },
+      orderBy: { createdAt: "asc" },
+      include: { Company: true },
+    });
+    return rows.map((r: { Company: unknown } & Record<string, unknown>) =>
+      integrationToDomain(r as never, (r as { Company: never }).Company));
+  }
+
   /**
    * 1ª integração da empresa OU cria uma "Padrão" (mesmo padrão de
    * ensureDefaultIntegration em PrismaCompanyServiceRepository). A Company já

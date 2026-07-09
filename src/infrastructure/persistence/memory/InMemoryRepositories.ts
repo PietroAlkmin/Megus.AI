@@ -47,14 +47,9 @@ export class InMemoryRepositories {
     getByWhatsappNumber: async (n) =>
       this._integrations.find((i) => i.whatsappNumber === n) ?? null,
     getById: async (id) => this._integrations.find((i) => i.id === id) ?? null,
-    // O in-memory não modela companyId na Integration (só existe no Prisma/Company).
-    // Simplificação do piloto: há sempre 1 integração seedada, então devolvemos a
-    // primeira. A resolução real por companyId acontece no PrismaIntegrationRepository.
+
     getFirstByCompanyId: async (_companyId) => this._integrations[0] ?? null,
-    // Idem: sem companyId modelado aqui, "a empresa" no in-memory é sempre a única
-    // que existe no teste. Se já há alguma integração, devolve a 1ª (nunca duplica);
-    // senão cria uma "Padrão" e a guarda em _integrations. A resolução real por
-    // companyId (múltiplos tenants) é responsabilidade do PrismaIntegrationRepository.
+    listByCompanyId: async (_companyId) => this._integrations,
     ensureDefaultForCompany: async (_companyId) => {
       const existing = this._integrations[0];
       if (existing) return existing;
@@ -123,6 +118,10 @@ export class InMemoryRepositories {
       if (i >= 0) this._conversations[i] = conv;
       else this._conversations.push(conv);
     },
+
+    listByIntegrationId: async (integrationId) =>
+      this._conversations.filter((c) => c.integrationId === integrationId),
+    
     appendMessage: async (m) => { this._messages.push(m); },
     getHistory: async (conversationId, limit) =>
       this._messages.filter((m) => m.conversationId === conversationId).slice(-limit),

@@ -50,11 +50,8 @@ export interface IIntegrationRepository {
   getById(id: string): Promise<Integration | null>;
   /** 1ª integração da empresa (tenant) — usada pra resolver o agente do painel. */
   getFirstByCompanyId(companyId: string): Promise<Integration | null>;
-  /**
-   * 1ª integração da empresa OU cria uma "Padrão" se não houver nenhuma.
-   * Torna a ordem de cadastro irrelevante (configurar o agente antes de
-   * cadastrar qualquer serviço/WhatsApp real não deve mais 404).
-   */
+  /** Todas as integrações da empresa — usada pela tela de Atendimentos. */
+  listByCompanyId(companyId: string): Promise<Integration[]>;
   ensureDefaultForCompany(companyId: string): Promise<Integration>;
   /**
    * Grava o resultado do pareamento WhatsApp (provisionamento multi-tenant):
@@ -81,6 +78,7 @@ export interface IConversationRepository {
     number: string,
   ): Promise<Conversation>;
   findByWhatsappNumber(integrationId: string, number: string): Promise<Conversation | null>;
+  listByIntegrationId(integrationId: string): Promise<Conversation[]>;
   save(conversation: Conversation): Promise<void>;
   appendMessage(message: Message): Promise<void>;
   getHistory(conversationId: string, limit: number): Promise<Message[]>;

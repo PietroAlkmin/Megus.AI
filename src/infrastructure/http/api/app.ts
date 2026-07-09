@@ -60,12 +60,13 @@ export function createApiApp(deps: ApiDeps): Express {
   }));
 
   app.use("/api/agentes", atendimentosRoutes({
-    useMock: deps.useMock,
-    integrations: deps.repos.integrations,
-    conversations: deps.repos.conversations,
-    emissions: deps.repos.emissions,
-    authMiddleware,
-  }));
+      useMock: deps.useMock,
+      integrations: deps.repos.integrations,
+      agentConfigs: deps.repos.agentConfigs,
+      conversations: deps.repos.conversations,
+      emissions: deps.repos.emissions,
+      authMiddleware,
+    }));
 
   // Conversas: dois routers (um em /api/agentes para .../conversas, outro em /api/conversas)
   const conversas = createConversasRouters({

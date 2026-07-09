@@ -2,12 +2,14 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import Brand from "@/components/Brand";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { Bot, Building2, LogOut, Receipt, Users, Zap } from "lucide-react";
+import { Bot, Building2, LogOut, MessageSquare, MessagesSquare, Receipt, Users, Zap } from "lucide-react";
 
 // Empresa e Agente entram nesta etapa (Task 2 — onboarding) com rota própria.
 // Integrações segue reservada para o próximo canal além do WhatsApp.
 const NAV_ITEMS = [
-  { id: "atendimentos", label: "Atendimentos", icon: Users, to: "/" as const },
+  { id: "inicio", label: "Início", icon: Users, to: "/" as const },
+  { id: "atendimentos", label: "Atendimentos", icon: MessageSquare, to: "/atendimentos" as const },
+  { id: "conversas", label: "Conversas", icon: MessagesSquare, to: "/conversas" as const },
   { id: "empresa", label: "Empresa", icon: Building2, to: "/empresa" as const },
   { id: "agente", label: "Agente", icon: Bot, to: "/agente" as const },
   { id: "integracoes", label: "Integrações", icon: Zap, to: null },
