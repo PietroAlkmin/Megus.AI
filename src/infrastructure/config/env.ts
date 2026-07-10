@@ -23,7 +23,9 @@ const schema = z.object({
   AI_MODEL_VISION: z.string().default("gpt-5.4-mini"), // comprovante (visão); subir p/ gpt-5.5 só se errar
   // Teto de passos do loop de tools do cérebro (segurança + latência). Poucos passos
   // bastam: consultar agenda → propor → responder. Subir só se faltar passo.
-  AI_MAX_STEPS: z.coerce.number().default(4),
+  // int().positive(): um valor malformado (ex.: "abc"→NaN) FALHA no boot em vez de
+  // virar stepCountIs(NaN), que nunca dispara e deixaria o loop sem teto de segurança.
+  AI_MAX_STEPS: z.coerce.number().int().positive().default(4),
 
   // Mensageria — Evolution API (modo Baileys); REST + webhook.
   MESSAGING_PROVIDER: z.enum(["none", "evolution", "meta"]).default("evolution"),

@@ -22,9 +22,11 @@ export interface SdkGenerateText {
 }
 
 /**
- * Adapter do Vercel AI SDK para a porta IAgentEngine. É o ÚNICO arquivo acoplado
- * ao SDK `ai`/`@ai-sdk/openai`. Traduz nossos tipos → params do SDK, chama o loop,
- * e traduz o resultado de volta. O `generate` e a `modelFactory` são injetados.
+ * Adapter do Vercel AI SDK para a porta IAgentEngine. É o ÚNICO arquivo de LÓGICA
+ * acoplado ao SDK `ai`/`@ai-sdk/openai` — a raiz de composição (`main.ts`) importa
+ * `generateText`/`createOpenAI` apenas para injetá-los aqui. Traduz nossos tipos →
+ * params do SDK, chama o loop, e traduz o resultado de volta. O `generate` e a
+ * `modelFactory` são injetados.
  */
 export class VercelAgentEngine implements IAgentEngine {
   constructor(
@@ -56,6 +58,9 @@ export class VercelAgentEngine implements IAgentEngine {
       stopWhen: stepCountIs(options.maxSteps),
     });
 
+    // res.toolCalls agrega as chamadas de TODOS os steps do loop (ai@7.0.19,
+    // index.d.ts: GenerateTextResult.toolCalls "made in all steps") — então uma tool
+    // de negócio chamada num step ANTES do propose_next entra aqui na auditoria.
     const calls = (res.toolCalls ?? []).map((c) => ({
       name: c.toolName,
       arguments: (c.input ?? {}) as Record<string, unknown>,
