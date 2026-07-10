@@ -163,6 +163,12 @@ Forçar a tool é o que garante saída estruturada em vez de texto livre — o
 `AgentBrain` nunca faz parsing de linguagem natural. O modelo vem por
 variável de ambiente (`AI_MODEL_CHAT`), não hardcoded.
 
+A conversa roda, por baixo do `AgentBrain`, um loop de tools atrás da porta
+`IAgentEngine` (`VercelAgentEngine`, adapter do Vercel AI SDK, teto de passos
+em `AI_MAX_STEPS`) — o trilho fiscal (seção 4.4) segue determinístico fora
+desse loop, e a tool `get_current_datetime` hoje registrada é temporária,
+prova do loop ponta-a-ponta até a agenda real entrar (Fase B).
+
 `propose_next` (schema completo em `AgentBrain.ts`): devolve
 - `reply: string[]` — bolhas de texto pro cliente;
 - `action` — um enum de roteamento: `reply | answer_question | quote_price |
@@ -526,6 +532,7 @@ malformado. Nenhuma tem valor obrigatório sem default hoje (ver ressalva do
 | `OPENAI_API_KEY` | — | Chave da OpenAI |
 | `AI_MODEL_CHAT` | `gpt-5.4-mini` | Modelo do cérebro (conversa) |
 | `AI_MODEL_VISION` | `gpt-5.4-mini` | Modelo da análise de comprovante (visão) |
+| `AI_MAX_STEPS` | `4` | Teto de passos do loop de tools do cérebro |
 | `MESSAGING_PROVIDER` | `evolution` | `none` (log) / `evolution` (real) / `meta` (declarado, **não implementado** — lança erro no boot) |
 | `EVOLUTION_BASE_URL` | — | URL base da API Evolution |
 | `EVOLUTION_API_KEY` | — | Chave de API do Evolution |
