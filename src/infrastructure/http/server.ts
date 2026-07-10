@@ -64,10 +64,13 @@ export function createServer(deps: HttpDeps): Server {
         res.end(JSON.stringify({ status: "ok" }));
         return;
       }
-      if (req.method === "POST" && url === "/dev/inbound") {
+      // A rota de injeção fake SÓ existe quando o handler foi habilitado
+      // (DEV_INBOUND_ENABLED em dev local). Sem handler → 404: em produção
+      // ninguém dispara o cérebro nem fala em nome de um número sem auth.
+      if (req.method === "POST" && url === "/dev/inbound" && deps.onDevInbound) {
         const body = await readJson(req);
         res.writeHead(200).end("ok");
-        deps.onDevInbound?.(body).catch((e: unknown) => console.error("dev/inbound erro:", e));
+        deps.onDevInbound(body).catch((e: unknown) => console.error("dev/inbound erro:", e));
         return;
       }
       res.writeHead(404).end("not found");

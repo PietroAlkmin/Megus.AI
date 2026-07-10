@@ -1,4 +1,6 @@
 # Helper de demo: manda uma mensagem do "paciente" pro Kaua via /dev/inbound.
+# REQUER `DEV_INBOUND_ENABLED=true` no .env local (sem isso a rota responde 404 —
+# em produção ela fica desligada de propósito, é injeção sem auth).
 # Uso:
 #   .\dev-chat.ps1 "oi, agendei massagem e já paguei, como pego a nota?"
 #   .\dev-chat.ps1 "Pietro Augusto Mota Alkmin, CPF 546.252.558-30"

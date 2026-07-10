@@ -244,6 +244,53 @@ describe("painel com dados reais (sem mock)", () => {
   });
 });
 
+describe("serviços da empresa — isolamento de escrita (IDOR)", () => {
+  let server: Server;
+  afterEach(() => server?.close());
+
+  async function sobe(repos: InMemoryRepositories): Promise<string> {
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
+    const listening = await listen(app);
+    server = listening.server;
+    return `http://localhost:${listening.port}`;
+  }
+
+  it("POST com id de serviço de OUTRA empresa → 404 e o serviço do dono fica intacto", async () => {
+    const { repos } = await seedCenario();
+    const url = await sobe(repos);
+    const tokenC1 = makeToken("c1");
+    const tokenC2 = makeToken("c2");
+
+    // c1 cria o serviço
+    const criado = await fetch(`${url}/api/empresa/servicos`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenC1}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "svc-alvo", description: "Consulta", price: 250 }),
+    });
+    expect(criado.status).toBe(200);
+
+    // c2 tenta SOBRESCREVER o mesmo id (preço adulterado) → 404
+    const ataque = await fetch(`${url}/api/empresa/servicos`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenC2}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "svc-alvo", description: "Hackeado", price: 1 }),
+    });
+    expect(ataque.status).toBe(404);
+
+    // o serviço do dono segue como era
+    const lista = await fetch(`${url}/api/empresa/servicos`, { headers: { Authorization: `Bearer ${tokenC1}` } });
+    const body = (await lista.json()) as Envelope<Array<{ id: string; description: string; price: number }>>;
+    const alvo = body.data.find((s) => s.id === "svc-alvo")!;
+    expect(alvo.description).toBe("Consulta");
+    expect(alvo.price).toBe(250);
+
+    // e a lista de c2 não ganhou o serviço
+    const listaC2 = await fetch(`${url}/api/empresa/servicos`, { headers: { Authorization: `Bearer ${tokenC2}` } });
+    const bodyC2 = (await listaC2.json()) as Envelope<Array<{ id: string }>>;
+    expect(bodyC2.data.some((s) => s.id === "svc-alvo")).toBe(false);
+  });
+});
+
 describe("seletor de empresas (empresas + trocar-empresa)", () => {
   let server: Server;
   afterEach(() => server?.close());

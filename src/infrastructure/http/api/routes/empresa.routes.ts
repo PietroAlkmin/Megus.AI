@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { ok, fail } from "../result";
+import { DomainError } from "../../../../domain/errors/DomainError";
 import type { AuthContext } from "../authMiddleware";
 import type {
   ICompanyProfileRepository,
@@ -96,7 +97,16 @@ export function empresaRoutes(deps: EmpresaRoutesDeps): Router {
           id, companyId,
           code: d.code ?? "", description: d.description, issCode: d.issCode ?? "", price: d.price ?? 0,
         };
-        await deps.services.save(service);
+        try {
+          await deps.services.save(service);
+        } catch (e) {
+          // id de serviço de outra empresa → 404 (não confirma nem nega existência)
+          if (e instanceof DomainError) {
+            fail(res, e.message, 404, e.code);
+            return;
+          }
+          throw e;
+        }
         ok(res, { id: service.id, code: service.code, description: service.description, issCode: service.issCode, price: service.price });});
 
   // DELETE /api/empresa/servicos/:id — exclui um serviço

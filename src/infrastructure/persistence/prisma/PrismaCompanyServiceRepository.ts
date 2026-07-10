@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "./client";
+import { DomainError } from "../../../domain/errors/DomainError";
 import type { ICompanyServiceRepository, CompanyServiceItem } from "../../../domain/ports/repositories";
 
 /**
@@ -61,16 +62,31 @@ export class PrismaCompanyServiceRepository implements ICompanyServiceRepository
   }
 
   async save(service: CompanyServiceItem): Promise<void> {
+    const existing = await prisma.service.findUnique({ where: { id: service.id } });
+
+    if (existing) {
+      // id já existe: só o DONO atualiza — sem isso, um tenant que conheça o id
+      // sobrescreveria preço/código de serviço de OUTRA empresa (dado fiscal).
+      const integ = await prisma.integration.findFirst({
+        where: { id: existing.integrationId, companyId: service.companyId },
+      });
+      if (!integ) throw new DomainError("Serviço não encontrado.", "NOT_FOUND");
+
+      await prisma.service.update({
+        where: { id: service.id },
+        data: {
+          code: service.code,
+          description: service.description,
+          issCode: service.issCode,
+          price: service.price,
+        },
+      });
+      return;
+    }
+
     const integrationId = await this.ensureDefaultIntegration(service.companyId);
-    await prisma.service.upsert({
-      where: { id: service.id },
-      update: {
-        code: service.code,
-        description: service.description,
-        issCode: service.issCode,
-        price: service.price,
-      },
-      create: {
+    await prisma.service.create({
+      data: {
         id: service.id,
         integrationId,
         code: service.code,

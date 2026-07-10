@@ -219,19 +219,23 @@ async function bootstrap(): Promise<void> {
       );
       if (m) await handle.execute(m);
     },
-    onDevInbound: async (body) => {
-      const b = body as { from?: string; to?: string; kind?: string; text?: string; media?: unknown };
-      const m: InboundMessage = {
-        providerMessageId: "dev-" + (b.from ?? "x"),
-        from: b.from ?? "",
-        to: b.to ?? (env.PILOT_WHATSAPP_NUMBER ?? "5511999999999"),
-        kind: (b.kind ?? "text") as InboundMessage["kind"],
-        text: b.text ?? null,
-        media: (b.media as InboundMessage["media"]) ?? null,
-        timestamp: new Date(),
-      };
-      await handle.execute(m);
-    },
+    // Injeção fake de mensagem: só em dev local (DEV_INBOUND_ENABLED=true).
+    // Em produção o handler nem é passado → a rota responde 404.
+    onDevInbound: env.DEV_INBOUND_ENABLED
+      ? async (body) => {
+          const b = body as { from?: string; to?: string; kind?: string; text?: string; media?: unknown };
+          const m: InboundMessage = {
+            providerMessageId: "dev-" + (b.from ?? "x"),
+            from: b.from ?? "",
+            to: b.to ?? (env.PILOT_WHATSAPP_NUMBER ?? "5511999999999"),
+            kind: (b.kind ?? "text") as InboundMessage["kind"],
+            text: b.text ?? null,
+            media: (b.media as InboundMessage["media"]) ?? null,
+            timestamp: new Date(),
+          };
+          await handle.execute(m);
+        }
+      : undefined,
     getQr: () => messaging.getQrCode(),
   });
 

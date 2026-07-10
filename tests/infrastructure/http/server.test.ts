@@ -47,7 +47,9 @@ describe("http server", () => {
     expect(onDevInbound).toHaveBeenCalledOnce();
   });
 
-  it("POST /dev/inbound sem onDevInbound responde 200 sem erro", async () => {
+  it("POST /dev/inbound SEM handler (produção) responde 404 — a rota não existe", async () => {
+    // Sem DEV_INBOUND_ENABLED o main.ts não passa onDevInbound: injetar mensagem
+    // fake sem auth em produção dispararia o cérebro e falaria em nome de qualquer número.
     server = createServer({ onWebhook: async () => {}, getQr: async () => null });
     const port = await listen(server);
     const res = await fetch(`http://localhost:${port}/dev/inbound`, {
@@ -55,6 +57,6 @@ describe("http server", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from: "5511988887777", to: "5511900000000", kind: "text", text: "oi" }),
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(404);
   });
 });

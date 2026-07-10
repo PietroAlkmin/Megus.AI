@@ -6,6 +6,7 @@ import type { Integration } from "../../../domain/entities/Integration";
 import type { Message } from "../../../domain/entities/Message";
 import { ConversationState } from "../../../domain/entities/ConversationState";
 import type { Service } from "../../../domain/entities/Service";
+import { DomainError } from "../../../domain/errors/DomainError";
 import { randomUUID } from "node:crypto";
 import type { User } from "../../../domain/entities/User";
 import type { CompanyProfile } from "../../../domain/entities/CompanyProfile";
@@ -260,6 +261,12 @@ export class InMemoryRepositories {
     getById: async (companyId, id) =>
       this._companyServices.find((s) => s.companyId === companyId && s.id === id) ?? null,
     save: async (service) => {
+      // paridade com o Prisma (id é único global): id de OUTRA empresa não é
+      // atualizável nem "adotável" — mesmo contrato do isolamento de tenant.
+      const deOutraEmpresa = this._companyServices.some(
+        (s) => s.id === service.id && s.companyId !== service.companyId,
+      );
+      if (deOutraEmpresa) throw new DomainError("Serviço não encontrado.", "NOT_FOUND");
       const i = this._companyServices.findIndex(
         (s) => s.companyId === service.companyId && s.id === service.id,
       );

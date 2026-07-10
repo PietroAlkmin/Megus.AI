@@ -14,6 +14,9 @@ const schema = z.object({
   // API REST (/api) — autenticação e CORS.
   JWT_SECRET: z.string().default(DEV_JWT_SECRET),
   CORS_ORIGINS: z.string().default("*"),
+  // Rota POST /dev/inbound (injeção fake de mensagem, sem auth) — SÓ para dev
+  // local (dev-chat.ps1). Default false: em produção a rota nem existe (404).
+  DEV_INBOUND_ENABLED: z.string().default("false").transform((v) => v === "true"),
 
   // IA — provedor-agnóstico (atrás de IAIProvider). Modelo por env, SEM hardcode de versão.
   AI_PROVIDER: z.enum(["openai"]).default("openai"),
