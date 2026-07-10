@@ -1,4 +1,5 @@
 import { prisma } from "./prisma/client";
+import { pilotIntegrationUpdate } from "./pilotIntegration";
 
 // O piloto canônico JÁ existe em prod sob estes ids (decisão do Pietro 05/07:
 // reusar o int-piloto configurado, não criar uma empresa nova). co-piloto =
@@ -14,8 +15,11 @@ const SERVICE_PRICE = 180;
  * (e evolutionInstance) — para apontar o Kaua ao número real do chip. Não
  * sobrescreve identidade fiscal, serviço nem persona já existentes (update vazio);
  * as branches de `create` só valem num banco novo.
+ *
+ * `whatsappNumber` é OPCIONAL: se a env `PILOT_WHATSAPP_NUMBER` faltar num boot,
+ * o número NÃO é tocado (ver pilotIntegrationUpdate) — nunca gravamos placeholder.
  */
-export async function seedPilot(params: { whatsappNumber: string }): Promise<void> {
+export async function seedPilot(params: { whatsappNumber?: string }): Promise<void> {
   const now = new Date();
 
   await prisma.company.upsert({
@@ -25,11 +29,13 @@ export async function seedPilot(params: { whatsappNumber: string }): Promise<voi
   });
 
   // upsert POR ID evita a colisão do id fixo (o `create` do desenho anterior
-  // estourava unique constraint) e atualiza o número do piloto existente.
+  // estourava unique constraint) e atualiza o número do piloto existente. O update
+  // NÃO grava número fake quando a env falta (pilotIntegrationUpdate); o create só
+  // vale num banco novo, e aí "" é honesto (não configurado) — nunca um placeholder.
   await prisma.integration.upsert({
     where: { id: INTEGRATION_ID },
-    update: { whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", updatedAt: now },
-    create: { id: INTEGRATION_ID, companyId: COMPANY_ID, displayName: "Consultório", whatsappNumber: params.whatsappNumber, evolutionInstance: "Megus", active: true, updatedAt: now },
+    update: pilotIntegrationUpdate(params.whatsappNumber, now),
+    create: { id: INTEGRATION_ID, companyId: COMPANY_ID, displayName: "Consultório", whatsappNumber: params.whatsappNumber ?? "", evolutionInstance: "Megus", active: true, updatedAt: now },
   });
 
   await prisma.service.upsert({

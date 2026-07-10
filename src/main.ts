@@ -139,7 +139,7 @@ async function bootstrap(): Promise<void> {
     repos.conversations = new PrismaConversationRepository();
     repos.emissions = new PrismaEmissionIntentRepository();
     repos.services = new PrismaServiceRepository();
-    await seedPilot({ whatsappNumber: env.PILOT_WHATSAPP_NUMBER ?? "5511999999999" });
+    await seedPilot({ whatsappNumber: env.PILOT_WHATSAPP_NUMBER });
     await seedPilotAdmin();
     logger.info("[persistência] TODOS os repositórios usando Prisma (banco real) + piloto semeado (dados + login)");
   } else {
