@@ -42,7 +42,10 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      // data-[state=inactive]:hidden: o Radix esconde a aba inativa com o atributo
+      // `hidden`, mas classes de display (ex.: `flex`) vindas de fora venceriam o
+      // CSS do user-agent e deixariam um card vazio na tela — aqui a regra ganha.
+      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 data-[state=inactive]:hidden",
       className
     )}
     {...props}

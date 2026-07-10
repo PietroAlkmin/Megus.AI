@@ -3,16 +3,17 @@ import { apiFetch } from "@/lib/api";
 /** Um agente (integração) na tela de Atendimentos. Espelha o formato de `atendimentos.routes.ts`. */
 export interface Agente {
   id: string;
-  nome: string;
+  /** nome do agente configurado; null quando a integração ainda não tem agente */
+  nome: string | null;
   papel: string;
-  numero: string;
-  segmento: string;
-  doc: string;
+  /** número conectado; null quando o WhatsApp ainda não foi pareado */
+  numero: string | null;
+  /** id do segmento (ex.: "saude"); null sem agente configurado */
+  segmento: string | null;
   status: "operando" | "atencao" | "desconectado" | "pausado";
   conversas: number;
   notasHoje: number;
-  resp: string;
-  ultima: string;
+  aguardandoHumano: number;
   alerta: string | null;
 }
 

@@ -4,7 +4,6 @@ import { apiFetch } from "@/lib/api";
 export interface Cobranca {
   id: string;
   nome: string;
-  telefone: string;
   servico: string;
   valor: number;
   agendamento: string | null;

@@ -49,7 +49,9 @@ export default function CobrancasView() {
   const cobrarMutation = useMutation({
     mutationFn: cobrancasService.cobrar,
     onSuccess: () => {
-      toast.success("Cobrança enviada.");
+      // o backend registra a cobrança (chargeSentAt); o disparo automático no
+      // WhatsApp ainda não existe — não prometer o que não aconteceu
+      toast.success("Cobrança registrada.");
       queryClient.invalidateQueries({ queryKey: ["cobrancas"] });
     },
     onError: (error) => {

@@ -66,7 +66,7 @@ export default function ConversasView() {
                 a.id === agenteAtivo ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
               }`}
             >
-              {a.nome} · {a.papel}
+              {a.nome ? `${a.nome} · ${a.papel}` : a.papel}
             </button>
           ))}
         </div>

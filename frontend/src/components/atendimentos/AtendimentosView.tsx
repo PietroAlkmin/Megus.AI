@@ -3,6 +3,7 @@ import {
   Activity, Bot, FileText, Loader2, MessageSquare, TriangleAlert,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { segmentoLabel } from "@/lib/segmentos";
 import * as atendimentosService from "@/services/atendimentos";
 import type { Agente } from "@/services/atendimentos";
 
@@ -45,8 +46,9 @@ function AgenteCard({ a }: { a: Agente }) {
               <Bot className="size-5" />
             </span>
             <div>
-              <div className="font-semibold text-foreground">{a.nome}</div>
-              <div className="text-xs text-muted-foreground">{a.papel}</div>
+              {/* sem agente configurado, o título é a própria integração (papel) */}
+              <div className="font-semibold text-foreground">{a.nome ?? a.papel}</div>
+              {a.nome && <div className="text-xs text-muted-foreground">{a.papel}</div>}
             </div>
           </div>
           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${st.badge}`}>
@@ -54,11 +56,20 @@ function AgenteCard({ a }: { a: Agente }) {
           </span>
         </div>
 
+        {/* rows só existem quando o dado existe — sem placeholder de "—" */}
         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <div className="text-muted-foreground">Número</div>
-          <div className="text-right font-medium text-foreground">{a.numero}</div>
-          <div className="text-muted-foreground">Segmento</div>
-          <div className="text-right text-foreground">{a.segmento}</div>
+          {a.numero && (
+            <>
+              <div className="text-muted-foreground">Número</div>
+              <div className="text-right font-medium text-foreground">{a.numero}</div>
+            </>
+          )}
+          {a.segmento && (
+            <>
+              <div className="text-muted-foreground">Segmento</div>
+              <div className="text-right text-foreground">{segmentoLabel(a.segmento)}</div>
+            </>
+          )}
           <div className="text-muted-foreground">Conversas abertas</div>
           <div className="text-right text-foreground">{a.conversas}</div>
           <div className="text-muted-foreground">Notas hoje</div>

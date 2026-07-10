@@ -8,6 +8,8 @@ export interface AuthContextValue {
   isLoading: boolean;
   login: (payload: authService.LoginPayload) => Promise<void>;
   register: (payload: authService.RegisterPayload) => Promise<authService.RegisterResult>;
+  /** Troca a empresa ativa (re-emite o token) — seletor do topo. */
+  switchCompany: (companyId: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -53,10 +55,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return authService.register(payload);
   }, []);
 
+  const switchCompany = useCallback(async (companyId: string) => {
+    const result = await authService.trocarEmpresa(companyId);
+    setUser(result.user);
+  }, []);
+
   const logout = useCallback(() => {
     authService.logout();
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, isLoading, login, register, switchCompany, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

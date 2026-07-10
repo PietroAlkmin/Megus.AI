@@ -16,18 +16,12 @@ import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as agenteService from "@/services/agente";
 
+import { SEGMENTOS } from "@/lib/segmentos";
+
 // Conteúdo portado de `Megus Wireframe/src/whatsapp/AtendenteVirtualModal.jsx`
 // (seções 1/identidade, 2/personalidade, 3/instruções, 5/exemplos — as seções
 // 4/ações e o restante de 5/treinamento por arquivo ficam fora do escopo desta
 // rota: `GET/PUT /api/agente` só cobre os campos de persona).
-const SEGMENTOS = [
-  { id: "varejo", titulo: "Comércio / Varejo", desc: "Venda de mercadorias" },
-  { id: "restaurante", titulo: "Restaurante", desc: "Consumo no local e balcão" },
-  { id: "servicos", titulo: "Serviços / Consultório", desc: "Prestação de serviços" },
-  { id: "saude", titulo: "Saúde / Clínica", desc: "Consultas e procedimentos" },
-  { id: "beleza", titulo: "Beleza / Estética", desc: "Sessões e tratamentos" },
-  { id: "educacao", titulo: "Educação / Cursos", desc: "Aulas e mensalidades" },
-] as const;
 
 const TONS: { id: agenteService.AgenteTone; titulo: string; desc: string }[] = [
   { id: "formal", titulo: "Formal", desc: 'Tratamento por "senhor(a)"' },

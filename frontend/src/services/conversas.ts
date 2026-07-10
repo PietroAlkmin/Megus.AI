@@ -5,10 +5,10 @@ export interface Conversa {
   id: string;
   nome: string;
   telefone: string;
+  /** prévia da última mensagem ("" quando a conversa ainda não tem mensagens) */
   ultima: string;
   hora: string | null;
   status: "BOT" | "AGUARDANDO" | "HUMANO";
-  naoLidas: number;
 }
 
 /** Uma mensagem no chat (direita). */
