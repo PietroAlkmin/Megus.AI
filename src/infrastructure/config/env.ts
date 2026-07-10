@@ -21,6 +21,9 @@ const schema = z.object({
   // Disponibilidade varia por conta/tier — verdade-terreno: GET /v1/models.
   AI_MODEL_CHAT: z.string().default("gpt-5.4-mini"), // conversa (barato/rápido)
   AI_MODEL_VISION: z.string().default("gpt-5.4-mini"), // comprovante (visão); subir p/ gpt-5.5 só se errar
+  // Teto de passos do loop de tools do cérebro (segurança + latência). Poucos passos
+  // bastam: consultar agenda → propor → responder. Subir só se faltar passo.
+  AI_MAX_STEPS: z.coerce.number().default(4),
 
   // Mensageria — Evolution API (modo Baileys); REST + webhook.
   MESSAGING_PROVIDER: z.enum(["none", "evolution", "meta"]).default("evolution"),

@@ -1,11 +1,15 @@
 import OpenAI from "openai";
 import pino from "pino";
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { env } from "./infrastructure/config/env";
 import { InMemoryRepositories } from "./infrastructure/persistence/memory/InMemoryRepositories";
 import { MockCpfProvider } from "./infrastructure/cpf/MockCpfProvider";
 import { MockFiscalProvider } from "./infrastructure/fiscal/MockFiscalProvider";
 import { OpenAIProvider } from "./infrastructure/ai/OpenAIProvider";
 import { AgentBrain } from "./infrastructure/ai/AgentBrain";
+import { VercelAgentEngine } from "./infrastructure/ai/VercelAgentEngine";
+import { currentDateTimeTool } from "./infrastructure/ai/tools/currentDateTimeTool";
 import { ComprovanteAnalyzer } from "./infrastructure/ai/ComprovanteAnalyzer";
 import { MockComprovanteAnalyzer } from "./infrastructure/ai/MockComprovanteAnalyzer";
 import type { IComprovanteAnalyzer } from "./domain/ports/IComprovanteAnalyzer";
@@ -44,6 +48,11 @@ async function bootstrap(): Promise<void> {
     fetch: globalThis.fetch as unknown as undefined,
   }) as any;
   const ai = new OpenAIProvider(openai);
+
+  // Motor agêntico (loop de tools) — ÚNICO ponto acoplado ao Vercel AI SDK. generateText
+  // é injetado (testável); o model factory resolve o id do env por chamada.
+  const openaiSdk = createOpenAI({ apiKey: env.OPENAI_API_KEY ?? "placeholder-sem-chave" });
+  const agentEngine = new VercelAgentEngine(generateText as any, (id) => openaiSdk(id));
 
   // Seleciona provider de mensageria por env
   let messaging: IMessagingProvider;
@@ -143,7 +152,7 @@ async function bootstrap(): Promise<void> {
       ? new MockComprovanteAnalyzer({ amount: PILOT_SERVICE_PRICE, confidence: 1 })
       : new ComprovanteAnalyzer(ai, env.AI_MODEL_VISION);
   const stateMachine = new ConversationStateMachine({
-    brain: new AgentBrain(ai, env.AI_MODEL_CHAT),
+    brain: new AgentBrain(agentEngine, env.AI_MODEL_CHAT, [currentDateTimeTool], env.AI_MAX_STEPS),
     cpf,
     comprovante,
     fiscal: new MockFiscalProvider(env.MOCK_NOTA_PDF_URL),
