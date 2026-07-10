@@ -63,6 +63,17 @@ describe("AgentBrain", () => {
     expect(decision.action).toEqual({ type: "reply" });
   });
 
+  it("answer.reply vazio ([]) com texto → cai no texto (não retorna [])", async () => {
+    // trava o guard `.length > 0`: reply=[] mas o modelo emitiu texto → usa o texto.
+    // Um refactor pra `a.reply ?? [texto]` mudaria isso silenciosamente.
+    const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } }, text: "Posso ajudar!" });
+    const brain = new AgentBrain(engine, "gpt-4o");
+
+    const decision = await brain.decide(EMPTY_CONTEXT);
+
+    expect(decision.reply).toEqual(["Posso ajudar!"]);
+  });
+
   it("passa model, answerTool, tools e maxSteps para o motor", async () => {
     let seen: AgentEngineOptions | undefined;
     const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });
