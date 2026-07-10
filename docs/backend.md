@@ -157,17 +157,17 @@ interface AgentContext {
 ### 4.2 `AgentBrain` — o adapter que fala com o LLM
 
 `src/infrastructure/ai/AgentBrain.ts` implementa `IAgentBrain`. Monta as
-mensagens via `composePrompt`, chama `IAIProvider.completeWithTool` **forçando**
-uma única tool, `propose_next`, com um schema JSON (reply, action, extracted).
-Forçar a tool é o que garante saída estruturada em vez de texto livre — o
-`AgentBrain` nunca faz parsing de linguagem natural. O modelo vem por
+mensagens via `composePrompt` e roda um **loop de tools** atrás da porta
+`IAgentEngine` (`VercelAgentEngine`, adapter do Vercel AI SDK, teto de passos
+em `AI_MAX_STEPS`): o modelo pode chamar tools de negócio no loop e **encerra
+chamando a tool terminal `propose_next`**, com um schema JSON (reply, action,
+extracted). A tool terminal é o que garante saída estruturada em vez de texto
+livre — o `AgentBrain` nunca faz parsing de linguagem natural. O modelo vem por
 variável de ambiente (`AI_MODEL_CHAT`), não hardcoded.
 
-A conversa roda, por baixo do `AgentBrain`, um loop de tools atrás da porta
-`IAgentEngine` (`VercelAgentEngine`, adapter do Vercel AI SDK, teto de passos
-em `AI_MAX_STEPS`) — o trilho fiscal (seção 4.4) segue determinístico fora
-desse loop, e a tool `get_current_datetime` hoje registrada é temporária,
-prova do loop ponta-a-ponta até a agenda real entrar (Fase B).
+O trilho fiscal (seção 4.4) segue determinístico **fora** desse loop, e a tool
+`get_current_datetime` hoje registrada é temporária, prova do loop ponta-a-ponta
+até a agenda real entrar (Fase B).
 
 `propose_next` (schema completo em `AgentBrain.ts`): devolve
 - `reply: string[]` — bolhas de texto pro cliente;
@@ -186,20 +186,22 @@ identidade. É o código, não o modelo, que decide se e quando emitir.
 da OpenAI** no projeto inteiro. Implementa `completeWithTool` chamando
 `chat.completions.create` com `tool_choice` fixo na tool pedida e faz o parse
 do `arguments` (JSON) da tool call. Suporta conteúdo multimodal (texto +
-imagem em base64/URL) — usado tanto pelo `AgentBrain` (texto) quanto pelo
-`ComprovanteAnalyzer` (imagem do comprovante).
+imagem em base64/URL) — hoje usado pelo `ComprovanteAnalyzer` (imagem do
+comprovante); a conversa do `AgentBrain` passou a rodar pelo motor de loop de
+tools (`IAgentEngine`, seção 4.2), não mais por esta porta.
 
 Trocar de provedor de LLM (Anthropic, Gemini, etc.) é escrever uma nova
 classe `XProvider implements IAIProvider` — nenhuma outra camada do projeto
 conhece a OpenAI.
 
-**Decisão de arquitetura registrada no design do cérebro:** não reescrever
-`IAIProvider` para suportar um loop de tools multi-turno (a IA "pesquisando"
-preço/serviço via chamadas de function-calling sucessivas). Em vez disso, os
-dados que o modelo precisaria buscar (catálogo, empresa) já entram prontos no
-prompt ("seed-in-prompt") — uma única chamada por turno resolve "quanto
-custa?" sem round-trips extras. Loop agêntico multi-step fica como possível
-evolução futura, fora do caminho fiscal.
+**Decisão de arquitetura registrada no design do cérebro:** `IAIProvider`
+(uma chamada, tool forçada) **não** foi reescrita para o loop de tools — o loop
+mora numa porta separada, `IAgentEngine` (seção 4.2), e o `IAIProvider` segue
+enxuto para a visão/comprovante. Os dados de negócio que o modelo consultaria
+(catálogo, empresa) continuam entrando prontos no prompt ("seed-in-prompt"),
+então "quanto custa?" se resolve sem round-trips. O loop de tools existe para
+**ações externas** que precisam de round-trip de verdade (agenda na Fase B) —
+sempre fora do caminho fiscal.
 
 ### 4.4 A máquina de estados — `ConversationStateMachine`
 
@@ -584,10 +586,12 @@ npm run typecheck:test  # idem, para tests/
 npm test                # vitest run
 ```
 
-Estado atual (confirmado rodando a suíte): **24 arquivos de teste, 79 testes
-passando + 1 pulado** (`tests/prismaRepositories.contract.test.ts`, que só
-roda com `DATABASE_URL` setado — contra o Azure real, fora do alcance de um
-ambiente sandbox comum). Todos os testes rodam contra `InMemoryRepositories`
+Estado atual (confirmado rodando a suíte): **87 testes passando + 2 pulados**
+(em 28 arquivos). Os 2 pulados só rodam com credencial:
+`tests/prismaRepositories.contract.test.ts` exige `DATABASE_URL` (contra o
+Azure real) e `tests/infrastructure/ai/VercelAgentEngine.live.test.ts` exige
+`OPENAI_API_KEY` (o smoke ao vivo do loop de tools) — ambos fora do alcance de
+um ambiente sandbox comum. Todos os demais rodam contra `InMemoryRepositories`
 e providers mockados (`vi.fn()`), sem rede nem chave de API real — inclusive
 os testes do `OpenAIProvider`/`AgentBrain`/`ComprovanteAnalyzer` usam um
 cliente OpenAI fake injetado.
@@ -663,13 +667,14 @@ Checklist de produção — itens conhecidos e ainda pendentes, ver seção 11.
   o LLM é probabilístico, o ato fiscal não pode ser. Estruturalmente
   garantido por não injetar `IFiscalProvider`/`ICpfProvider`/`IComprovanteAnalyzer`
   nas classes que falam com o LLM (seção 4.4), não só por instrução de prompt.
-- **`propose_next` como tool única forçada** em vez de deixar o modelo
-  responder em texto livre — elimina parsing de linguagem natural e torna a
-  extração de `reply`/`action`/`extracted` determinística no código.
-- **Seed-in-prompt em vez de loop agêntico multi-turno.** Latência: uma
-  chamada por turno já resolve preço/catálogo porque os dados entram prontos
-  no `system`. Reduz custo e comportamento "robótico" de múltiplas chamadas
-  ao vivo numa conversa de WhatsApp.
+- **`propose_next` como tool terminal (answer tool) do loop** em vez de deixar
+  o modelo responder em texto livre — elimina parsing de linguagem natural e
+  torna a extração de `reply`/`action`/`extracted` determinística no código.
+- **Seed-in-prompt para os dados de negócio.** Latência: preço/catálogo entram
+  prontos no `system`, então isso se resolve sem round-trip — o loop de tools
+  fica reservado para ações externas (agenda) que de fato precisam de
+  ida-e-volta. Reduz custo e chamadas ao vivo desnecessárias numa conversa de
+  WhatsApp.
 - **CPF/nome mascarados no prompt, crus só no portão.** Minimiza PII que sai
   para o provedor de LLM sem enfraquecer a validação (que sempre usa o dado
   bruto do `Contact`, nunca o que foi ao prompt).
