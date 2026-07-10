@@ -46,7 +46,8 @@ describe("VercelAgentEngine", () => {
 
     const r = await engine.run(BASE_OPTS);
 
-    expect(r.toolCalls.map((c) => c.name)).toContain("get_current_datetime");
+    // exato (não só toContain): trava o contrato "a answer tool NÃO entra na auditoria".
+    expect(r.toolCalls.map((c) => c.name)).toEqual(["get_current_datetime"]);
     expect(r.answer).toEqual({ reply: ["Hoje é sexta."] });
   });
 
