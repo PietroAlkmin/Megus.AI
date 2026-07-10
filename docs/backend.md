@@ -56,8 +56,9 @@ mudança em `domain`/`application`.
 |---|---|---|
 | `IMessagingProvider` | `src/domain/ports/IMessagingProvider.ts` | Abstrai o WhatsApp (inbound/outbound, QR, status de conexão) |
 | `IWhatsAppProvisioner` | `src/domain/ports/IWhatsAppProvisioner.ts` | Provisiona uma instância de WhatsApp por empresa (admin API do provedor de mensageria) |
-| `IAIProvider` | `src/domain/ports/IAIProvider.ts` | Abstrai o provedor de LLM (`completeWithTool`, tool forçada = saída estruturada) |
+| `IAIProvider` | `src/domain/ports/IAIProvider.ts` | Abstrai o provedor de LLM numa **única** chamada com tool forçada (saída estruturada) — hoje usado pela visão/comprovante |
 | `IAgentBrain` | `src/domain/ports/IAgentBrain.ts` | O "cérebro": recebe um `AgentContext` rico e devolve uma `AgentDecision` (texto + ação proposta) |
+| `IAgentEngine` | `src/domain/ports/IAgentEngine.ts` | Motor do **loop de tools** por trás do cérebro (o modelo chama tools de negócio e encerra na answer tool `propose_next`); adapter `VercelAgentEngine` (Vercel AI SDK) |
 | `IComprovanteAnalyzer` | `src/domain/ports/IComprovanteAnalyzer.ts` | Extrai valor/pagador/recebedor de um comprovante de pagamento (visão) |
 | `ICpfProvider` | `src/domain/ports/ICpfProvider.ts` | Valida CPF↔nome numa fonte externa |
 | `IFiscalProvider` | `src/domain/ports/IFiscalProvider.ts` | Emite a NFS-e e cadastra o cliente no backend fiscal — **único** ponto que "faz o ato fiscal" |
