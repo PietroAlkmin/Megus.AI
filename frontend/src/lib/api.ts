@@ -2,7 +2,10 @@
 // apiClient.js do wireframe, promovida a TS: base em `VITE_API_URL`, Bearer
 // do localStorage quando houver, envelope `ResultResponse` desembrulhado.
 
-const API_URL = import.meta.env.VITE_API_URL;
+// Em produção (Vercel) a env fica vazia → base relativa "" → as chamadas batem
+// em /api/* na mesma origem, e o vercel.json faz proxy pro backend (evita o
+// bloqueio de mixed-content HTTPS→HTTP). Em dev, o .env aponta direto pro backend.
+const API_URL = import.meta.env.VITE_API_URL ?? "";
 const TOKEN_KEY = "megus_token";
 
 export function getToken(): string | null {
