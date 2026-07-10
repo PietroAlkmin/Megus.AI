@@ -42,15 +42,34 @@ export class PrismaEmissionIntentRepository implements IEmissionIntentRepository
       where: { integrationId: { in: ids } },
       orderBy: { createdAt: "desc" },
     });
-
-    return rows.map((r: {
-      id: string; tomadorName: string; tomadorCpf: string; description: string; amount: number;
-      status: string; appointmentAt: Date | null; paidAt: Date | null; chargeSentAt: Date | null;
-      notaNumber: string | null; createdAt: Date;
-    }) => ({
-      id: r.id, tomadorName: r.tomadorName, tomadorCpf: r.tomadorCpf, description: r.description,
-      amount: r.amount, status: r.status, appointmentAt: r.appointmentAt, paidAt: r.paidAt,
-      chargeSentAt: r.chargeSentAt, notaNumber: r.notaNumber, createdAt: r.createdAt,
-    }));
+    return rows.map(toCobrancaView);
   }
+
+  async listByIntegrationId(integrationId: string): Promise<CobrancaView[]> {
+    const rows = await prisma.emissionIntent.findMany({
+      where: { integrationId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(toCobrancaView);
+  }
+
+  async markCharged(id: string, when: Date): Promise<boolean> {
+    const result = await prisma.emissionIntent.updateMany({
+      where: { id },
+      data: { chargeSentAt: when, updatedAt: when },
+    });
+    return result.count > 0;
+  }
+}
+
+function toCobrancaView(r: {
+  id: string; tomadorName: string; tomadorCpf: string; description: string; amount: number;
+  status: string; appointmentAt: Date | null; paidAt: Date | null; chargeSentAt: Date | null;
+  notaNumber: string | null; createdAt: Date;
+}): CobrancaView {
+  return {
+    id: r.id, tomadorName: r.tomadorName, tomadorCpf: r.tomadorCpf, description: r.description,
+    amount: r.amount, status: r.status, appointmentAt: r.appointmentAt, paidAt: r.paidAt,
+    chargeSentAt: r.chargeSentAt, notaNumber: r.notaNumber, createdAt: r.createdAt,
+  };
 }

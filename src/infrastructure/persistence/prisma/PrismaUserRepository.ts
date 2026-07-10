@@ -19,7 +19,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findByEmail(email: string): Promise<User | null> {
     const row = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      include: { Membership: true },
+      include: { Membership: { orderBy: { createdAt: "asc" } } },
     });
     return row ? this.toDomain(row) : null;
   }
@@ -27,7 +27,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findById(id: string): Promise<User | null> {
     const row = await prisma.user.findUnique({
       where: { id },
-      include: { Membership: true },
+      include: { Membership: { orderBy: { createdAt: "asc" } } },
     });
     return row ? this.toDomain(row) : null;
   }

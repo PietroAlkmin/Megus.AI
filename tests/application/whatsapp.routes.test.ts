@@ -57,7 +57,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
       provision: vi.fn(async () => ({ qrBase64: "data:image/png;base64,ABC123" })),
       status: vi.fn(),
     };
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");
@@ -81,7 +81,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
   it("POST /connect sem token responde 401", async () => {
     const repos = seedRepos();
     const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
 
@@ -92,7 +92,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
   it("GET /status sem evolutionInstance ainda → connected:false, sem chamar o provisioner", async () => {
     const repos = seedRepos();
     const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");
@@ -115,7 +115,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
       provision: vi.fn(),
       status: vi.fn(async () => ({ connected: true, number: "5511988887777" })),
     };
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");
@@ -141,7 +141,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
       provision: vi.fn(),
       status: vi.fn(async () => ({ connected: false, number: null })),
     };
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");

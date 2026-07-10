@@ -3,11 +3,11 @@ import { integrationToDomain, agentConfigToDomain } from "../src/infrastructure/
 
 describe("integrationToDomain", () => {
   it("reconstrói fiscalDoc/fiscalName/fiscalProviderRef a partir da Company (drift)", () => {
-    const integ = { id: "int1", displayName: "Consultório", whatsappNumber: "5512997843384", evolutionInstance: "int_int1", active: true, createdAt: new Date(0), updatedAt: new Date(0) };
+    const integ = { id: "int1", companyId: "co1", displayName: "Consultório", whatsappNumber: "5512997843384", evolutionInstance: "int_int1", active: true, createdAt: new Date(0), updatedAt: new Date(0) };
     const company = { fiscalDoc: "66008326000173", fiscalName: "Clinica X", fiscalProviderRef: null };
     const out = integrationToDomain(integ, company);
     expect(out).toEqual({
-      id: "int1", displayName: "Consultório", whatsappNumber: "5512997843384", evolutionInstance: "int_int1",
+      id: "int1", companyId: "co1", displayName: "Consultório", whatsappNumber: "5512997843384", evolutionInstance: "int_int1",
       fiscalDoc: "66008326000173", fiscalName: "Clinica X", fiscalProviderRef: null,
       active: true, createdAt: new Date(0), updatedAt: new Date(0),
     });

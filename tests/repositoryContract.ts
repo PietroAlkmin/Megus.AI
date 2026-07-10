@@ -47,10 +47,33 @@ export async function assertRepositoryContract(repos: ReposBundle, hooks?: Contr
     expect(hist.map((m) => m.body)).toEqual(["oi", "olá!"]); // ordem cronológica
     expect(await repos.conversations.findByWhatsappNumber(B, "551111")).toBeNull(); // IDOR
 
+    // Conversation.getById + getLastMessage (preview do painel)
+    expect((await repos.conversations.getById(conv.id))?.id).toBe(conv.id);
+    expect(await repos.conversations.getById("conv-inexistente")).toBeNull();
+    expect((await repos.conversations.getLastMessage(conv.id))?.body).toBe("olá!");
+    expect(await repos.conversations.getLastMessage("conv-inexistente")).toBeNull();
+
+    // countMessagesSince: escopado às integrações passadas (métrica "mensagens hoje")
+    const ontem = new Date(Date.now() - 24 * 3600_000);
+    expect(await repos.conversations.countMessagesSince([A], ontem)).toBe(2);
+    expect(await repos.conversations.countMessagesSince([B], ontem)).toBe(0); // não conta o que é de A
+    expect(await repos.conversations.countMessagesSince([], ontem)).toBe(0);
+
     // EmissionIntent round-trip
     const intentId = randomUUID();
     await repos.emissions.save({ id: intentId, conversationId: conv.id, contactId: cA.id, integrationId: A, status: "ready", tomadorName: "Ana", tomadorCpf: "11111111111", serviceId: null, description: "Massagem", amount: 180, paymentVerified: true, paymentConfidence: 1, fiscalKey: null, pdfUrl: null, createdAt: now, updatedAt: now });
     expect((await repos.emissions.getById(intentId))?.status).toBe("ready");
+
+    // Emissões por integração (métrica "notas hoje") + IDOR
+    expect((await repos.emissions.listByIntegrationId(A)).map((v) => v.id)).toContain(intentId);
+    expect((await repos.emissions.listByIntegrationId(B)).map((v) => v.id)).not.toContain(intentId);
+
+    // markCharged registra o chargeSentAt (painel de cobranças)
+    const quando = new Date();
+    expect(await repos.emissions.markCharged(intentId, quando)).toBe(true);
+    expect(await repos.emissions.markCharged("emissao-inexistente", quando)).toBe(false);
+    const cobrada = (await repos.emissions.listByIntegrationId(A)).find((v) => v.id === intentId);
+    expect(cobrada?.chargeSentAt?.getTime()).toBe(quando.getTime());
   } finally {
     await hooks?.cleanup?.();
   }

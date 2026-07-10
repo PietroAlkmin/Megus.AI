@@ -9,11 +9,12 @@ const PILOT_COMPANY_ID = "co-piloto";
 
 /**
  * Reconcilia o login do piloto (idempotente): garante o usuário `piloto@megus.ai`
- * (senha `megus123`, bcrypt) e que ele tenha EXATAMENTE uma membership — a de
- * `co-piloto`. Memberships em outras empresas (resquício de execuções antigas
- * do seed, ex.: `company-piloto`) são removidas, para que o login resolva
- * companyId=co-piloto de forma determinística e o painel enxergue a
- * integração/agente do piloto (int-piloto/Kaua).
+ * (senha `megus123`, bcrypt) e a membership em `co-piloto` — que, por ser a mais
+ * antiga, é o default do login (PrismaUserRepository ordena por createdAt).
+ *
+ * NÃO remove memberships em outras empresas: com o seletor de empresas do painel,
+ * um usuário pertence a várias — o antigo deleteMany aqui desfaria a cada boot o
+ * acesso todos×todas concedido pelo seed da demo.
  */
 export async function seedPilotAdmin(): Promise<void> {
   const now = new Date();
@@ -29,12 +30,6 @@ export async function seedPilotAdmin(): Promise<void> {
       passwordHash,
       updatedAt: now,
     },
-  });
-
-  // Remove qualquer membership em empresa que NÃO seja a do piloto — garante
-  // EXATAMENTE uma membership por usuário.
-  await prisma.membership.deleteMany({
-    where: { userId: user.id, companyId: { not: PILOT_COMPANY_ID } },
   });
 
   await prisma.membership.upsert({

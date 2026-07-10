@@ -3,15 +3,17 @@ import { z } from "zod";
 
 dotenv.config();
 
+// Default de DEV do segredo JWT — público (está no repo). Em produção é proibido.
+const DEV_JWT_SECRET = "dev-secret-trocar-em-producao";
+
 /** Configuração tipada e validada. Falha cedo (no boot) se algo obrigatório faltar. */
 const schema = z.object({
   PORT: z.coerce.number().default(3000),
   LOG_LEVEL: z.string().default("info"),
 
   // API REST (/api) — autenticação e CORS.
-  JWT_SECRET: z.string().default("dev-secret-trocar-em-producao"),
+  JWT_SECRET: z.string().default(DEV_JWT_SECRET),
   CORS_ORIGINS: z.string().default("*"),
-  USE_MOCK_DATA: z.string().default("true").transform((v) => v === "true"),
 
   // IA — provedor-agnóstico (atrás de IAIProvider). Modelo por env, SEM hardcode de versão.
   AI_PROVIDER: z.enum(["openai"]).default("openai"),
@@ -58,3 +60,11 @@ const schema = z.object({
 export type Env = z.infer<typeof schema>;
 
 export const env: Env = schema.parse(process.env);
+
+// Fail-fast: com banco real (produção), o segredo JWT default (público, forjável)
+// derrubaria o isolamento de tenant inteiro — melhor não subir do que subir aberto.
+if (env.DATABASE_URL && env.JWT_SECRET === DEV_JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET obrigatório em produção: defina um segredo forte no .env (o default de dev é público e permite forjar tokens).",
+  );
+}

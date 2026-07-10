@@ -77,11 +77,16 @@ export interface IConversationRepository {
     contactId: string,
     number: string,
   ): Promise<Conversation>;
+  getById(conversationId: string): Promise<Conversation | null>;
   findByWhatsappNumber(integrationId: string, number: string): Promise<Conversation | null>;
   listByIntegrationId(integrationId: string): Promise<Conversation[]>;
   save(conversation: Conversation): Promise<void>;
   appendMessage(message: Message): Promise<void>;
   getHistory(conversationId: string, limit: number): Promise<Message[]>;
+  /** Última mensagem da conversa (preview na lista do painel). */
+  getLastMessage(conversationId: string): Promise<Message | null>;
+  /** Total de mensagens desde `since` nas integrações dadas (métrica "mensagens hoje"). */
+  countMessagesSince(integrationIds: string[], since: Date): Promise<number>;
 }
 
 export interface IEmissionIntentRepository {
@@ -89,6 +94,22 @@ export interface IEmissionIntentRepository {
   getById(id: string): Promise<EmissionIntent | null>;
   /** Lista as emissões de todas as integrações da empresa, como visão de cobrança. */
   listCobrancasByCompanyId(companyId: string): Promise<CobrancaView[]>;
+  /** Emissões de uma integração (métrica "notas hoje" por agente). */
+  listByIntegrationId(integrationId: string): Promise<CobrancaView[]>;
+  /** Registra que a cobrança foi disparada (chargeSentAt). false se a emissão não existe. */
+  markCharged(id: string, when: Date): Promise<boolean>;
+}
+
+/** Empresa a que um usuário tem acesso (seletor do painel). */
+export interface CompanyRef {
+  id: string;
+  name: string;
+}
+
+/** Vínculos usuário↔empresa (Membership) — base do seletor de empresas. */
+export interface IMembershipRepository {
+  listCompaniesByUserId(userId: string): Promise<CompanyRef[]>;
+  isMember(userId: string, companyId: string): Promise<boolean>;
 }
 
 export interface IServiceRepository {

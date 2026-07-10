@@ -22,6 +22,10 @@ export class PrismaConversationRepository implements IConversationRepository {
     });
     return convToDomain(created);
   }
+  async getById(conversationId: string): Promise<Conversation | null> {
+    const r = await prisma.conversation.findUnique({ where: { id: conversationId } });
+    return r ? convToDomain(r) : null;
+  }
   async findByWhatsappNumber(integrationId: string, number: string): Promise<Conversation | null> {
     const r = await prisma.conversation.findFirst({ where: { integrationId, whatsappNumber: number } });
     return r ? convToDomain(r) : null;
@@ -48,5 +52,15 @@ export class PrismaConversationRepository implements IConversationRepository {
   async getHistory(conversationId: string, limit: number): Promise<Message[]> {
     const rows = await prisma.message.findMany({ where: { conversationId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit });
     return rows.reverse().map(msgToDomain);
+  }
+  async getLastMessage(conversationId: string): Promise<Message | null> {
+    const r = await prisma.message.findFirst({ where: { conversationId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
+    return r ? msgToDomain(r) : null;
+  }
+  async countMessagesSince(integrationIds: string[], since: Date): Promise<number> {
+    if (integrationIds.length === 0) return 0;
+    return prisma.message.count({
+      where: { createdAt: { gte: since }, Conversation: { integrationId: { in: integrationIds } } },
+    });
   }
 }

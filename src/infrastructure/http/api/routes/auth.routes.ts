@@ -4,14 +4,17 @@ import { ok, fail } from "../result";
 import { DomainError } from "../../../../domain/errors/DomainError";
 import type { RegisterUser } from "../../../../application/use-cases/auth/RegisterUser";
 import type { LoginUser } from "../../../../application/use-cases/auth/LoginUser";
-import type { IUserRepository } from "../../../../domain/ports/repositories";
+import type { SwitchCompany } from "../../../../application/use-cases/auth/SwitchCompany";
+import type { IMembershipRepository, IUserRepository } from "../../../../domain/ports/repositories";
 import type { AuthContext } from "../authMiddleware";
 import bcrypt from "bcryptjs";
 
 export interface AuthRoutesDeps {
   registerUser: RegisterUser;
   loginUser: LoginUser;
+  switchCompany: SwitchCompany;
   users: IUserRepository;
+  memberships: IMembershipRepository;
   authMiddleware: (req: any, res: any, next: any) => void;
 }
 
@@ -33,6 +36,10 @@ const perfilSchema = z.object({
 const senhaSchema = z.object({
   senhaAtual: z.string().min(1, "Informe a senha atual."),
   senhaNova: z.string().min(6, "A nova senha precisa ter ao menos 6 caracteres."),
+});
+
+const trocarEmpresaSchema = z.object({
+  companyId: z.string().min(1, "Informe a empresa."),
 });
 
 export function authRoutes(deps: AuthRoutesDeps): Router {
@@ -76,7 +83,32 @@ export function authRoutes(deps: AuthRoutesDeps): Router {
       fail(res, "Usuário não encontrado.", 404, "NOT_FOUND");
       return;
     }
-    ok(res, { id: user.id, email: user.email, companyId: user.companyId, displayName: user.displayName });
+    // companyId do TOKEN (não da 1ª membership): preserva a empresa escolhida
+    // no seletor mesmo após refresh da página.
+    ok(res, { id: user.id, email: user.email, companyId: auth.companyId, displayName: user.displayName });
+  });
+
+  // GET /api/auth/empresas — empresas a que o usuário tem acesso (seletor do painel)
+  r.get("/empresas", deps.authMiddleware, async (req: Request, res: Response) => {
+    const auth = req.auth as AuthContext;
+    const empresas = await deps.memberships.listCompaniesByUserId(auth.userId);
+    ok(res, [...empresas].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+  });
+
+  // POST /api/auth/trocar-empresa — re-emite o token com o novo tenant (protegida)
+  r.post("/trocar-empresa", deps.authMiddleware, async (req: Request, res: Response) => {
+    const auth = req.auth as AuthContext;
+    const parsed = trocarEmpresaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      fail(res, parsed.error.issues[0]?.message ?? "Dados inválidos.", 400, "VALIDATION");
+      return;
+    }
+    try {
+      const out = await deps.switchCompany.execute({ userId: auth.userId, companyId: parsed.data.companyId });
+      ok(res, out, "Empresa alterada.");
+    } catch (e) {
+      handleError(res, e);
+    }
   });
 
   // PUT /api/auth/perfil — edita o nome do usuário (protegida)
@@ -124,6 +156,8 @@ function handleError(res: Response, e: unknown): void {
     // mapeia alguns códigos de domínio para status HTTP adequados
     const status = e.code === "AUTH_EMAIL_TAKEN" ? 409
       : e.code === "AUTH_INVALID_CREDENTIALS" ? 401
+      : e.code === "AUTH_COMPANY_FORBIDDEN" ? 403
+      : e.code === "AUTH_USER_NOT_FOUND" ? 404
       : 400;
     fail(res, e.message, status, e.code);
     return;

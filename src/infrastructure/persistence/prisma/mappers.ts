@@ -2,11 +2,12 @@ import type { Integration } from "../../../domain/entities/Integration";
 import type { AgentConfig, AgentCapabilities } from "../../../domain/entities/AgentConfig";
 
 export function integrationToDomain(
-  integ: { id: string; displayName: string; whatsappNumber: string; evolutionInstance: string; active: boolean; createdAt: Date; updatedAt: Date },
+  integ: { id: string; companyId: string; displayName: string; whatsappNumber: string; evolutionInstance: string; active: boolean; createdAt: Date; updatedAt: Date },
   company: { fiscalDoc: string; fiscalName: string; fiscalProviderRef: string | null },
 ): Integration {
   return {
     id: integ.id,
+    companyId: integ.companyId,
     displayName: integ.displayName,
     whatsappNumber: integ.whatsappNumber,
     evolutionInstance: integ.evolutionInstance,

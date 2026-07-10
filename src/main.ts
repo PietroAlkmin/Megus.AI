@@ -32,6 +32,7 @@ import { PrismaContactRepository } from "./infrastructure/persistence/prisma/Pri
 import { PrismaConversationRepository } from "./infrastructure/persistence/prisma/PrismaConversationRepository";
 import { PrismaEmissionIntentRepository } from "./infrastructure/persistence/prisma/PrismaEmissionIntentRepository";
 import { PrismaServiceRepository } from "./infrastructure/persistence/prisma/PrismaServiceRepository";
+import { PrismaMembershipRepository } from "./infrastructure/persistence/prisma/PrismaMembershipRepository";
 import { seedPilot } from "./infrastructure/persistence/seedPilot";
 import { seedPilotAdmin } from "./infrastructure/persistence/seedPilotAdmin";
 
@@ -79,9 +80,11 @@ async function bootstrap(): Promise<void> {
   // Repos in-memory + seed do piloto
   const repos = new InMemoryRepositories();
   repos.seed({
+    companies: [{ id: SEED_COMPANY_ID, name: "Empresa de teste (in-memory)" }],
     integrations: [
       {
         id: "int-piloto",
+        companyId: SEED_COMPANY_ID,
         displayName: "Consultório",
         whatsappNumber: env.PILOT_WHATSAPP_NUMBER ?? "5511999999999",
         fiscalDoc: "66008326000173",
@@ -139,6 +142,7 @@ async function bootstrap(): Promise<void> {
     repos.conversations = new PrismaConversationRepository();
     repos.emissions = new PrismaEmissionIntentRepository();
     repos.services = new PrismaServiceRepository();
+    repos.memberships = new PrismaMembershipRepository();
     await seedPilot({ whatsappNumber: env.PILOT_WHATSAPP_NUMBER });
     await seedPilotAdmin();
     logger.info("[persistência] TODOS os repositórios usando Prisma (banco real) + piloto semeado (dados + login)");
@@ -184,7 +188,6 @@ async function bootstrap(): Promise<void> {
     repos,
     jwtSecret: env.JWT_SECRET,
     corsOrigins: env.CORS_ORIGINS === "*" ? "*" : env.CORS_ORIGINS.split(",").map((s) => s.trim()),
-    useMock: env.USE_MOCK_DATA,
     provisioner,
   });
 

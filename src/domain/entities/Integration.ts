@@ -5,6 +5,9 @@
  */
 export interface Integration {
   id: string;
+  // Empresa dona (tenant). Opcional porque fixtures antigas não o setam; o caminho
+  // Prisma SEMPRE preenche (coluna do banco) — as rotas usam pra barrar acesso cruzado.
+  companyId?: string;
   displayName: string; // nome do cliente
   whatsappNumber: string; // número conectado (E.164) — só gravado a partir do ownerJid real
   // Nome da instância Evolution deste tenant (multi-tenant). Opcional/"" = ainda

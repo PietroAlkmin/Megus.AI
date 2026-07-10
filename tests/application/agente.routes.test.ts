@@ -87,7 +87,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("GET devolve a persona da integração da empresa logada", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");
@@ -113,7 +113,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("GET sem token responde 401", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
 
@@ -123,7 +123,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("PUT muda o tom, o GET seguinte reflete, e preserva linkedServiceIds/knowledgeFiles", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");
@@ -168,7 +168,7 @@ describe("GET/PUT /api/agente", () => {
     // Cadastro do zero: nenhuma integração seedada (nem serviço, nem WhatsApp
     // configurado antes). Configurar o agente deve funcionar mesmo assim.
     const repos = new InMemoryRepositories();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-nova");
@@ -208,7 +208,7 @@ describe("GET/PUT /api/agente", () => {
 
   it("PUT com dados inválidos responde 400", async () => {
     const repos = seedRepos();
-    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", useMock: false, provisioner });
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
     const token = makeToken("company-x");

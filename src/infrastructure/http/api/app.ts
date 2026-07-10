@@ -4,6 +4,7 @@ import { makeAuthMiddleware } from "./authMiddleware";
 import { authRoutes } from "./routes/auth.routes";
 import { RegisterUser } from "../../../application/use-cases/auth/RegisterUser";
 import { LoginUser } from "../../../application/use-cases/auth/LoginUser";
+import { SwitchCompany } from "../../../application/use-cases/auth/SwitchCompany";
 import type { InMemoryRepositories } from "../../persistence/memory/InMemoryRepositories";
 import { empresaRoutes } from "./routes/empresa.routes";
 import { agenteRoutes } from "./routes/agente.routes";
@@ -18,8 +19,6 @@ export interface ApiDeps {
   jwtSecret: string;
   /** origens permitidas no CORS (ex.: a URL do front no Vercel). "*" em dev. */
   corsOrigins: string[] | "*";
-  /** quando true, rotas de painel devolvem dados de exemplo (USE_MOCK_DATA). */
-  useMock: boolean;
   /** provisionamento de instância WhatsApp por tenant (Evolution admin API). */
   provisioner: IWhatsAppProvisioner;
 }
@@ -43,9 +42,21 @@ export function createApiApp(deps: ApiDeps): Express {
   // Casos de uso (DI manual, como no main.ts)
   const registerUser = new RegisterUser(deps.repos.users);
   const loginUser = new LoginUser({ users: deps.repos.users, jwtSecret: deps.jwtSecret });
+  const switchCompany = new SwitchCompany({
+    users: deps.repos.users,
+    memberships: deps.repos.memberships,
+    jwtSecret: deps.jwtSecret,
+  });
 
   // Rotas
-  app.use("/api/auth", authRoutes({ registerUser, loginUser, users: deps.repos.users, authMiddleware }));
+  app.use("/api/auth", authRoutes({
+    registerUser,
+    loginUser,
+    switchCompany,
+    users: deps.repos.users,
+    memberships: deps.repos.memberships,
+    authMiddleware,
+  }));
 
   app.use("/api/empresa", empresaRoutes({
     profiles: deps.repos.companyProfiles,
@@ -60,7 +71,6 @@ export function createApiApp(deps: ApiDeps): Express {
   }));
 
   app.use("/api/agentes", atendimentosRoutes({
-      useMock: deps.useMock,
       integrations: deps.repos.integrations,
       agentConfigs: deps.repos.agentConfigs,
       conversations: deps.repos.conversations,
@@ -70,8 +80,9 @@ export function createApiApp(deps: ApiDeps): Express {
 
   // Conversas: dois routers (um em /api/agentes para .../conversas, outro em /api/conversas)
   const conversas = createConversasRouters({
-    useMock: deps.useMock,
     conversations: deps.repos.conversations,
+    contacts: deps.repos.contacts,
+    integrations: deps.repos.integrations,
     authMiddleware,
   });
   app.use("/api/agentes", conversas.agentesRouter);
@@ -79,9 +90,8 @@ export function createApiApp(deps: ApiDeps): Express {
 
 
   app.use("/api/cobrancas", cobrancasRoutes({
-    useMock: deps.useMock,
-    conversations: deps.repos.conversations,
     emissions: deps.repos.emissions,
+    integrations: deps.repos.integrations,
     authMiddleware,
   }));
 

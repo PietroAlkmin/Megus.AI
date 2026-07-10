@@ -13,6 +13,7 @@ import type {
   IAgentConfigRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IIntegrationRepository, IServiceRepository,
   IUserRepository, ICompanyProfileRepository, ICompanyServiceRepository, CompanyServiceItem,
+  IMembershipRepository, CompanyRef,
 } from "../../../domain/ports/repositories";
 
 interface SeedData {
@@ -21,6 +22,10 @@ interface SeedData {
   contacts?: Contact[];
   services?: Service[];
   users?: User[];
+  /** Empresas com nome (seletor) — espelha a tabela Company do banco real. */
+  companies?: CompanyRef[];
+  /** Vínculos usuário↔empresa extras (além do criado junto com o usuário). */
+  memberships?: { userId: string; companyId: string }[];
 }
 
 export class InMemoryRepositories {
@@ -30,17 +35,42 @@ export class InMemoryRepositories {
   private _conversations: Conversation[] = [];
   private _messages: Message[] = [];
   private _emissions: EmissionIntent[] = [];
+  private _emissionChargedAt = new Map<string, Date>();
   private _services: Service[] = [];
   private _users: User[] = [];
   private _companyProfiles: CompanyProfile[] = [];
   private _companyServices: CompanyServiceItem[] = [];
+  private _companies: CompanyRef[] = [];
+  private _memberships: { userId: string; companyId: string; createdAt: Date }[] = [];
 
   seed(data: SeedData): void {
     if (data.integrations) this._integrations.push(...data.integrations);
     if (data.agentConfigs) this._agentConfigs.push(...data.agentConfigs);
     if (data.contacts) this._contacts.push(...data.contacts);
     if (data.services) this._services.push(...data.services);
-    if (data.users) this._users.push(...data.users);
+    if (data.users) {
+      this._users.push(...data.users);
+      // espelha o Prisma: usuário nasce com membership na própria empresa
+      for (const u of data.users) this.ensureMembership(u.id, u.companyId);
+    }
+    if (data.companies) this._companies.push(...data.companies);
+    if (data.memberships) {
+      for (const m of data.memberships) this.ensureMembership(m.userId, m.companyId);
+    }
+  }
+
+  private ensureMembership(userId: string, companyId: string): void {
+    if (!this._memberships.some((m) => m.userId === userId && m.companyId === companyId)) {
+      this._memberships.push({ userId, companyId, createdAt: new Date(this._memberships.length) });
+    }
+  }
+
+  private companyName(companyId: string): string {
+    return (
+      this._companies.find((c) => c.id === companyId)?.name ??
+      this._companyProfiles.find((p) => p.companyId === companyId)?.name ??
+      "Minha empresa"
+    );
   }
 
   integrations: IIntegrationRepository = {
@@ -48,14 +78,19 @@ export class InMemoryRepositories {
       this._integrations.find((i) => i.whatsappNumber === n) ?? null,
     getById: async (id) => this._integrations.find((i) => i.id === id) ?? null,
 
-    getFirstByCompanyId: async (_companyId) => this._integrations[0] ?? null,
-    listByCompanyId: async (_companyId) => this._integrations,
-    ensureDefaultForCompany: async (_companyId) => {
-      const existing = this._integrations[0];
+    // Integrações sem companyId (fixtures antigas) são visíveis a qualquer tenant;
+    // quando o campo existe, o filtro é estrito — igual ao Prisma.
+    getFirstByCompanyId: async (companyId) =>
+      this._integrations.find((i) => !i.companyId || i.companyId === companyId) ?? null,
+    listByCompanyId: async (companyId) =>
+      this._integrations.filter((i) => !i.companyId || i.companyId === companyId),
+    ensureDefaultForCompany: async (companyId) => {
+      const existing = this._integrations.find((i) => !i.companyId || i.companyId === companyId);
       if (existing) return existing;
       const now = new Date();
       const created: Integration = {
         id: "int_" + randomUUID().slice(0, 8),
+        companyId,
         displayName: "Padrão",
         whatsappNumber: "",
         fiscalDoc: "",
@@ -111,6 +146,8 @@ export class InMemoryRepositories {
       }
       return conv;
     },
+    getById: async (conversationId) =>
+      this._conversations.find((c) => c.id === conversationId) ?? null,
     findByWhatsappNumber: async (integrationId, number) =>
       this._conversations.find((c) => c.integrationId === integrationId && c.whatsappNumber === number) ?? null,
     save: async (conv) => {
@@ -121,10 +158,18 @@ export class InMemoryRepositories {
 
     listByIntegrationId: async (integrationId) =>
       this._conversations.filter((c) => c.integrationId === integrationId),
-    
+
     appendMessage: async (m) => { this._messages.push(m); },
     getHistory: async (conversationId, limit) =>
       this._messages.filter((m) => m.conversationId === conversationId).slice(-limit),
+    getLastMessage: async (conversationId) =>
+      this._messages.filter((m) => m.conversationId === conversationId).at(-1) ?? null,
+    countMessagesSince: async (integrationIds, since) => {
+      const convIds = new Set(
+        this._conversations.filter((c) => integrationIds.includes(c.integrationId)).map((c) => c.id),
+      );
+      return this._messages.filter((m) => convIds.has(m.conversationId) && m.createdAt >= since).length;
+    },
   };
 
   emissions: IEmissionIntentRepository = {
@@ -134,8 +179,33 @@ export class InMemoryRepositories {
       else this._emissions.push(intent);
     },
     getById: async (id) => this._emissions.find((e) => e.id === id) ?? null,
-    listCobrancasByCompanyId: async () => [],
+    listCobrancasByCompanyId: async (companyId) => {
+      const ids = this._integrations
+        .filter((i) => !i.companyId || i.companyId === companyId)
+        .map((i) => i.id);
+      return this._emissions
+        .filter((e) => ids.includes(e.integrationId))
+        .map((e) => this.toCobrancaView(e));
+    },
+    listByIntegrationId: async (integrationId) =>
+      this._emissions.filter((e) => e.integrationId === integrationId).map((e) => this.toCobrancaView(e)),
+    markCharged: async (id, when) => {
+      if (!this._emissions.some((e) => e.id === id)) return false;
+      this._emissionChargedAt.set(id, when);
+      return true;
+    },
   };
+
+  // A entidade de domínio EmissionIntent não carrega os campos de agenda/cobrança
+  // (appointmentAt/paidAt/notaNumber vivem só no banco); no in-memory a visão
+  // devolve null neles — o front condiciona a renderização, não inventa valor.
+  private toCobrancaView(e: EmissionIntent) {
+    return {
+      id: e.id, tomadorName: e.tomadorName, tomadorCpf: e.tomadorCpf, description: e.description,
+      amount: e.amount, status: e.status, appointmentAt: null, paidAt: null,
+      chargeSentAt: this._emissionChargedAt.get(e.id) ?? null, notaNumber: null, createdAt: e.createdAt,
+    };
+  }
 
   services: IServiceRepository = {
     getById: async (id) => this._services.find((s) => s.id === id) ?? null,
@@ -150,8 +220,28 @@ export class InMemoryRepositories {
     save: async (user) => {
       const i = this._users.findIndex((u) => u.id === user.id);
       if (i >= 0) this._users[i] = user;
-      else this._users.push(user);
+      else {
+        this._users.push(user);
+        // espelha o Prisma: usuário novo ganha membership (e a empresa, se inédita)
+        this.ensureMembership(user.id, user.companyId);
+        if (!this._companies.some((c) => c.id === user.companyId)) {
+          this._companies.push({
+            id: user.companyId,
+            name: user.displayName ? `Empresa de ${user.displayName}` : "Minha empresa",
+          });
+        }
+      }
     },
+  };
+
+  memberships: IMembershipRepository = {
+    listCompaniesByUserId: async (userId) =>
+      this._memberships
+        .filter((m) => m.userId === userId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .map((m) => ({ id: m.companyId, name: this.companyName(m.companyId) })),
+    isMember: async (userId, companyId) =>
+      this._memberships.some((m) => m.userId === userId && m.companyId === companyId),
   };
 
   companyProfiles: ICompanyProfileRepository = {

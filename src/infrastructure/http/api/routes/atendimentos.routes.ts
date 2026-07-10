@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { ok } from "../result";
-import { mockData } from "../mockData";
+import { startOfTodaySaoPaulo } from "../time";
+import { ConversationState } from "../../../../domain/entities/ConversationState";
 import type { AuthContext } from "../authMiddleware";
 import type {
   IIntegrationRepository,
@@ -10,7 +11,6 @@ import type {
 } from "../../../../domain/ports/repositories";
 
 export interface AtendimentosRoutesDeps {
-  useMock: boolean;
   integrations: IIntegrationRepository;
   agentConfigs: IAgentConfigRepository;
   conversations: IConversationRepository;
@@ -18,42 +18,43 @@ export interface AtendimentosRoutesDeps {
   authMiddleware: (req: Request, res: Response, next: () => void) => void;
 }
 
-// Monta a lista de "agentes" (uma por integração) com dados reais do banco.
+// Monta a lista de "agentes" (um por integração) com dados reais do banco.
+// Campos sem fonte real (tempo de resposta, não-lidas) NÃO existem no payload —
+// o painel omite o que o backend não mede (regra: nada de placeholder).
 async function agentesReais(deps: AtendimentosRoutesDeps, companyId: string) {
+  const hoje = startOfTodaySaoPaulo();
   const integrations = await deps.integrations.listByCompanyId(companyId);
   const agentes = [];
   for (const integ of integrations) {
     const cfg = await deps.agentConfigs.getByIntegrationId(integ.id);
+    const convs = await deps.conversations.listByIntegrationId(integ.id);
+    const abertas = convs.filter((c) => c.state !== ConversationState.Done);
+    const aguardandoHumano = abertas.filter((c) => c.humanHandoff).length;
+    const emissoes = await deps.emissions.listByIntegrationId(integ.id);
+    const notasHoje = emissoes.filter(
+      (e) => (e.status === "emitted" || e.notaNumber != null) && e.createdAt >= hoje,
+    ).length;
+
     const conectado = Boolean(integ.whatsappNumber);
     agentes.push({
       id: integ.id,
-      nome: cfg?.name ?? "Kaua",
+      nome: cfg?.name ?? null,
       papel: integ.displayName || "Recepção",
-      numero: integ.whatsappNumber || "—",
-      segmento: cfg?.segment ?? "Saúde / Clínica",
-      doc: "NFS-e",
+      numero: integ.whatsappNumber || null,
+      segmento: cfg?.segment ?? null,
       // sem agente = "atencao"; sem número = "desconectado"; senão "operando"
       status: !cfg ? "atencao" : !conectado ? "desconectado" : "operando",
-      conversas: 0,
-      notasHoje: 0,
-      resp: "—",
-      ultima: "—",
-      alerta: !cfg ? "Agente ainda não configurado" : null,
+      conversas: abertas.length,
+      notasHoje,
+      aguardandoHumano,
+      alerta: !cfg
+        ? "Agente ainda não configurado"
+        : aguardandoHumano > 0
+          ? `${aguardandoHumano} conversa${aguardandoHumano > 1 ? "s" : ""} aguardando atendimento humano`
+          : null,
     });
   }
   return agentes;
-}
-
-function metricasReais(agentes: Awaited<ReturnType<typeof agentesReais>>) {
-  return {
-    operando: agentes.filter((a) => a.status === "operando").length,
-    total: agentes.length,
-    abertas: agentes.reduce((s, a) => s + (a.conversas || 0), 0),
-    notasHoje: agentes.reduce((s, a) => s + (a.notasHoje || 0), 0),
-    msgsHoje: 0,
-    transferencias: 0,
-    alertas: agentes.filter((a) => a.alerta).length,
-  };
 }
 
 export function atendimentosRoutes(deps: AtendimentosRoutesDeps): Router {
@@ -63,22 +64,24 @@ export function atendimentosRoutes(deps: AtendimentosRoutesDeps): Router {
   // GET /api/agentes — lista de agentes da empresa logada
   r.get("/", async (req: Request, res: Response) => {
     const { companyId } = req.auth as AuthContext;
-    if (deps.useMock) {
-      ok(res, mockData.agentes(companyId));
-      return;
-    }
     ok(res, await agentesReais(deps, companyId));
   });
 
-  // GET /api/agentes/metricas — métricas agregadas da empresa
+  // GET /api/agentes/metricas — métricas agregadas da empresa (tudo medido do banco)
   r.get("/metricas", async (req: Request, res: Response) => {
     const { companyId } = req.auth as AuthContext;
-    if (deps.useMock) {
-      ok(res, mockData.agentesMetricas(companyId));
-      return;
-    }
     const agentes = await agentesReais(deps, companyId);
-    ok(res, metricasReais(agentes));
+    const integrationIds = agentes.map((a) => a.id);
+    const msgsHoje = await deps.conversations.countMessagesSince(integrationIds, startOfTodaySaoPaulo());
+    ok(res, {
+      operando: agentes.filter((a) => a.status === "operando").length,
+      total: agentes.length,
+      abertas: agentes.reduce((s, a) => s + a.conversas, 0),
+      notasHoje: agentes.reduce((s, a) => s + a.notasHoje, 0),
+      msgsHoje,
+      transferencias: agentes.reduce((s, a) => s + a.aguardandoHumano, 0),
+      alertas: agentes.filter((a) => a.alerta).length,
+    });
   });
 
   return r;
