@@ -32,11 +32,15 @@ export default function WhatsAppConnectPanel({ onConnected }: WhatsAppConnectPan
   const queryClient = useQueryClient();
   const [started, setStarted] = useState(false);
 
+  // Status na CARGA (não só após clicar): na página de Integrações um número já
+  // pareado precisa aparecer "Conectado!" de cara — antes, `enabled: started`
+  // deixava o painel em "Aguardando início" eterno após um refresh. O polling de
+  // 3s continua só durante o pareamento (started && !connected).
   const statusQuery = useQuery({
     queryKey: ["whatsapp", "status"],
     queryFn: whatsappService.status,
-    enabled: started,
-    refetchInterval: (query) => (query.state.data?.connected ? false : 3000),
+    refetchInterval: (query) => (query.state.data?.connected || !started ? false : 3000),
+    staleTime: 0,
   });
 
   const connectMutation = useMutation({
@@ -122,7 +126,7 @@ export default function WhatsAppConnectPanel({ onConnected }: WhatsAppConnectPan
                   : "Aguardando início"}
           </div>
 
-          {!started && !connectMutation.isPending && (
+          {!connected && !started && !connectMutation.isPending && (
             <Button type="button" onClick={() => connectMutation.mutate()} className="w-full">
               Conectar
             </Button>

@@ -28,6 +28,12 @@ export default function AgendaConnectCard() {
     queryKey: ["ferramentas", "agenda", "status"],
     queryFn: ferramentasService.agendaStatus,
     refetchInterval: (query) => (query.state.data?.conectado || !aguardando ? false : 3000),
+    // A autorização acontece NUMA OUTRA ABA (Google): o navegador throttla o
+    // polling em aba de fundo e o app desliga refetchOnWindowFocus globalmente —
+    // sem estes overrides, voltar pra cá exigia F5 pra ver "conectada".
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: "always",
+    staleTime: 0,
   });
 
   const conectarMutation = useMutation({

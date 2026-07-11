@@ -113,18 +113,23 @@ export class ComposioAgentToolsProvider implements IAgentToolsProvider, Composio
 
   /**
    * ÚNICO ponto que instancia o SDK real. `userId` do Composio = `companyId`
-   * (scoping por tenant). `toolkits: [GOOGLECALENDAR_TOOLKIT_SLUG]` no `create()` é
-   * filtro NATIVO (confirmado no .d.mts: `ToolRouterCreateSessionConfig.toolkits`) —
-   * best effort. Quem GARANTE o catálogo curado é `keepCalendarTools` (pura, testada):
-   * mesmo se o slug de toolkit estiver errado (ou a conta tiver outros toolkits
-   * conectados no futuro), nunca vaza tool fora do catálogo.
+   * (scoping por tenant).
+   *
+   * `composio.tools.get(userId, { tools: [...] })` — a superfície CLÁSSICA, pedindo
+   * EXATAMENTE a allowlist. NÃO usar `composio.create()` (Tool Router): provado ao
+   * vivo em 11/07 que a sessão devolve META-tools genéricas (COMPOSIO_SEARCH_TOOLS,
+   * COMPOSIO_REMOTE_BASH_TOOL etc.), nunca as do calendar — e um REMOTE_BASH jamais
+   * pode chegar ao modelo. `keepCalendarTools` continua como garantia final: mesmo
+   * se o fetch devolver mais do que pedimos, nada fora da allowlist passa.
    */
   static fromEnv(apiKey: string, ttlMs?: number): ComposioAgentToolsProvider {
     const composio = new Composio({ apiKey, provider: new VercelProvider() });
-    const sessions: ComposioSessionFactory = async (userId: string) => {
-      const session = await composio.create(userId, { toolkits: [GOOGLECALENDAR_TOOLKIT_SLUG] });
-      return { tools: async () => keepCalendarTools(await session.tools()) };
-    };
+    const sessions: ComposioSessionFactory = async (userId: string) => ({
+      tools: async () =>
+        keepCalendarTools(
+          (await composio.tools.get(userId, { tools: [...CALENDAR_TOOL_ALLOWLIST] })) as Record<string, unknown>,
+        ),
+    });
     // Ops de conexão (Task 3) — MESMO client Composio já criado acima (nenhuma
     // instância nova), ainda 100% confinado a este arquivo.
     //
