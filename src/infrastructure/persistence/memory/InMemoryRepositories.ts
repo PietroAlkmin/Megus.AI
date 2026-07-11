@@ -1,4 +1,5 @@
 import type { AgentConfig } from "../../../domain/entities/AgentConfig";
+import type { Charge } from "../../../domain/entities/Charge";
 import type { Contact } from "../../../domain/entities/Contact";
 import type { Conversation } from "../../../domain/entities/Conversation";
 import type { EmissionIntent } from "../../../domain/entities/EmissionIntent";
@@ -11,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import type { User } from "../../../domain/entities/User";
 import type { CompanyProfile } from "../../../domain/entities/CompanyProfile";
 import type {
-  IAgentConfigRepository, IContactRepository, IConversationRepository,
+  IAgentConfigRepository, IChargeRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IIntegrationRepository, IServiceRepository,
   IUserRepository, ICompanyProfileRepository, ICompanyServiceRepository, CompanyServiceItem,
   IMembershipRepository, CompanyRef,
@@ -37,6 +38,7 @@ export class InMemoryRepositories {
   private _messages: Message[] = [];
   private _emissions: EmissionIntent[] = [];
   private _emissionChargedAt = new Map<string, Date>();
+  private _charges: Charge[] = [];
   private _services: Service[] = [];
   private _users: User[] = [];
   private _companyProfiles: CompanyProfile[] = [];
@@ -202,6 +204,27 @@ export class InMemoryRepositories {
       this._emissions = this._emissions.filter(
         (e) => e.conversationId !== conversationId || e.status === "emitting" || e.status === "emitted",
       );
+    },
+  };
+
+  charges: IChargeRepository = {
+    save: async (charge) => {
+      const i = this._charges.findIndex((c) => c.id === charge.id);
+      if (i >= 0) this._charges[i] = charge;
+      else this._charges.push(charge);
+    },
+    getById: async (id) => this._charges.find((c) => c.id === id) ?? null,
+    listByCompanyId: async (companyId) => {
+      const ids = this._integrations.filter((i) => i.companyId === companyId).map((i) => i.id);
+      return this._charges
+        .filter((c) => ids.includes(c.integrationId))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    },
+    findLatestChargeableByContact: async (integrationId, contactId) => {
+      const cobraveis = this._charges
+        .filter((c) => c.integrationId === integrationId && c.contactId === contactId && c.status !== "paga")
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return cobraveis[0] ?? null;
     },
   };
 

@@ -24,6 +24,29 @@ model AgentConfig {
   Integration        Integration @relation(fields: [integrationId], references: [id])
 }
 
+model Charge {
+  id              String      @id
+  integrationId   String
+  contactId       String
+  serviceId       String?
+  description     String
+  amount          Float
+  status          String
+  calendarEventId String?
+  chargedAt       DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime
+  Integration     Integration @relation(fields: [integrationId], references: [id])
+  // NoAction: SQL Server recusa múltiplos caminhos de cascade pro mesmo destino
+  // (Company→Integration→Charge E Company→Integration→Contact→Charge). Quebra
+  // o ciclo nesta perna (a mais nova); Integration segue com o default, igual
+  // a todo outro model do arquivo.
+  Contact         Contact     @relation(fields: [contactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([integrationId, status])
+}
+
 model Company {
   id                    String        @id
   name                  String
@@ -57,6 +80,7 @@ model Contact {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime
   Integration     Integration @relation(fields: [integrationId], references: [id])
+  Charge          Charge[]
 
   @@index([integrationId, cpf])
   @@index([integrationId, whatsappNumber])
@@ -112,6 +136,7 @@ model Integration {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime
   AgentConfig       AgentConfig?
+  Charge            Charge[]
   Contact           Contact[]
   Conversation      Conversation[]
   EmissionIntent    EmissionIntent[]

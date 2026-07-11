@@ -1,4 +1,5 @@
 import type { AgentConfig } from "../entities/AgentConfig";
+import type { Charge } from "../entities/Charge";
 import type { Contact } from "../entities/Contact";
 import type { Conversation } from "../entities/Conversation";
 import type { EmissionIntent } from "../entities/EmissionIntent";
@@ -105,6 +106,15 @@ export interface IEmissionIntentRepository {
    * teste /reset. Emissões emitting/emitted são registro fiscal: nunca se apagam.
    */
   deleteUnemittedByConversationId(conversationId: string): Promise<void>;
+}
+
+export interface IChargeRepository {
+  save(charge: Charge): Promise<void>;
+  getById(id: string): Promise<Charge | null>;
+  /** Cobranças das integrações da EMPRESA (join Integration.companyId), mais novas primeiro. */
+  listByCompanyId(companyId: string): Promise<Charge[]>;
+  /** Cobrança "cobrável" mais recente do contato (status != paga) — o gate B marca paga. */
+  findLatestChargeableByContact(integrationId: string, contactId: string): Promise<Charge | null>;
 }
 
 /** Empresa a que um usuário tem acesso (seletor do painel). */
