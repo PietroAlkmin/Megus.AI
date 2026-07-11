@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ComposioAgentToolsProvider, keepCalendarTools, type ComposioSessionFactory } from "../../../src/infrastructure/tools/composio/ComposioAgentToolsProvider";
+import { ComposioAgentToolsProvider, keepCalendarTools, type ComposioSessionFactory, type ComposioConnectOps } from "../../../src/infrastructure/tools/composio/ComposioAgentToolsProvider";
 
 /** Fábrica fake — mesmo shape do ComposioSessionFactory (userId → sessão com .tools()). Zero rede. */
 function fakeSessions(toolsByUser: Record<string, Record<string, unknown>>): ComposioSessionFactory {
@@ -130,5 +130,43 @@ describe("keepCalendarTools (curadoria do catálogo — garantia anti-vazamento)
 
   it("vazio → vazio (sem surpresa)", () => {
     expect(keepCalendarTools({})).toEqual({});
+  });
+});
+
+describe("ComposioAgentToolsProvider — ops de conexão (initiate/listActive, Task 3)", () => {
+  it("initiate delega pro client de conexão injetado, com os mesmos argumentos e shape", async () => {
+    const connect: ComposioConnectOps = {
+      initiate: vi.fn(async () => ({ id: "conn_1", redirectUrl: "https://accounts.google.com/o/oauth2/auth?x=1" })),
+      listActive: vi.fn(async () => 0),
+    };
+    const provider = new ComposioAgentToolsProvider(fakeSessions({}), undefined, connect);
+
+    const result = await provider.initiate("co-A", "ac_123");
+
+    expect(result).toEqual({ id: "conn_1", redirectUrl: "https://accounts.google.com/o/oauth2/auth?x=1" });
+    expect(connect.initiate).toHaveBeenCalledWith("co-A", "ac_123");
+  });
+
+  it("listActive delega pro client de conexão injetado, com os mesmos argumentos", async () => {
+    const connect: ComposioConnectOps = {
+      initiate: vi.fn(),
+      listActive: vi.fn(async () => 3),
+    };
+    const provider = new ComposioAgentToolsProvider(fakeSessions({}), undefined, connect);
+
+    const result = await provider.listActive("co-A", "googlecalendar");
+
+    expect(result).toBe(3);
+    expect(connect.listActive).toHaveBeenCalledWith("co-A", "googlecalendar");
+  });
+
+  it("initiate sem client de conexão injetado (construído fora do fromEnv) lança erro claro em vez de quebrar silenciosamente", async () => {
+    const provider = new ComposioAgentToolsProvider(fakeSessions({}));
+    await expect(provider.initiate("co-A", "ac_123")).rejects.toThrow(/sem client de conexão/);
+  });
+
+  it("listActive sem client de conexão injetado (construído fora do fromEnv) lança erro claro em vez de quebrar silenciosamente", async () => {
+    const provider = new ComposioAgentToolsProvider(fakeSessions({}));
+    await expect(provider.listActive("co-A", "googlecalendar")).rejects.toThrow(/sem client de conexão/);
   });
 });

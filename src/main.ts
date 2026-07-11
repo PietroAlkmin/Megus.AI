@@ -191,12 +191,16 @@ async function bootstrap(): Promise<void> {
   messaging.onInboundMessage((m) => handle.execute(m));
   await messaging.start();
 
-  // App Express da API REST (/api).
+  // App Express da API REST (/api). connectOps é o MESMO toolsProvider usado no
+  // cérebro (Fase B) — undefined sem COMPOSIO_API_KEY, então /conectar responde 503
+  // e /status responde conectado:false, sem quebrar nada (ver ferramentas.routes.ts).
   const apiApp = createApiApp({
     repos,
     jwtSecret: env.JWT_SECRET,
     corsOrigins: env.CORS_ORIGINS === "*" ? "*" : env.CORS_ORIGINS.split(",").map((s) => s.trim()),
     provisioner,
+    connectOps: toolsProvider,
+    gcalAuthConfigId: env.COMPOSIO_GCAL_AUTH_CONFIG_ID,
   });
 
   // Sem banco (dev local/sandbox): usuário de teste para login imediato via

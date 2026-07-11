@@ -170,6 +170,21 @@ O trilho fiscal (seção 4.4) segue determinístico **fora** desse loop, e a too
 `get_current_datetime` hoje registrada é temporária, prova do loop ponta-a-ponta
 até a agenda real entrar (Fase B).
 
+**Ferramentas (agenda):** a agenda real entrou por aí — cada empresa conecta a
+própria conta do Google Calendar (OAuth **por empresa**, nunca uma conta
+global) através do Composio (`IAgentToolsProvider`/`ComposioAgentToolsProvider`
+em `src/infrastructure/tools/composio/`, variáveis `COMPOSIO_*` na seção 8). O
+catálogo que chega ao loop e ao prompt é **curado**: só as tools do Google
+Calendar (prefixo `GOOGLECALENDAR_`) passam, nunca o catálogo inteiro que o
+Composio expõe. A confirmação antes de marcar ("propõe um horário → cliente
+confirma → só então marca") **não tem trava em código** nesta fase: é um
+comportamento esperado do modelo, guiado só pela descrição nativa da tool de
+criar evento — limitação assumida do MVP; endurecer essa confirmação em código
+(ex.: exigir uma etapa explícita de confirmação antes de qualquer chamada que
+crie evento) fica como item de uma fase futura. Sem `COMPOSIO_API_KEY`
+configurada, esta camada nem existe — o comportamento é idêntico ao de antes
+da Fase B.
+
 `propose_next` (schema completo em `AgentBrain.ts`): devolve
 - `reply: string[]` — bolhas de texto pro cliente;
 - `action` — um enum de roteamento: `reply | answer_question | quote_price |
@@ -482,6 +497,8 @@ interface ResultResponse<T> {
 | POST | `/api/cobrancas/:id/cobrar` | sim | Dispara cobrança via WhatsApp (hoje só confirma, sem enfileirar nada) |
 | POST | `/api/agente/whatsapp/connect` | sim | Cria/reusa a instância Evolution da empresa, devolve QR |
 | GET | `/api/agente/whatsapp/status` | sim | Estado da conexão + número real (do `ownerJid`) |
+| POST | `/api/agente/ferramentas/agenda/conectar` | sim | Inicia o OAuth da agenda (Google Calendar) da empresa logada; 503 sem Composio configurado |
+| GET | `/api/agente/ferramentas/agenda/status` | sim | Se a empresa logada já tem a agenda conectada (nunca 5xx — sempre `conectado:false` na dúvida) |
 
 Fora do prefixo `/api` (HTTP nativo, sem autenticação):
 
@@ -549,6 +566,9 @@ malformado. Nenhuma tem valor obrigatório sem default hoje (ver ressalva do
 | `CPF_MAX_ATTEMPTS` | `2` | Tentativas antes do handoff no Portão A |
 | `PILOT_WHATSAPP_NUMBER` | — | Número (E.164 sem `+`) da integração seed do piloto |
 | `DATABASE_URL` | — | String de conexão SQL Server (formato `mssql`/mssql driver). Vazio = tudo in-memory |
+| `COMPOSIO_API_KEY` | — | Chave do Composio (ferramentas dinâmicas por empresa, seção 4.2). Vazia = a camada nem existe |
+| `COMPOSIO_GCAL_AUTH_CONFIG_ID` | — | Id do Auth Config do Google Calendar no Composio (dashboard, formato `ac_...`). Vazio = `POST /agente/ferramentas/agenda/conectar` responde 503 |
+| `COMPOSIO_TOOLS_TTL_S` | `300` | TTL (segundos) do cache do toolset por empresa |
 
 ## 9. Como rodar e testar
 

@@ -12,7 +12,9 @@ import { atendimentosRoutes } from "./routes/atendimentos.routes";
 import { createConversasRouters } from "./routes/conversas.routes";
 import { cobrancasRoutes } from "./routes/cobrancas.routes";
 import { whatsappRoutes } from "./routes/whatsapp.routes";
+import { ferramentasRoutes } from "./routes/ferramentas.routes";
 import type { IWhatsAppProvisioner } from "../../../domain/ports/IWhatsAppProvisioner";
+import type { ComposioConnectOps } from "../../tools/composio/ComposioAgentToolsProvider";
 
 export interface ApiDeps {
   repos: InMemoryRepositories;
@@ -21,6 +23,10 @@ export interface ApiDeps {
   corsOrigins: string[] | "*";
   /** provisionamento de instância WhatsApp por tenant (Evolution admin API). */
   provisioner: IWhatsAppProvisioner;
+  /** Ops de conexão Composio (Fase B — agenda). `undefined` = recurso desligado (sem COMPOSIO_API_KEY). */
+  connectOps?: ComposioConnectOps;
+  /** Auth Config id do Google Calendar no Composio (dashboard). `undefined` = /conectar fica 503. */
+  gcalAuthConfigId?: string;
 }
 
 /**
@@ -98,6 +104,12 @@ export function createApiApp(deps: ApiDeps): Express {
   app.use("/api/agente/whatsapp", whatsappRoutes({
     integrations: deps.repos.integrations,
     provisioner: deps.provisioner,
+    authMiddleware,
+  }));
+
+  app.use("/api/agente/ferramentas", ferramentasRoutes({
+    connectOps: deps.connectOps,
+    gcalAuthConfigId: deps.gcalAuthConfigId,
     authMiddleware,
   }));
 
