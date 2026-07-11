@@ -47,7 +47,9 @@ function buildIdentityBlock(ctx: AgentContext): string {
   return (
     `Você é o ${ctx.persona.name}, atendente da ${displayName}. ` +
     `${TONE_DIRECTIVE[ctx.persona.tone]} ${emojiDirective} ${LANG_DIRECTIVE[ctx.persona.lang]} ` +
-    `Segmento: ${segmento}.`
+    `Segmento: ${segmento}. ` +
+    // Canal, não segmento: vale pra todo tenant. Markdown (**/##) vaza literal na tela.
+    `Você conversa pelo WhatsApp: para destacar use *asterisco simples* ou _sublinhado_; nunca Markdown (** ou ##).`
   );
 }
 

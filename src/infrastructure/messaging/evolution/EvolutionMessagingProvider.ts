@@ -5,6 +5,7 @@ import type {
   OutboundMedia,
   OutboundText,
 } from "../../../domain/ports/IMessagingProvider";
+import { toWhatsAppFormatting } from "../whatsappFormat";
 
 export interface EvolutionConfig {
   baseUrl: string;
@@ -42,7 +43,8 @@ export class EvolutionMessagingProvider implements IMessagingProvider {
     const instance = msg.instance ?? this.cfg.instance;
     await this.req(`/message/sendText/${instance}`, "POST", {
       number: msg.to,
-      text: msg.text,
+      // Garantia no fio: Markdown do modelo (**x**) vira formatação do WhatsApp (*x*).
+      text: toWhatsAppFormatting(msg.text),
     });
   }
 
@@ -64,7 +66,7 @@ export class EvolutionMessagingProvider implements IMessagingProvider {
       mimetype: msg.mimetype,
       media,
       fileName: msg.filename,
-      caption: msg.caption,
+      caption: msg.caption ? toWhatsAppFormatting(msg.caption) : msg.caption,
     });
   }
 

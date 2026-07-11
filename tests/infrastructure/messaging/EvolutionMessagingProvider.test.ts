@@ -14,6 +14,15 @@ describe("EvolutionMessagingProvider", () => {
     expect(JSON.parse(opts.body as string).text).toBe("oi");
   });
 
+  it("sendText converte Markdown do modelo pra formatação do WhatsApp no fio", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}), text: async () => "" })) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock);
+    const p = new EvolutionMessagingProvider({ baseUrl: "http://evo:8080", apiKey: "k", instance: "megus" });
+    await p.sendText({ to: "5511988887777", text: "Agora são **16:54** em São Paulo." });
+    const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(opts.body as string).text).toBe("Agora são *16:54* em São Paulo.");
+  });
+
   it("sendMedia busca a URL e envia como base64 (Evolution rejeita URL interna)", async () => {
     const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
     const fetchMock = vi.fn(async (url: string) => {
