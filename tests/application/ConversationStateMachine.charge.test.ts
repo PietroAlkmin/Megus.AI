@@ -105,6 +105,63 @@ describe("ConversationStateMachine — cobrança pendente nasce com o evento (Ta
     expect(charge).toBeNull();
   });
 
+  it("soft-error do Composio (successful:false) NÃO cria Charge — resolve-sem-lançar não é marcação", async () => {
+    // Composio costuma RESOLVER com envelope {successful:false, error} em vez de
+    // lançar — o ai@7 lista isso em toolResults como se fosse sucesso. Num turno
+    // VERIFICADO o filtro do gate não se aplica; quem barra é este guard.
+    const repos = new InMemoryRepositories();
+    const deps = depsWith(repos);
+    (deps.brain.decide as any).mockResolvedValue({
+      reply: ["Não consegui marcar agora."],
+      action: { type: "reply" },
+      toolResults: [{ name: BOOKING_TOOL_NAME, output: { successful: false, data: null, error: "insufficient permissions" } }],
+    });
+    const conv = await verifiedConversation(repos);
+    const sm = new ConversationStateMachine(deps);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await sm.advance(conv, agentConfig, integration, inbound("marca aí"));
+
+    expect(await repos.charges.findLatestChargeableByContact("int1", "ct1")).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("output com chave error truthy também NÃO cria Charge", async () => {
+    const repos = new InMemoryRepositories();
+    const deps = depsWith(repos);
+    (deps.brain.decide as any).mockResolvedValue({
+      reply: ["Falhou."],
+      action: { type: "reply" },
+      toolResults: [{ name: BOOKING_TOOL_NAME, output: { error: "quota exceeded" } }],
+    });
+    const conv = await verifiedConversation(repos);
+    const sm = new ConversationStateMachine(deps);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await sm.advance(conv, agentConfig, integration, inbound("marca aí"));
+
+    expect(await repos.charges.findLatestChargeableByContact("int1", "ct1")).toBeNull();
+    warnSpy.mockRestore();
+  });
+
+  it("output de sucesso com error:null/successful:true passa normal (não confunde com falha)", async () => {
+    const repos = new InMemoryRepositories();
+    const deps = depsWith(repos);
+    (deps.brain.decide as any).mockResolvedValue({
+      reply: ["Marcado!"],
+      action: { type: "reply" },
+      toolResults: [{ name: BOOKING_TOOL_NAME, output: { successful: true, error: null, data: { response_data: { id: "evt-ok" } } } }],
+    });
+    const conv = await verifiedConversation(repos);
+    const sm = new ConversationStateMachine(deps);
+
+    await sm.advance(conv, agentConfig, integration, inbound("marca aí"));
+
+    const charge = await repos.charges.findLatestChargeableByContact("int1", "ct1");
+    expect(charge?.calendarEventId).toBe("evt-ok");
+  });
+
   it("sem serviço vinculado (empty services) → não cria Charge nem lança (só warn)", async () => {
     const repos = new InMemoryRepositories();
     repos.seed({

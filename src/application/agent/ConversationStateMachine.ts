@@ -35,6 +35,18 @@ function extractEventId(output: unknown): string | null {
   }
 }
 
+/**
+ * Falha "soft" do Composio: a tool RESOLVE com envelope {successful:false, error}
+ * em vez de lançar — o ai@7 lista isso em toolResults como se fosse sucesso
+ * (achado do review da Task 3). Marcação que falhou não vira cobrança. Só marca
+ * falha EXPLÍCITA (successful===false ou error truthy) — shape desconhecido sem
+ * esses sinais passa (o smoke da Task 5 confirma o envelope real).
+ */
+function isSoftFailure(output: unknown): boolean {
+  const o = output as { successful?: unknown; error?: unknown } | null | undefined;
+  return o?.successful === false || Boolean(o?.error);
+}
+
 /** Data corrente PT-BR (America/Sao_Paulo) para o AgentContext. Runtime real — usa new Date(). */
 function formatToday(): string {
   return new Date().toLocaleDateString("pt-BR", {
@@ -206,7 +218,12 @@ export class ConversationStateMachine {
     integration: Integration,
     decision: AgentDecision,
   ): Promise<void> {
-    const bookings = decision.toolResults?.filter((r) => r.name === BOOKING_TOOL_NAME) ?? [];
+    const results = decision.toolResults?.filter((r) => r.name === BOOKING_TOOL_NAME) ?? [];
+    const bookings = results.filter((r) => {
+      if (!isSoftFailure(r.output)) return true;
+      console.warn(`[cobranca] marcacao com soft-error do provedor ignorada (conv=${conv.id}) — sem cobranca`);
+      return false;
+    });
     if (bookings.length === 0) return;
 
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
