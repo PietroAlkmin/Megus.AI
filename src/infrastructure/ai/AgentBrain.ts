@@ -1,10 +1,18 @@
 import type { AgentContext, AgentDecision, IAgentBrain } from "../../domain/ports/IAgentBrain";
 import type { AITool } from "../../domain/ports/IAIProvider";
 import type { AgentTool, IAgentEngine } from "../../domain/ports/IAgentEngine";
-import type { AgentToolset, IAgentToolsProvider } from "../../domain/ports/IAgentToolsProvider";
+import { BOOKING_TOOL_NAME, type AgentToolset, type IAgentToolsProvider } from "../../domain/ports/IAgentToolsProvider";
 import { composePrompt } from "../../application/agent/PromptComposer";
 
 const EMPTY_TOOLSET: AgentToolset = { nativeTools: {}, infos: [] };
+
+/** Resposta do gate de identidade (Task 3, Plano 7) — o stub que substitui o
+ *  execute real da tool de marcar evento enquanto o contato não tem CPF↔nome
+ *  validado. Guia o modelo a pedir a identidade antes de tentar de novo. */
+const IDENTIDADE_PENDENTE = {
+  error: "IDENTIDADE_PENDENTE",
+  instrucao: "Antes de marcar, peça o nome completo e o CPF do cliente e aguarde a validação do cadastro.",
+} as const;
 
 const PROPOSE_NEXT: AITool = {
   name: "propose_next",
@@ -58,6 +66,7 @@ export class AgentBrain implements IAgentBrain {
 
   async decide(context: AgentContext): Promise<AgentDecision> {
     const dynamic = await this.resolveDynamicTools(context.companyId);
+    const nativeTools = this.gateBookingTool(dynamic.nativeTools, context.collected.cpfNameVerified);
 
     // As tools entram no system como lista declarativa (nome+descrição) — o
     // modelo só chama o que conhece; sem anunciar, ele responde direto e inventa
@@ -71,13 +80,35 @@ export class AgentBrain implements IAgentBrain {
       model: this.model,
       messages,
       tools: this.tools,
-      nativeTools: dynamic.nativeTools,
+      nativeTools,
       answerTool: PROPOSE_NEXT,
       maxSteps: this.maxSteps,
     });
     const a = r.answer as Partial<AgentDecision>;
     const reply = a.reply && a.reply.length > 0 ? a.reply : r.text ? [r.text] : [];
-    return { reply, action: a.action ?? { type: "reply" }, extracted: a.extracted };
+    return { reply, action: a.action ?? { type: "reply" }, extracted: a.extracted, toolResults: r.toolResults };
+  }
+
+  /**
+   * Gate de IDENTIDADE por CÓDIGO (não confiança no modelo/prompt) — Task 3,
+   * Plano 7: sem `cpfNameVerified`, a tool de marcar evento (nativeTool
+   * dinâmica, ex. Composio→Google Calendar) é substituída por um stub que
+   * NUNCA chama o `execute` original (o evento real de calendário só é criado
+   * depois que o cadastro foi validado). Spread do objeto tool original
+   * preserva `description`/`inputSchema` (o modelo continua "vendo" a tool
+   * normalmente, só o `execute` muda) — não importa nada de `@composio/*` aqui,
+   * `nativeTools` é opaco (`Record<string, unknown>`) por design da porta.
+   * Verificado: retorna o MESMO objeto/record (referência) quando não há nada
+   * a substituir (verified=true, ou a tool nem está no toolset da empresa).
+   */
+  private gateBookingTool(nativeTools: Record<string, unknown>, cpfNameVerified: boolean): Record<string, unknown> {
+    if (cpfNameVerified) return nativeTools;
+    const original = nativeTools[BOOKING_TOOL_NAME];
+    if (!original) return nativeTools;
+    return {
+      ...nativeTools,
+      [BOOKING_TOOL_NAME]: { ...(original as object), execute: async () => IDENTIDADE_PENDENTE },
+    };
   }
 
   /**

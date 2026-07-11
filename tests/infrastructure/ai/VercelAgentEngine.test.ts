@@ -51,6 +51,39 @@ describe("VercelAgentEngine", () => {
     expect(r.answer).toEqual({ reply: ["Hoje é sexta."] });
   });
 
+  it("toolResults: devolve os resultados das tools de NEGÓCIO mapeados {name, output} — exclui a answer tool por segurança", async () => {
+    const generate = vi.fn(async () => ({
+      text: "",
+      toolCalls: [
+        { toolName: "GOOGLECALENDAR_CREATE_EVENT", input: {} },
+        { toolName: "propose_next", input: { reply: ["Marcado!"], action: { type: "reply" } } },
+      ],
+      // a answer tool NÃO tem execute (ver VercelAgentEngine.run) — na prática o SDK
+      // nunca a devolveria aqui, mas o fake simula essa entrada de propósito pra
+      // travar o filtro defensivo ("filtrar por segurança", ver comentário do adapter).
+      toolResults: [
+        { toolName: "GOOGLECALENDAR_CREATE_EVENT", output: { data: { response_data: { id: "evt-123" } } } },
+        { toolName: "propose_next", output: { reply: ["Marcado!"], action: { type: "reply" } } },
+      ],
+    })) as unknown as SdkGenerateText;
+    const engine = new VercelAgentEngine(generate, (id) => id);
+
+    const r = await engine.run(BASE_OPTS);
+
+    expect(r.toolResults).toEqual([
+      { name: "GOOGLECALENDAR_CREATE_EVENT", output: { data: { response_data: { id: "evt-123" } } } },
+    ]);
+  });
+
+  it("toolResults: sem chamadas de tool, devolve array vazio (nunca undefined)", async () => {
+    const generate = vi.fn(async () => ({ text: "oi", toolCalls: [], toolResults: [] })) as unknown as SdkGenerateText;
+    const engine = new VercelAgentEngine(generate, (id) => id);
+
+    const r = await engine.run(BASE_OPTS);
+
+    expect(r.toolResults).toEqual([]);
+  });
+
   it("sem answer tool, cai no texto puro do modelo", async () => {
     const generate = vi.fn(async () => ({ text: "Resposta livre.", toolCalls: [], steps: [] })) as unknown as SdkGenerateText;
     const engine = new VercelAgentEngine(generate, (id) => id);

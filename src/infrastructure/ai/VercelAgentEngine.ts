@@ -4,10 +4,10 @@ import type { AgentEngineOptions, AgentEngineResult, IAgentEngine } from "../../
 
 /**
  * Fatia MÍNIMA do generateText do Vercel AI SDK que usamos (injetável → testável
- * sem rede, no mesmo padrão do OpenAiChatClient). Só lemos text/toolCalls; o loop
- * de re-prompt após cada tool é responsabilidade do SDK (coberto pelo smoke ao vivo).
- * ATENÇÃO: `input` é o campo dos args da tool-call no SDK v5+ — confirmado no Step 2
- * contra `ai@7.0.19` (node_modules/ai/dist/index.d.ts: StaticToolCall/DynamicToolCall).
+ * sem rede, no mesmo padrão do OpenAiChatClient). Lemos text/toolCalls/toolResults;
+ * o loop de re-prompt após cada tool é responsabilidade do SDK (coberto pelo smoke
+ * ao vivo). ATENÇÃO: `input` é o campo dos args da tool-call no SDK v5+ — confirmado
+ * no Step 2 contra `ai@7.0.19` (node_modules/ai/dist/index.d.ts: StaticToolCall/DynamicToolCall).
  */
 export interface SdkGenerateText {
   (args: {
@@ -21,6 +21,18 @@ export interface SdkGenerateText {
   }): Promise<{
     text: string;
     toolCalls: { toolName: string; input: unknown }[];
+    /**
+     * Resultados das tool calls bem-sucedidas de TODOS os steps — confirmado em
+     * `ai@7.0.19`, node_modules/ai/dist/index.d.ts:4505:
+     * `GenerateTextResult.toolResults: Array<TypedToolResult<TOOLS>>`
+     * ("The results of the tool calls from all steps"); cada item é um
+     * `StaticToolResult` `{ type:'tool-result', toolCallId, toolName, input,
+     * output }` (index.d.ts:1237-1245). Erros de execução da tool NÃO entram
+     * aqui (viram conteúdo `tool-error` à parte) — presença em `toolResults` =
+     * execução bem-sucedida (é exatamente essa garantia que a Application usa
+     * pra criar a Charge só quando o evento de fato foi criado).
+     */
+    toolResults: { toolName: string; output: unknown }[];
   }>;
 }
 
@@ -84,10 +96,18 @@ export class VercelAgentEngine implements IAgentEngine {
     const answerCall = calls.find((c) => c.name === options.answerTool.name);
     const businessCalls = calls.filter((c) => c.name !== options.answerTool.name);
 
+    // Mesma agregação cross-step que toolCalls (ver comentário do SdkGenerateText
+    // acima) — a answerTool nunca deveria aparecer aqui (sem `execute`, o SDK
+    // devolve o controle em vez de auto-executar), mas filtramos por segurança.
+    const toolResults = (res.toolResults ?? [])
+      .filter((r) => r.toolName !== options.answerTool.name)
+      .map((r) => ({ name: r.toolName, output: r.output }));
+
     return {
       answer: answerCall?.arguments ?? {},
       text: res.text ?? "",
       toolCalls: businessCalls,
+      toolResults,
     };
   }
 }

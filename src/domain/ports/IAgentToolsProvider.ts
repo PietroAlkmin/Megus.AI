@@ -11,6 +11,18 @@
 export interface AgentToolInfo { name: string; description: string }
 /** Toolset dinâmico por empresa: nativas do SDK do motor + infos pro prompt. */
 export interface AgentToolset { nativeTools: Record<string, unknown>; infos: AgentToolInfo[] }
+
+/**
+ * Nome da tool de MARCAR evento (Google Calendar via Composio) — constante de
+ * DOMÍNIO (não de infra): usada pelo gate de identidade em `AgentBrain.decide()`
+ * (substitui o `execute` quando `!cpfNameVerified` — Task 3, Plano 7) E pela
+ * `ConversationStateMachine` (reconhece o `toolResult` pra criar a Charge
+ * pendente). Fica aqui — e não em `AgentBrain.ts` (infra) — porque a Application
+ * (SM) não pode importar de `infrastructure/` (direção errada); as duas pontas
+ * importam do domínio, sem duplicar o literal.
+ */
+export const BOOKING_TOOL_NAME = "GOOGLECALENDAR_CREATE_EVENT";
+
 export interface IAgentToolsProvider {
   /**
    * Tools disponíveis pra EMPRESA (conexões ativas dela; vazio se nenhuma).

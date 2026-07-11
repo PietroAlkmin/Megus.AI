@@ -5,17 +5,35 @@ import type { Integration } from "../../domain/entities/Integration";
 import { Cpf } from "../../domain/value-objects/Cpf";
 import { nameMatch } from "../../domain/services/nameMatch";
 import type { AgentContext, AgentDecision, IAgentBrain } from "../../domain/ports/IAgentBrain";
+import { BOOKING_TOOL_NAME } from "../../domain/ports/IAgentToolsProvider";
 import type { ICpfProvider } from "../../domain/ports/ICpfProvider";
 import type { IComprovanteAnalyzer } from "../../domain/ports/IComprovanteAnalyzer";
 import type { IFiscalProvider } from "../../domain/ports/IFiscalProvider";
 import type { IMessagingProvider, InboundMessage } from "../../domain/ports/IMessagingProvider";
 import type {
-  IContactRepository, IConversationRepository,
+  IChargeRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IServiceRepository, ICompanyProfileRepository,
 } from "../../domain/ports/repositories";
 import { randomUUID } from "node:crypto";
 import { sanitizeFiscalText } from "../../domain/services/sanitizeFiscalText";
 import { assembleContext } from "./ContextAssembler";
+
+/**
+ * ID do evento criado no Google Calendar — best-effort a partir do output cru
+ * da tool CREATE_EVENT (Composio/Vercel). Shape real ainda não confirmado por
+ * smoke ao vivo do CREATE_EVENT (Task 3, Plano 7); tenta os formatos mais
+ * prováveis (resposta crua da API do Google via Composio, ou já achatada) e
+ * NUNCA lança — `Charge.calendarEventId` já documenta que é best-effort.
+ */
+function extractEventId(output: unknown): string | null {
+  try {
+    const data = (output as { data?: { response_data?: { id?: unknown }; id?: unknown } } | null | undefined)?.data;
+    const id = data?.response_data?.id ?? data?.id ?? null;
+    return id == null ? null : String(id);
+  } catch {
+    return null;
+  }
+}
 
 /** Data corrente PT-BR (America/Sao_Paulo) para o AgentContext. Runtime real — usa new Date(). */
 function formatToday(): string {
@@ -40,6 +58,8 @@ export interface StateMachineDeps {
   services: IServiceRepository;
   /** Cadastro da aba Empresa — entra no contexto do cérebro (bloco "Sobre a empresa"). */
   companyProfiles: ICompanyProfileRepository;
+  /** Cobranças (Task 3, Plano 7) — handleChatting cria a "pendente" quando o evento de agenda é marcado. */
+  charges: IChargeRepository;
   config: { cpfMaxAttempts: number; comprovanteMinConfidence: number };
 }
 
@@ -127,6 +147,16 @@ export class ConversationStateMachine {
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */
   private async handleChatting(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
+
+    // Cobrança pendente nasce JUNTO com o evento (Task 3, Plano 7) — roda em TODA
+    // decide() deste método, ANTES do ramo de identidade: no MESMO turno em que o
+    // cliente manda nome+CPF, o gate de identidade do Brain já leu o ctx (e o
+    // cpfNameVerified=false) ANTES desta validação rodar — logo o CREATE_EVENT
+    // real só passa numa decide() de um turno POSTERIOR (cpfNameVerified já true
+    // no ctx). Checar aqui, sempre, cobre esse turno posterior sem depender de
+    // qual sub-caminho (fiscal/cadastro/resposta simples) a decisão segue depois.
+    await this.createChargesFromBooking(conv, cfg, integration, decision);
+
     const instance = integration.evolutionInstance || undefined;
 
     // Se o cliente já mandou nome+CPF (mesmo "no meio da conversa"), valida JÁ —
@@ -158,6 +188,54 @@ export class ConversationStateMachine {
       await this.d.conversations.save(conv);
     } else if (decision.action.type === "handoff") {
       await this.handoff(conv, decision.action.reason, instance);
+    }
+  }
+
+  /**
+   * Cria uma Charge "pendente" por resultado de CREATE_EVENT na decisão (Task 3,
+   * Plano 7) — nunca cobra na hora; a clínica decide quando cobrar (botão no
+   * painel, fora desta task). MESMA seleção de serviço do gate B
+   * (`handleComprovante`): `cfg.capabilities.linkedServiceIds` → primeiro serviço
+   * da integração como fallback. Sem serviço OU sem contato → só warn e sai
+   * (nunca inventa valor — regra dura). Um loop por resultado: duas marcações no
+   * mesmo turno viram duas cobranças.
+   */
+  private async createChargesFromBooking(
+    conv: Conversation,
+    cfg: AgentConfig,
+    integration: Integration,
+    decision: AgentDecision,
+  ): Promise<void> {
+    const bookings = decision.toolResults?.filter((r) => r.name === BOOKING_TOOL_NAME) ?? [];
+    if (bookings.length === 0) return;
+
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    const services = await this.d.services.listByIntegration(integration.id);
+    const service = services.find((s) => cfg.capabilities.linkedServiceIds.includes(s.id)) ?? services[0];
+
+    if (!service || !contact) {
+      console.warn(
+        `[cobranca] evento de agenda marcado sem cobranca (conv=${conv.id}): ${!contact ? "contato" : "servico"} ausente`,
+      );
+      return;
+    }
+
+    const now = new Date();
+    for (const booking of bookings) {
+      await this.d.charges.save({
+        id: randomUUID(),
+        integrationId: integration.id,
+        contactId: contact.id,
+        serviceId: service.id,
+        description: service.description,
+        amount: service.price,
+        status: "pendente",
+        calendarEventId: extractEventId(booking.output),
+        chargedAt: null,
+        paidAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
   }
 

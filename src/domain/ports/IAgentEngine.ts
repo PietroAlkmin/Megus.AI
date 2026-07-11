@@ -38,6 +38,16 @@ export interface AgentEngineResult {
   text: string;
   /** Auditoria das tools de NEGÓCIO chamadas no loop (não inclui a answer tool). */
   toolCalls: { name: string; arguments: Record<string, unknown> }[];
+  /**
+   * Resultados (saída) das tools de NEGÓCIO executadas com sucesso no loop —
+   * inclui tanto as `AgentTool` do construtor quanto as `nativeTools` dinâmicas
+   * (ex.: GOOGLECALENDAR_CREATE_EVENT). NÃO inclui a answer tool (ela não tem
+   * `execute` — nunca aparece; o adapter filtra por segurança mesmo assim).
+   * A Application (ConversationStateMachine) usa isto pra reagir a efeitos
+   * colaterais de negócio (ex.: criar a Charge pendente quando o evento de
+   * agenda foi marcado — Task 3, Plano 7).
+   */
+  toolResults: { name: string; output: unknown }[];
 }
 
 export interface IAgentEngine {

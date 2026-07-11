@@ -13,6 +13,7 @@ function baseDeps(repos: InMemoryRepositories): StateMachineDeps {
     messaging: { start: vi.fn(), getConnectionStatus: () => "connected", getQrCode: vi.fn(), onInboundMessage: vi.fn(), sendText: vi.fn(), sendMedia: vi.fn(), startTyping: vi.fn(), stopTyping: vi.fn() },
     contacts: repos.contacts, conversations: repos.conversations,
     emissions: repos.emissions, services: repos.services, companyProfiles: repos.companyProfiles,
+    charges: repos.charges,
     config: { cpfMaxAttempts: 2, comprovanteMinConfidence: 0.8 },
   };
 }

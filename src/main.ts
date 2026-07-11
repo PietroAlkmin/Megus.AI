@@ -173,6 +173,7 @@ async function bootstrap(): Promise<void> {
     emissions: repos.emissions,
     services: repos.services,
     companyProfiles: repos.companyProfiles,
+    charges: repos.charges,
     config: {
       cpfMaxAttempts: env.CPF_MAX_ATTEMPTS,
       comprovanteMinConfidence: env.COMPROVANTE_MIN_CONFIDENCE,

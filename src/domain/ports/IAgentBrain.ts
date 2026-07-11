@@ -77,6 +77,14 @@ export interface AgentDecision {
   action: AgentProposedAction;
   /** Dados extraídos da mensagem do cliente (o código valida; a IA só propõe). */
   extracted?: { fullName?: string; cpf?: string; amount?: number };
+  /**
+   * Resultados das tools de NEGÓCIO chamadas pelo motor nesta decisão (ex.:
+   * GOOGLECALENDAR_CREATE_EVENT) — repassados de `AgentEngineResult.toolResults`
+   * sem tradução. ADDITIVE (Task 3, Plano 7): ausente/vazio nos fluxos que não
+   * chamam tool nenhuma. A Application (ConversationStateMachine) usa isto pra
+   * criar a Charge pendente quando um evento de agenda foi marcado.
+   */
+  toolResults?: { name: string; output: unknown }[];
 }
 
 export interface IAgentBrain {
