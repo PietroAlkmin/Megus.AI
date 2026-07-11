@@ -12,6 +12,9 @@ import type { AgentEngineOptions, AgentEngineResult, IAgentEngine } from "../../
 export interface SdkGenerateText {
   (args: {
     model: unknown;
+    /** System prompt. O ai@7 NÃO aceita role:"system" dentro de `messages`
+     *  (InvalidPromptError em runtime; allowSystemInMessages default false). */
+    instructions?: string;
     messages: unknown;
     tools: Record<string, unknown>;
     stopWhen: unknown;
@@ -51,9 +54,20 @@ export class VercelAgentEngine implements IAgentEngine {
       inputSchema: jsonSchema(options.answerTool.parameters),
     });
 
+    // ai@7.0.19 rejeita role:"system" dentro de `messages` em RUNTIME
+    // ("System messages are not allowed... Use the instructions option instead").
+    // O system do composer vai em `instructions`; `messages` leva só o diálogo.
+    const systemText = options.messages
+      .filter((m) => m.role === "system")
+      .map(textOf)
+      .filter(Boolean)
+      .join("\n\n");
+    const chatMessages = options.messages.filter((m) => m.role !== "system");
+
     const res = await this.generate({
       model: this.modelFactory(options.model),
-      messages: options.messages.map(toSdkMessage),
+      instructions: systemText || undefined,
+      messages: chatMessages.map(toSdkMessage),
       tools,
       stopWhen: stepCountIs(options.maxSteps),
     });
@@ -74,6 +88,15 @@ export class VercelAgentEngine implements IAgentEngine {
       toolCalls: businessCalls,
     };
   }
+}
+
+/** Conteúdo textual de uma AIMessage (partes de imagem ficam de fora). */
+function textOf(m: AIMessage): string {
+  if (typeof m.content === "string") return m.content;
+  return m.content
+    .map((p: AIContentPart) => (p.type === "text" ? p.text : ""))
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** AIMessage → formato de mensagem do AI SDK (texto ou multimodal). */

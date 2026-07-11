@@ -74,4 +74,24 @@ describe("VercelAgentEngine", () => {
     expect(arg.model).toBe("model:gpt-5.4-mini");
     expect(Object.keys(arg.tools as object).sort()).toEqual(["get_current_datetime", "propose_next"]);
   });
+
+  it("system do composer vai em `instructions` — NUNCA como message (ai@7 rejeita em runtime)", async () => {
+    // Regressão do InvalidPromptError visto em prod (11/07): "System messages are
+    // not allowed in the prompt or messages fields. Use the instructions option instead."
+    const generate = vi.fn(async () => ({ text: "", toolCalls: [], steps: [] })) as unknown as SdkGenerateText;
+    const engine = new VercelAgentEngine(generate, (id) => id);
+
+    await engine.run({
+      ...BASE_OPTS,
+      messages: [
+        { role: "system", content: "Você é o Kaua." },
+        { role: "user", content: "olá" },
+      ],
+    });
+
+    const arg = (generate as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls[0]![0];
+    expect(arg.instructions).toBe("Você é o Kaua.");
+    const roles = (arg.messages as Array<{ role: string }>).map((m) => m.role);
+    expect(roles).toEqual(["user"]); // nenhum system escapa pro messages
+  });
 });
