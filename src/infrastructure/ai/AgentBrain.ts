@@ -66,6 +66,13 @@ export class AgentBrain implements IAgentBrain {
 
   async decide(context: AgentContext): Promise<AgentDecision> {
     const dynamic = await this.resolveDynamicTools(context.companyId);
+    // O gate foi aplicado? (não-verificado E a tool de marcar existe no toolset)
+    // — guardado ANTES do run: se sim, o stub pode ter sido "chamado" pelo modelo
+    // e o ai@7 lista essa chamada BLOQUEADA em toolResults com o mesmo nome de uma
+    // marcação real (o stub devolve o erro como resultado, não lança). Quem sabe
+    // do gate é o brain — filtra abaixo, e a SM confia: resultado de marcar
+    // presente = evento REAL criado (senão nasceria Charge fantasma).
+    const gated = !context.collected.cpfNameVerified && BOOKING_TOOL_NAME in dynamic.nativeTools;
     const nativeTools = this.gateBookingTool(dynamic.nativeTools, context.collected.cpfNameVerified);
 
     // As tools entram no system como lista declarativa (nome+descrição) — o
@@ -86,7 +93,8 @@ export class AgentBrain implements IAgentBrain {
     });
     const a = r.answer as Partial<AgentDecision>;
     const reply = a.reply && a.reply.length > 0 ? a.reply : r.text ? [r.text] : [];
-    return { reply, action: a.action ?? { type: "reply" }, extracted: a.extracted, toolResults: r.toolResults };
+    const toolResults = gated ? r.toolResults?.filter((t) => t.name !== BOOKING_TOOL_NAME) : r.toolResults;
+    return { reply, action: a.action ?? { type: "reply" }, extracted: a.extracted, toolResults };
   }
 
   /**

@@ -181,18 +181,16 @@ describe("ConversationStateMachine — cobrança pendente nasce com o evento (Ta
     expect(saveSpy.mock.calls.every((c) => c[0]!.status === "pendente" && c[0]!.amount === 180)).toBe(true);
   });
 
-  // CONCERN documentado (ver report da Task 3, seção Concerns) — NÃO é um requisito
-  // desta task, é uma prova do comportamento ATUAL pra evitar especulação: o stub
-  // do gate de identidade (AgentBrain.gateBookingTool) NUNCA lança — seu `execute`
-  // sempre resolve com { error: "IDENTIDADE_PENDENTE", ... } — então, na visão do
-  // motor (ai@7: toolResults = tool calls bem-sucedidas, erros vão por outro
-  // canal), uma tentativa BLOQUEADA de marcar produz um toolResult com o MESMO
-  // nome (BOOKING_TOOL_NAME) que uma marcação REAL. A checagem por nome, sozinha,
-  // não distingue os dois casos — o evento de calendário real NUNCA é criado (o
-  // gate garante isso, testado no AgentBrain), mas uma Charge "pendente" ainda
-  // nasce aqui, com calendarEventId=null. Documentado, não corrigido: a resolução
-  // vinculante da Task 3 não previu esse filtro extra.
-  it("CONCERN: toolResult do stub bloqueado (IDENTIDADE_PENDENTE) TAMBÉM cria Charge — a heurística por nome não distingue bloqueado de sucesso real", async () => {
+  // CONTRATO EM CAMADAS (concern da Task 3, RESOLVIDO no brain): a SM confia no
+  // que recebe — toolResult de marcar presente ⇒ evento REAL criado ⇒ Charge.
+  // Quem garante essa premissa é o AgentBrain: quando o gate de identidade foi
+  // aplicado, ele FILTRA os resultados da tool de marcar antes de devolver a
+  // decision (o stub bloqueado nunca chega aqui — testado em AgentBrain.test:
+  // "gate aplicado → toolResults ... FILTRADOS"). Este teste documenta o lado
+  // da SM: ela NÃO re-inspeciona o output; um decision adulterado (só possível
+  // por bypass do brain) criaria Charge mesmo — por design, a defesa mora numa
+  // camada só.
+  it("SM confia no contrato do brain: qualquer toolResult de marcar presente na decision cria Charge (o filtro do stub é responsabilidade do brain)", async () => {
     const repos = new InMemoryRepositories();
     const deps = depsWith(repos);
     (deps.brain.decide as any).mockResolvedValue({

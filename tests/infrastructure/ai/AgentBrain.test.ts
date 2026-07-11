@@ -204,6 +204,50 @@ describe("AgentBrain", () => {
     expect(seen?.nativeTools?.GOOGLECALENDAR_FIND_FREE_SLOTS).toBe(otherTool); // outra tool intocada (mesma referência)
   });
 
+  it("gate aplicado → toolResults da tool de marcar são FILTRADOS (tentativa bloqueada não vira Charge fantasma)", async () => {
+    // O stub do gate nunca lança (o modelo recebe o erro como resultado), então
+    // o ai@7 lista a chamada bloqueada em toolResults com o MESMO nome de uma
+    // marcação real. Quem sabe que o gate foi aplicado é o BRAIN — ele filtra;
+    // a SM pode confiar: toolResult de marcar presente = evento REAL criado.
+    const engine = fakeEngine({
+      answer: { reply: ["Preciso do seu nome e CPF."], action: { type: "reply" } },
+      toolResults: [
+        { name: "GOOGLECALENDAR_CREATE_EVENT", output: { error: "IDENTIDADE_PENDENTE", instrucao: "..." } },
+        { name: "GOOGLECALENDAR_FIND_FREE_SLOTS", output: { data: { slots: [] } } },
+      ],
+    });
+    const toolsProvider: IAgentToolsProvider = {
+      forCompany: vi.fn(async () => ({
+        nativeTools: { GOOGLECALENDAR_CREATE_EVENT: { description: "x", inputSchema: {}, execute: vi.fn() } },
+        infos: [],
+      })),
+    };
+    const brain = new AgentBrain(engine, "gpt-4o", [], 4, toolsProvider);
+
+    const decision = await brain.decide({ ...EMPTY_CONTEXT, collected: { ...EMPTY_CONTEXT.collected, cpfNameVerified: false } });
+
+    // a de marcar (bloqueada) some; a de consulta (inofensiva) passa
+    expect(decision.toolResults?.map((t) => t.name)).toEqual(["GOOGLECALENDAR_FIND_FREE_SLOTS"]);
+  });
+
+  it("gate NÃO aplicado (verificado) → toolResults da tool de marcar passam normalmente", async () => {
+    const engine = fakeEngine({
+      answer: { reply: ["Marcado!"], action: { type: "reply" } },
+      toolResults: [{ name: "GOOGLECALENDAR_CREATE_EVENT", output: { data: { response_data: { id: "evt-1" } } } }],
+    });
+    const toolsProvider: IAgentToolsProvider = {
+      forCompany: vi.fn(async () => ({
+        nativeTools: { GOOGLECALENDAR_CREATE_EVENT: { description: "x", inputSchema: {}, execute: vi.fn() } },
+        infos: [],
+      })),
+    };
+    const brain = new AgentBrain(engine, "gpt-4o", [], 4, toolsProvider);
+
+    const decision = await brain.decide({ ...EMPTY_CONTEXT, collected: { ...EMPTY_CONTEXT.collected, cpfNameVerified: true } });
+
+    expect(decision.toolResults?.map((t) => t.name)).toEqual(["GOOGLECALENDAR_CREATE_EVENT"]);
+  });
+
   it("gate de identidade: cpfNameVerified=true → a tool original passa intocada (mesma referência, não uma cópia)", async () => {
     let seen: AgentEngineOptions | undefined;
     const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });
