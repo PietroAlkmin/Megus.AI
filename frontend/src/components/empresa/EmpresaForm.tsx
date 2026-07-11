@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, CreditCard, Layers, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, CreditCard, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import * as empresaService from "@/services/empresa";
-import type { Servico } from "@/services/empresa";
 
 // Só validamos formato (strings) — o backend aceita todos os campos opcionais/vazios
 // (empresa recém-criada chega com tudo em branco). react-hook-form exige defaultValues
@@ -51,19 +50,6 @@ const EMPRESA_DEFAULTS: EmpresaValues = {
   paymentInstructions: "",
 };
 
-interface ServicoFormState {
-  id: string | null;
-  code: string;
-  description: string;
-  issCode: string;
-  price: string;
-}
-
-const SERVICO_VAZIO: ServicoFormState = { id: null, code: "", description: "", issCode: "", price: "" };
-
-function formatBRL(value: number): string {
-  return "R$ " + value.toFixed(2).replace(".", ",");
-}
 
 export interface EmpresaFormProps {
   /** Disparado após salvar os dados cadastrais com sucesso — usado pelo wizard de onboarding. */
@@ -78,8 +64,6 @@ export interface EmpresaFormProps {
 export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
   const queryClient = useQueryClient();
   const empresaQuery = useQuery({ queryKey: ["empresa"], queryFn: empresaService.getEmpresa });
-  const servicosQuery = useQuery({ queryKey: ["empresa", "servicos"], queryFn: empresaService.listServicos });
-  const [servicoForm, setServicoForm] = useState<ServicoFormState | null>(null);
 
   const form = useForm<EmpresaValues>({
     resolver: zodResolver(empresaSchema),
@@ -120,46 +104,8 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
     },
   });
 
-  const servicoMutation = useMutation({
-    mutationFn: empresaService.saveServico,
-    onSuccess: (servico) => {
-      queryClient.setQueryData<Servico[]>(["empresa", "servicos"], (prev) => {
-        if (!prev) return [servico];
-        const isEdit = prev.some((s) => s.id === servico.id);
-        return isEdit ? prev.map((s) => (s.id === servico.id ? servico : s)) : [...prev, servico];
-      });
-      setServicoForm(null);
-      toast.success("Serviço salvo.");
-    },
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : "Não foi possível salvar o serviço.");
-    },
-  });
-
-  const deleteServicoMutation = useMutation({
-    mutationFn: empresaService.deleteServico,
-    onSuccess: (result) => {
-      queryClient.setQueryData<Servico[]>(["empresa", "servicos"], (prev) => prev?.filter((s) => s.id !== result.id));
-      toast.success("Serviço excluído.");
-    },
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : "Não foi possível excluir o serviço.");
-    },
-  });
-
   function onSubmit(values: EmpresaValues) {
     saveMutation.mutate(values);
-  }
-
-  function handleSalvarServico() {
-    if (!servicoForm || !servicoForm.description.trim()) return;
-    servicoMutation.mutate({
-      id: servicoForm.id ?? undefined,
-      code: servicoForm.code,
-      description: servicoForm.description,
-      issCode: servicoForm.issCode,
-      price: parseFloat(servicoForm.price.replace(",", ".")) || 0,
-    });
   }
 
   if (empresaQuery.isLoading) {
@@ -173,8 +119,6 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
   if (empresaQuery.isError) {
     return <p className="py-16 text-center text-sm text-destructive">Não foi possível carregar os dados da empresa.</p>;
   }
-
-  const servicos = servicosQuery.data ?? [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -398,108 +342,6 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
           </div>
         </form>
       </Form>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary/10">
-              <Layers className="h-[18px] w-[18px] text-primary" />
-            </span>
-            <div>
-              <CardTitle className="font-brand text-base">Serviços</CardTitle>
-              <CardDescription>Catálogo usado na emissão das NFS-e.</CardDescription>
-            </div>
-          </div>
-          <Button type="button" size="sm" onClick={() => setServicoForm(SERVICO_VAZIO)}>
-            <Plus className="h-3.5 w-3.5" /> Adicionar serviço
-          </Button>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {servicosQuery.isLoading && <p className="text-sm text-muted-foreground">Carregando serviços…</p>}
-          {!servicosQuery.isLoading && servicos.length === 0 && !servicoForm && (
-            <p className="rounded-md border border-dashed border-border bg-secondary/60 px-4 py-3 text-center text-sm text-muted-foreground">
-              Nenhum serviço cadastrado.
-            </p>
-          )}
-          {servicos.map((servico) => (
-            <div key={servico.id} className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5">
-              <span className="shrink-0 rounded-md bg-secondary px-2 py-0.5 font-mono text-[11px] font-bold text-muted-foreground">
-                {servico.code || "—"}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{servico.description}</span>
-              <span className="shrink-0 font-mono text-xs text-muted-foreground">ISS {servico.issCode || "—"}</span>
-              <span className="w-24 shrink-0 text-right font-mono text-sm font-bold text-foreground">{formatBRL(servico.price)}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Editar"
-                onClick={() =>
-                  setServicoForm({
-                    id: servico.id,
-                    code: servico.code,
-                    description: servico.description,
-                    issCode: servico.issCode,
-                    price: String(servico.price),
-                  })
-                }
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Excluir"
-                disabled={deleteServicoMutation.isPending}
-                onClick={() => deleteServicoMutation.mutate(servico.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ))}
-
-          {servicoForm && (
-            <div className="rounded-md border border-border bg-secondary/60 p-3.5">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-                <Input
-                  placeholder="Código"
-                  value={servicoForm.code}
-                  onChange={(e) => setServicoForm({ ...servicoForm, code: e.target.value })}
-                />
-                <Input
-                  className="sm:col-span-2"
-                  placeholder="Nome do serviço"
-                  value={servicoForm.description}
-                  onChange={(e) => setServicoForm({ ...servicoForm, description: e.target.value })}
-                />
-                <Input
-                  placeholder="ISS (ex: 4.01)"
-                  value={servicoForm.issCode}
-                  onChange={(e) => setServicoForm({ ...servicoForm, issCode: e.target.value })}
-                />
-              </div>
-              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-4">
-                <Input
-                  placeholder="Valor (ex: 250)"
-                  value={servicoForm.price}
-                  onChange={(e) => setServicoForm({ ...servicoForm, price: e.target.value })}
-                />
-              </div>
-              <div className="mt-3 flex justify-end gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setServicoForm(null)}>
-                  Cancelar
-                </Button>
-                <Button type="button" size="sm" disabled={servicoMutation.isPending} onClick={handleSalvarServico}>
-                  {servicoForm.id ? "Salvar" : "Adicionar"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
