@@ -9,6 +9,12 @@ import type { AgentContext, AgentPersona } from "../../domain/ports/IAgentBrain"
  * isto e repassa o resultado para IAIProvider.completeWithTool.
  */
 
+/** Ferramenta anunciada ao modelo: nome + descrição orientada a propósito. */
+export interface PromptToolInfo {
+  name: string;
+  description: string;
+}
+
 const TONE_DIRECTIVE: Record<AgentPersona["tone"], string> = {
   formal: "Trate por senhor/senhora, sem gírias.",
   equilibrado: "Seja cordial e direto.",
@@ -83,6 +89,22 @@ function buildFiscalRuleBlock(ctx: AgentContext): string {
   );
 }
 
+/**
+ * Bloco de ferramentas — AGNÓSTICO por princípio (Pietro, 11/07): gerado da
+ * lista injetada (nome + descrição orientada a propósito), com um nudge
+ * GENÉRICO de ponderação. NUNCA regra por cenário ("se perguntarem a hora,
+ * use X") — o modelo raciocina sobre a lista; o composer não conhece tools.
+ */
+function buildToolsBlock(tools: PromptToolInfo[]): string | null {
+  if (tools.length === 0) return null;
+  const lines = tools.map((t) => `- ${t.name}: ${t.description}`);
+  return (
+    `Ferramentas disponíveis:\n${lines.join("\n")}\n` +
+    `A cada mensagem, pondere se alguma destas ferramentas ajuda a responder com precisão — ` +
+    `e use-a ANTES de responder. Nunca invente uma informação que uma ferramenta pode te dar.`
+  );
+}
+
 function buildCollectedBlock(ctx: AgentContext): string | null {
   const { collected } = ctx;
   if (!collected.cpfNameVerified && !collected.emissionStatus) return null;
@@ -93,7 +115,7 @@ function buildCollectedBlock(ctx: AgentContext): string | null {
   return `Já sabemos: ${parts.join(", ")}.`;
 }
 
-export function composePrompt(ctx: AgentContext): AIMessage[] {
+export function composePrompt(ctx: AgentContext, tools: PromptToolInfo[] = []): AIMessage[] {
   const blocks: string[] = [buildIdentityBlock(ctx)];
 
   if (ctx.persona.instructions.trim()) blocks.push(ctx.persona.instructions);
@@ -105,6 +127,9 @@ export function composePrompt(ctx: AgentContext): AIMessage[] {
   if (catalog) blocks.push(catalog);
 
   blocks.push(buildFiscalRuleBlock(ctx));
+
+  const toolsBlock = buildToolsBlock(tools);
+  if (toolsBlock) blocks.push(toolsBlock);
 
   const collected = buildCollectedBlock(ctx);
   if (collected) blocks.push(collected);

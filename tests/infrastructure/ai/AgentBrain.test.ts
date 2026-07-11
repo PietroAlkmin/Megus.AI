@@ -88,6 +88,24 @@ describe("AgentBrain", () => {
     expect(seen?.maxSteps).toBe(6);
   });
 
+  it("as tools do brain entram no system como lista declarativa (nome+descrição)", async () => {
+    let seen: AgentEngineOptions | undefined;
+    const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });
+    const tool = {
+      name: "get_current_datetime",
+      description: "Data e hora atuais no fuso de São Paulo.",
+      parameters: { type: "object", properties: {} },
+      execute: async () => ({}),
+    };
+    const brain = new AgentBrain(engine, "gpt-4o", [tool], 4);
+
+    await brain.decide(EMPTY_CONTEXT);
+
+    const sys = seen?.messages[0];
+    expect(sys?.role).toBe("system");
+    expect(sys?.content as string).toContain("- get_current_datetime: Data e hora atuais no fuso de São Paulo.");
+  });
+
   it("compõe o prompt: system + histórico como user/assistant", async () => {
     let seen: AgentEngineOptions | undefined;
     const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });

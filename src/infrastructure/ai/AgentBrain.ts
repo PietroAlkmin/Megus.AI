@@ -51,7 +51,10 @@ export class AgentBrain implements IAgentBrain {
   ) {}
 
   async decide(context: AgentContext): Promise<AgentDecision> {
-    const messages = composePrompt(context);
+    // As tools entram no system como lista declarativa (nome+descrição) — o
+    // modelo só chama o que conhece; sem anunciar, ele responde direto e inventa
+    // (bug "00:00" de 11/07). O composer segue agnóstico: recebe a lista pronta.
+    const messages = composePrompt(context, this.tools.map((t) => ({ name: t.name, description: t.description })));
     const r = await this.engine.run({ model: this.model, messages, tools: this.tools, answerTool: PROPOSE_NEXT, maxSteps: this.maxSteps });
     const a = r.answer as Partial<AgentDecision>;
     const reply = a.reply && a.reply.length > 0 ? a.reply : r.text ? [r.text] : [];

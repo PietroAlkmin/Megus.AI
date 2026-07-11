@@ -64,6 +64,23 @@ describe("composePrompt", () => {
     expect(sys).toContain("atendente da Clínica X.");
     expect(sys).not.toContain("Sobre a empresa");
   });
+  it("ferramentas entram como lista declarativa (nome+propósito) + nudge genérico de ponderação", () => {
+    const sys = composePrompt(ctx(), [
+      { name: "get_current_datetime", description: "Data e hora atuais no fuso de São Paulo." },
+      { name: "calendar_listar", description: "Horários livres da agenda." },
+    ])[0]!.content as string;
+    expect(sys).toContain("Ferramentas disponíveis:");
+    expect(sys).toContain("- get_current_datetime: Data e hora atuais no fuso de São Paulo.");
+    expect(sys).toContain("- calendar_listar: Horários livres da agenda.");
+    // nudge GENÉRICO (pondere qual usar) — nunca regra por cenário ("se perguntarem a hora...")
+    expect(sys).toMatch(/pondere/i);
+    expect(sys).toMatch(/nunca invente|não invente/i);
+    expect(sys).not.toMatch(/se perguntarem|quando perguntarem/i);
+  });
+  it("sem ferramentas: nenhum bloco de ferramentas no system", () => {
+    const sys = composePrompt(ctx())[0]!.content as string;
+    expect(sys).not.toContain("Ferramentas disponíveis");
+  });
   it("campos ausentes do cadastro NÃO viram linha (sem placeholder no prompt)", () => {
     const sys = composePrompt(
       ctx({ business: { companyName: "Clínica X", profile: { ...PROFILE_CHEIO, email: null, paymentInstructions: null }, services: [] } }),
