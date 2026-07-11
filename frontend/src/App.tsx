@@ -14,6 +14,7 @@ import Onboarding from "@/pages/Onboarding";
 import Cobrancas from "@/pages/Cobrancas";
 import Atendimentos from "@/pages/Atendimentos";
 import Conversas from "@/pages/Conversas";
+import Integracoes from "@/pages/Integracoes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +52,7 @@ export default function App() {
               <Route path="cobrancas" element={<Cobrancas />} />
               <Route path="atendimentos" element={<Atendimentos />} />
               <Route path="conversas" element={<Conversas />} />
+              <Route path="integracoes" element={<Integracoes />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

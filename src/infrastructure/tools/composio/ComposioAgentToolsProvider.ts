@@ -157,12 +157,22 @@ export class ComposioAgentToolsProvider implements IAgentToolsProvider, Composio
 }
 
 /**
- * Curadoria do catálogo (garantia anti-vazamento): só tools do Google Calendar
- * (prefixo de TOOL `GOOGLECALENDAR_`, confirmado: FIND_FREE_SLOTS/EVENTS_LIST/
- * CREATE_EVENT) passam pro motor e pro prompt. Pura → testável direto.
+ * Catálogo CURADO da agenda — allowlist EXPLÍCITA, não prefixo: o agente só
+ * consulta horários/eventos e MARCA. Deletar/editar/compartilhar ficam fora
+ * mesmo que o Composio entregue essas tools no toolkit (o painel promete
+ * "só consulta e marca — nunca apaga"; isto aqui é o que torna a promessa
+ * verdadeira). Ampliar o catálogo = decisão de produto, não drift de filtro.
  */
+export const CALENDAR_TOOL_ALLOWLIST = [
+  "GOOGLECALENDAR_FIND_FREE_SLOTS",
+  "GOOGLECALENDAR_EVENTS_LIST",
+  "GOOGLECALENDAR_CREATE_EVENT",
+] as const;
+
+/** Curadoria (garantia anti-vazamento): só a allowlist passa pro motor e pro prompt. Pura → testável direto. */
 export function keepCalendarTools(all: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(all).filter(([name]) => name.startsWith("GOOGLECALENDAR_")));
+  const allowed = new Set<string>(CALENDAR_TOOL_ALLOWLIST);
+  return Object.fromEntries(Object.entries(all).filter(([name]) => allowed.has(name)));
 }
 
 function toInfos(toolset: Record<string, unknown>): AgentToolInfo[] {

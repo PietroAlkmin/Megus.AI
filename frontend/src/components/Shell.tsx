@@ -10,14 +10,14 @@ import { ApiError } from "@/lib/api";
 import { Bot, Building2, LogOut, MessageSquare, MessagesSquare, Receipt, Users, Zap } from "lucide-react";
 
 // Empresa e Agente entram nesta etapa (Task 2 — onboarding) com rota própria.
-// Integrações segue reservada para o próximo canal além do WhatsApp.
+// Integrações: canal (WhatsApp) + ferramentas do agente (agenda/Google Calendar).
 const NAV_ITEMS = [
   { id: "inicio", label: "Início", icon: Users, to: "/" as const },
   { id: "atendimentos", label: "Atendimentos", icon: MessageSquare, to: "/atendimentos" as const },
   { id: "conversas", label: "Conversas", icon: MessagesSquare, to: "/conversas" as const },
   { id: "empresa", label: "Empresa", icon: Building2, to: "/empresa" as const },
   { id: "agente", label: "Agente", icon: Bot, to: "/agente" as const },
-  { id: "integracoes", label: "Integrações", icon: Zap, to: null },
+  { id: "integracoes", label: "Integrações", icon: Zap, to: "/integracoes" as const },
   { id: "cobrancas", label: "Cobranças", icon: Receipt, to: "/cobrancas" as const },
 ] as const;
 
@@ -91,23 +91,8 @@ export default function Shell() {
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
 
-              if (!item.to) {
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    disabled
-                    title={`${item.label} (em breve)`}
-                    className="flex flex-col items-center justify-center gap-1 rounded-md py-2 disabled:cursor-default"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-[9px] text-muted-foreground/50">
-                      <Icon size={20} strokeWidth={2} />
-                    </span>
-                    <span className="text-[10px] font-bold text-muted-foreground/50">{item.label}</span>
-                  </button>
-                );
-              }
-
+              // (Todos os itens têm rota hoje; o padrão de item "em breve" —
+              // botão desabilitado — saiu junto com a última reserva, Integrações.)
               return (
                 <NavLink
                   key={item.id}

@@ -114,8 +114,8 @@ describe("ComposioAgentToolsProvider", () => {
   });
 });
 
-describe("keepCalendarTools (curadoria do catálogo — garantia anti-vazamento)", () => {
-  it("só tools GOOGLECALENDAR_* passam; o resto é descartado", () => {
+describe("keepCalendarTools (curadoria do catálogo — allowlist explícita)", () => {
+  it("só a allowlist (consultar+marcar) passa; outros toolkits são descartados", () => {
     const all = {
       GOOGLECALENDAR_CREATE_EVENT: { description: "Cria evento" },
       GOOGLECALENDAR_FIND_FREE_SLOTS: { description: "Horários livres" },
@@ -126,6 +126,16 @@ describe("keepCalendarTools (curadoria do catálogo — garantia anti-vazamento)
       "GOOGLECALENDAR_CREATE_EVENT",
       "GOOGLECALENDAR_FIND_FREE_SLOTS",
     ]);
+  });
+
+  it("DELETAR/EDITAR ficam FORA mesmo sendo do toolkit calendar (promessa do painel: nunca apaga)", () => {
+    const all = {
+      GOOGLECALENDAR_EVENTS_LIST: { description: "Lista eventos" },
+      GOOGLECALENDAR_DELETE_EVENT: { description: "Apaga evento — PROIBIDO" },
+      GOOGLECALENDAR_UPDATE_EVENT: { description: "Edita evento — fora do MVP" },
+      GOOGLECALENDAR_PATCH_CALENDAR: {},
+    };
+    expect(Object.keys(keepCalendarTools(all))).toEqual(["GOOGLECALENDAR_EVENTS_LIST"]);
   });
 
   it("vazio → vazio (sem surpresa)", () => {
