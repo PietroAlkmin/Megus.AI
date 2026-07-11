@@ -47,6 +47,7 @@ run("VercelAgentEngine (ao vivo)", () => {
     const engine = new VercelAgentEngine(generateText as any, (id) => sdk(id));
 
     const ctx: AgentContext = {
+      companyId: "c1",
       persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "", fewShotDialogs: [] },
       business: { companyName: "Clínica Sorriso Ltda", profile: null, services: [{ description: "Massagem", price: 180, emissivel: true }] },
       state: "new",

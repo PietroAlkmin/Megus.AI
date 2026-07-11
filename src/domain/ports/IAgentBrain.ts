@@ -52,6 +52,8 @@ export interface AgentCollected {
 }
 
 export interface AgentContext {
+  /** Empresa dona da integration (tenant) — ex.: resolve tools da empresa via IAgentToolsProvider. */
+  companyId: string;
   persona: AgentPersona;
   business: AgentBusiness;
   state: string; // ConversationState atual

@@ -73,6 +73,9 @@ export function assembleContext(input: AssembleContextInput): AgentContext {
   const { conversation, agentConfig, integration, companyProfile, services, contact, history, today } = input;
 
   return {
+    // integration.companyId é opcional (fixtures antigas); o caminho Prisma SEMPRE
+    // preenche. "" (nunca undefined) quando ausente — AgentContext.companyId é string.
+    companyId: integration.companyId ?? "",
     persona: {
       name: agentConfig.name,
       segment: agentConfig.segment,

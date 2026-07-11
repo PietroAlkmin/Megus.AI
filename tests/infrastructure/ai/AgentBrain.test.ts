@@ -4,6 +4,7 @@ import type { AgentEngineOptions, AgentEngineResult, IAgentEngine } from "../../
 import type { AgentContext } from "../../../src/domain/ports/IAgentBrain";
 
 const EMPTY_CONTEXT: AgentContext = {
+  companyId: "c1",
   persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "", fewShotDialogs: [] },
   business: { companyName: "Clínica X", profile: null, services: [] },
   state: "new",

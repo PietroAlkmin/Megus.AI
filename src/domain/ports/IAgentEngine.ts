@@ -19,6 +19,12 @@ export interface AgentEngineOptions {
   messages: AIMessage[];
   /** Tools de negócio disponíveis no loop (pode ser vazio). */
   tools: AgentTool[];
+  /**
+   * Tools JÁ no formato nativo do SDK do motor (ex.: Composio→Vercel `ToolSet`).
+   * O adapter faz merge no record de tools do SDK; nossas `AgentTool` e a
+   * answerTool GANHAM em colisão de nome (entram por último, sobrescrevendo).
+   */
+  nativeTools?: Record<string, unknown>;
   /** Tool terminal (sem execute) que carrega a resposta estruturada — ex.: PROPOSE_NEXT. */
   answerTool: AITool;
   /** Teto de passos do loop (segurança + latência). */

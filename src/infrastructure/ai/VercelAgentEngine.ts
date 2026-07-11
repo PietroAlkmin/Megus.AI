@@ -38,10 +38,12 @@ export class VercelAgentEngine implements IAgentEngine {
   ) {}
 
   async run(options: AgentEngineOptions): Promise<AgentEngineResult> {
-    // Tools de negócio (com execute) + a answer tool (SEM execute → o SDK devolve o
+    // nativeTools (ex.: Composio→Vercel ToolSet) entram PRIMEIRO no record — tools
+    // de negócio (com execute) + a answer tool (SEM execute → o SDK devolve o
     // controle quando o modelo a chama; é assim que encerramos o loop com saída
-    // estruturada). stepCountIs(maxSteps) é o teto de segurança.
-    const tools: Record<string, unknown> = {};
+    // estruturada) sobrescrevem em colisão de nome (nossas sempre ganham, por
+    // entrarem depois). stepCountIs(maxSteps) é o teto de segurança.
+    const tools: Record<string, unknown> = { ...(options.nativeTools ?? {}) };
     for (const t of options.tools) {
       tools[t.name] = tool({
         description: t.description,

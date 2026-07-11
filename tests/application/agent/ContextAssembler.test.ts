@@ -42,4 +42,15 @@ describe("ContextAssembler", () => {
     const ctx = assembleContext({ conversation: { state: "new" } as any, agentConfig, integration, companyProfile: vazio, services, contact: null, history: [], today: "hoje" });
     expect(ctx.business.profile).toBeNull();
   });
+
+  it("companyId vem da integration", () => {
+    const integrationComCompany: any = { ...integration, companyId: "c1" };
+    const ctx = assembleContext({ conversation: { state: "new" } as any, agentConfig, integration: integrationComCompany, companyProfile: null, services, contact: null, history: [], today: "hoje" });
+    expect(ctx.companyId).toBe("c1");
+  });
+
+  it("sem companyId na integration (fixture antiga) → \"\" (nunca undefined)", () => {
+    const ctx = assembleContext({ conversation: { state: "new" } as any, agentConfig, integration, companyProfile: null, services, contact: null, history: [], today: "hoje" });
+    expect(ctx.companyId).toBe("");
+  });
 });

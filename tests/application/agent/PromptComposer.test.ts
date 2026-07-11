@@ -4,6 +4,7 @@ import type { AgentContext } from "../../../src/domain/ports/IAgentBrain";
 
 function ctx(over: Partial<AgentContext> = {}): AgentContext {
   return {
+    companyId: "c1",
     persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "Seja gentil.", fewShotDialogs: [] },
     business: { companyName: "Clínica X", profile: null, services: [{ description: "Massagem", price: 180, emissivel: true }, { description: "Consulta", price: 250, emissivel: false }] },
     state: "new", history: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null }, today: "sábado, 5 de julho de 2026",

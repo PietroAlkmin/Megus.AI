@@ -75,6 +75,28 @@ describe("VercelAgentEngine", () => {
     expect(Object.keys(arg.tools as object).sort()).toEqual(["get_current_datetime", "propose_next"]);
   });
 
+  it("nativeTools (Composio/etc.) entram no record de tools do SDK junto das nossas", async () => {
+    const generate = vi.fn(async () => ({ text: "", toolCalls: [], steps: [] })) as unknown as SdkGenerateText;
+    const engine = new VercelAgentEngine(generate, (id) => id);
+    const bizTool: AgentTool = { name: "get_current_datetime", description: "x", parameters: { type: "object", properties: {} }, execute: async () => ({}) };
+
+    await engine.run({ ...BASE_OPTS, tools: [bizTool], nativeTools: { X_TOOL: {} } });
+
+    const arg = (generate as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls[0]![0];
+    expect(Object.keys(arg.tools as object).sort()).toEqual(["X_TOOL", "get_current_datetime", "propose_next"]);
+  });
+
+  it("colisão de nome: nossa answer tool prevalece sobre a nativeTool de mesmo nome", async () => {
+    const generate = vi.fn(async () => ({ text: "", toolCalls: [], steps: [] })) as unknown as SdkGenerateText;
+    const engine = new VercelAgentEngine(generate, (id) => id);
+    const nativeStub = { fake: "composio-tool" }; // stand-in por uma tool nativa do SDK do motor
+
+    await engine.run({ ...BASE_OPTS, nativeTools: { propose_next: nativeStub } });
+
+    const arg = (generate as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls[0]![0];
+    expect((arg.tools as Record<string, unknown>).propose_next).not.toBe(nativeStub);
+  });
+
   it("system do composer vai em `instructions` — NUNCA como message (ai@7 rejeita em runtime)", async () => {
     // Regressão do InvalidPromptError visto em prod (11/07): "System messages are
     // not allowed in the prompt or messages fields. Use the instructions option instead."
