@@ -58,6 +58,16 @@ const schema = z.object({
 
   // Persistência (Task Azure SQL). Vazio = repos in-memory (demo). Formato Node (mssql).
   DATABASE_URL: z.string().optional(),
+
+  // Ferramentas dinâmicas por empresa (Fase B — Composio/Google Calendar no loop
+  // do Kaua). Tudo opcional: sem COMPOSIO_API_KEY, o toolsProvider nem é criado
+  // (main.ts) e o comportamento é o de antes (Fase A intocada).
+  COMPOSIO_API_KEY: z.string().optional(),
+  COMPOSIO_GCAL_AUTH_CONFIG_ID: z.string().optional(),
+  // TTL do cache de tools por empresa (s). int().positive(): valor malformado
+  // (ex.: "abc"→NaN) FALHA no boot em vez de virar um cache que nunca expira
+  // (mesmo raciocínio do AI_MAX_STEPS acima).
+  COMPOSIO_TOOLS_TTL_S: z.coerce.number().int().positive().default(300),
 });
 
 export type Env = z.infer<typeof schema>;

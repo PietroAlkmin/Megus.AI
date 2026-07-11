@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AgentBrain } from "../../../src/infrastructure/ai/AgentBrain";
 import type { AgentEngineOptions, AgentEngineResult, IAgentEngine } from "../../../src/domain/ports/IAgentEngine";
 import type { AgentContext } from "../../../src/domain/ports/IAgentBrain";
+import type { IAgentToolsProvider } from "../../../src/domain/ports/IAgentToolsProvider";
 
 const EMPTY_CONTEXT: AgentContext = {
   companyId: "c1",
@@ -125,5 +126,50 @@ describe("AgentBrain", () => {
     expect(seen?.messages).toHaveLength(3);
     expect(seen?.messages[1]?.role).toBe("user");
     expect(seen?.messages[2]?.role).toBe("assistant");
+  });
+
+  it("sem toolsProvider (Fase B desligada), nativeTools vai vazio pro motor", async () => {
+    let seen: AgentEngineOptions | undefined;
+    const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });
+    const brain = new AgentBrain(engine, "gpt-4o");
+
+    await brain.decide(EMPTY_CONTEXT);
+
+    expect(seen?.nativeTools).toEqual({});
+  });
+
+  it("com toolsProvider: nativeTools dinâmicas chegam ao motor e a info dinâmica entra no prompt", async () => {
+    let seen: AgentEngineOptions | undefined;
+    const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });
+    const nativeStub = { fake: "composio-tool" }; // stand-in por uma tool nativa já no formato do SDK (Vercel)
+    const toolsProvider: IAgentToolsProvider = {
+      forCompany: vi.fn(async () => ({
+        nativeTools: { GOOGLECALENDAR_CREATE_EVENT: nativeStub },
+        infos: [{ name: "GOOGLECALENDAR_CREATE_EVENT", description: "Cria evento no Google Calendar" }],
+      })),
+    };
+    const brain = new AgentBrain(engine, "gpt-4o", [], 4, toolsProvider);
+
+    await brain.decide(EMPTY_CONTEXT);
+
+    expect(toolsProvider.forCompany).toHaveBeenCalledWith("c1"); // companyId do EMPTY_CONTEXT
+    expect(seen?.nativeTools).toEqual({ GOOGLECALENDAR_CREATE_EVENT: nativeStub });
+    expect(seen?.messages[0]?.content as string).toContain("- GOOGLECALENDAR_CREATE_EVENT: Cria evento no Google Calendar");
+  });
+
+  it("fail-safe: toolsProvider que rejeita NÃO quebra decide() — segue com toolset vazio", async () => {
+    let seen: AgentEngineOptions | undefined;
+    const engine = fakeEngine({ answer: { reply: ["oi"], action: { type: "reply" } } }, (o) => { seen = o; });
+    const toolsProvider: IAgentToolsProvider = {
+      forCompany: vi.fn(async () => {
+        throw new Error("composio fora do ar");
+      }),
+    };
+    const brain = new AgentBrain(engine, "gpt-4o", [], 4, toolsProvider);
+
+    const decision = await brain.decide(EMPTY_CONTEXT);
+
+    expect(decision.reply).toEqual(["oi"]); // decide() completou normalmente, sem propagar o erro
+    expect(seen?.nativeTools).toEqual({});
   });
 });

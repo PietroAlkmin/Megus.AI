@@ -9,6 +9,7 @@ import { MockFiscalProvider } from "./infrastructure/fiscal/MockFiscalProvider";
 import { OpenAIProvider } from "./infrastructure/ai/OpenAIProvider";
 import { AgentBrain } from "./infrastructure/ai/AgentBrain";
 import { VercelAgentEngine } from "./infrastructure/ai/VercelAgentEngine";
+import { ComposioAgentToolsProvider } from "./infrastructure/tools/composio/ComposioAgentToolsProvider";
 import { currentDateTimeTool } from "./infrastructure/ai/tools/currentDateTimeTool";
 import { ComprovanteAnalyzer } from "./infrastructure/ai/ComprovanteAnalyzer";
 import { MockComprovanteAnalyzer } from "./infrastructure/ai/MockComprovanteAnalyzer";
@@ -54,6 +55,12 @@ async function bootstrap(): Promise<void> {
   // é injetado (testável); o model factory resolve o id do env por chamada.
   const openaiSdk = createOpenAI({ apiKey: env.OPENAI_API_KEY ?? "placeholder-sem-chave" });
   const agentEngine = new VercelAgentEngine(generateText as any, (id) => openaiSdk(id));
+
+  // Ferramentas dinâmicas por empresa (Fase B — Composio/Google Calendar). Sem
+  // COMPOSIO_API_KEY (piloto hoje), fica undefined e NADA muda no cérebro.
+  const toolsProvider = env.COMPOSIO_API_KEY
+    ? ComposioAgentToolsProvider.fromEnv(env.COMPOSIO_API_KEY, env.COMPOSIO_TOOLS_TTL_S * 1000)
+    : undefined;
 
   // Seleciona provider de mensageria por env
   let messaging: IMessagingProvider;
@@ -156,7 +163,7 @@ async function bootstrap(): Promise<void> {
       ? new MockComprovanteAnalyzer({ amount: PILOT_SERVICE_PRICE, confidence: 1 })
       : new ComprovanteAnalyzer(ai, env.AI_MODEL_VISION);
   const stateMachine = new ConversationStateMachine({
-    brain: new AgentBrain(agentEngine, env.AI_MODEL_CHAT, [currentDateTimeTool], env.AI_MAX_STEPS),
+    brain: new AgentBrain(agentEngine, env.AI_MODEL_CHAT, [currentDateTimeTool], env.AI_MAX_STEPS, toolsProvider),
     cpf,
     comprovante,
     fiscal: new MockFiscalProvider(env.MOCK_NOTA_PDF_URL),

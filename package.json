@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.11",
+    "@composio/core": "^0.13.1",
+    "@composio/vercel": "^0.11.0",
     "@prisma/client": "^6.19.3",
     "ai": "^7.0.19",
     "bcryptjs": "^3.0.3",
