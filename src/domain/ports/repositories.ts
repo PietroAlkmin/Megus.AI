@@ -87,6 +87,8 @@ export interface IConversationRepository {
   getLastMessage(conversationId: string): Promise<Message | null>;
   /** Total de mensagens desde `since` nas integrações dadas (métrica "mensagens hoje"). */
   countMessagesSince(integrationIds: string[], since: Date): Promise<number>;
+  /** Apaga TODO o histórico da conversa (comando de teste /reset). */
+  deleteMessages(conversationId: string): Promise<void>;
 }
 
 export interface IEmissionIntentRepository {
@@ -98,6 +100,11 @@ export interface IEmissionIntentRepository {
   listByIntegrationId(integrationId: string): Promise<CobrancaView[]>;
   /** Registra que a cobrança foi disparada (chargeSentAt). false se a emissão não existe. */
   markCharged(id: string, when: Date): Promise<boolean>;
+  /**
+   * Apaga os RASCUNHOS de emissão da conversa (draft/ready/failed) — comando de
+   * teste /reset. Emissões emitting/emitted são registro fiscal: nunca se apagam.
+   */
+  deleteUnemittedByConversationId(conversationId: string): Promise<void>;
 }
 
 /** Empresa a que um usuário tem acesso (seletor do painel). */

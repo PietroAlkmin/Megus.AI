@@ -60,6 +60,12 @@ export class PrismaEmissionIntentRepository implements IEmissionIntentRepository
     });
     return result.count > 0;
   }
+
+  async deleteUnemittedByConversationId(conversationId: string): Promise<void> {
+    await prisma.emissionIntent.deleteMany({
+      where: { conversationId, status: { in: ["draft", "ready", "failed"] } },
+    });
+  }
 }
 
 function toCobrancaView(r: {

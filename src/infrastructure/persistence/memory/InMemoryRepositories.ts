@@ -171,6 +171,9 @@ export class InMemoryRepositories {
       );
       return this._messages.filter((m) => convIds.has(m.conversationId) && m.createdAt >= since).length;
     },
+    deleteMessages: async (conversationId) => {
+      this._messages = this._messages.filter((m) => m.conversationId !== conversationId);
+    },
   };
 
   emissions: IEmissionIntentRepository = {
@@ -194,6 +197,11 @@ export class InMemoryRepositories {
       if (!this._emissions.some((e) => e.id === id)) return false;
       this._emissionChargedAt.set(id, when);
       return true;
+    },
+    deleteUnemittedByConversationId: async (conversationId) => {
+      this._emissions = this._emissions.filter(
+        (e) => e.conversationId !== conversationId || e.status === "emitting" || e.status === "emitted",
+      );
     },
   };
 

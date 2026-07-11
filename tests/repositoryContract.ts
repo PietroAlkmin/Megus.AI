@@ -74,6 +74,18 @@ export async function assertRepositoryContract(repos: ReposBundle, hooks?: Contr
     expect(await repos.emissions.markCharged("emissao-inexistente", quando)).toBe(false);
     const cobrada = (await repos.emissions.listByIntegrationId(A)).find((v) => v.id === intentId);
     expect(cobrada?.chargeSentAt?.getTime()).toBe(quando.getTime());
+
+    // /reset: apaga os rascunhos da conversa mas PRESERVA o registro fiscal (emitted)
+    const emittedId = randomUUID();
+    await repos.emissions.save({ id: emittedId, conversationId: conv.id, contactId: cA.id, integrationId: A, status: "emitted", tomadorName: "Ana", tomadorCpf: "11111111111", serviceId: null, description: "Massagem", amount: 180, paymentVerified: true, paymentConfidence: 1, fiscalKey: "K1", pdfUrl: "http://x/n.pdf", createdAt: now, updatedAt: now });
+    await repos.emissions.deleteUnemittedByConversationId(conv.id);
+    expect(await repos.emissions.getById(intentId)).toBeNull(); // ready apagado
+    expect((await repos.emissions.getById(emittedId))?.status).toBe("emitted"); // registro vive
+
+    // /reset: o histórico some por inteiro
+    await repos.conversations.deleteMessages(conv.id);
+    expect(await repos.conversations.getHistory(conv.id, 20)).toEqual([]);
+    expect(await repos.conversations.getLastMessage(conv.id)).toBeNull();
   } finally {
     await hooks?.cleanup?.();
   }

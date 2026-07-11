@@ -51,6 +51,15 @@ export class ConversationStateMachine {
     integration: Integration,
     inbound: InboundMessage,
   ): Promise<void> {
+    // Comando de TESTE "/reset": zera a memória DESTA conversa (histórico, estado,
+    // identidade e rascunhos de emissão) — destrava conversa presa em estado fiscal
+    // ou em handoff durante testes no WhatsApp real. Vem ANTES do "bot calado" de
+    // propósito; só texto puro (mídia com legenda "/reset" segue pro gate fiscal).
+    // Notas emitidas/em emissão são registro fiscal: nunca se apagam.
+    if (inbound.kind === "text" && inbound.text?.trim().toLowerCase() === "/reset") {
+      return this.resetConversation(conversation, integration);
+    }
+
     if (conversation.humanHandoff) return; // bot calado
 
     // Regra dura: mídia em estado de comprovante → gate B (handleComprovante) ANTES
@@ -75,6 +84,42 @@ export class ConversationStateMachine {
         // O default deixa de ser o "Um momento" morto: o cérebro responde em todo estado.
         return this.handleChatting(conversation, agentConfig, integration, inbound);
     }
+  }
+
+  /**
+   * Reset de teste (/reset): a conversa volta ao zero absoluto — histórico apagado,
+   * estado New, handoff desligado, identidade do contato esquecida (o fluxo volta a
+   * coletar nome+CPF) e rascunhos de emissão descartados. Não chama o cérebro nem
+   * qualquer provedor fiscal; emitted/emitting ficam intactos.
+   */
+  private async resetConversation(conv: Conversation, integration: Integration): Promise<void> {
+    const instance = integration.evolutionInstance || undefined;
+
+    await this.d.conversations.deleteMessages(conv.id);
+    await this.d.emissions.deleteUnemittedByConversationId(conv.id);
+    this.attempts.delete(conv.id);
+
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    if (contact) {
+      await this.d.contacts.save({
+        ...contact,
+        fullName: null,
+        cpf: null,
+        cpfNameVerified: false,
+        updatedAt: new Date(),
+      });
+    }
+
+    conv.state = ConversationState.New;
+    conv.humanHandoff = false;
+    conv.updatedAt = new Date();
+    await this.d.conversations.save(conv);
+
+    await this.send(
+      conv,
+      ["🔄 Pronto! Conversa resetada (comando de teste): histórico, identidade e estado zerados. Pode começar do zero."],
+      instance,
+    );
   }
 
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */

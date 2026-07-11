@@ -63,4 +63,7 @@ export class PrismaConversationRepository implements IConversationRepository {
       where: { createdAt: { gte: since }, Conversation: { integrationId: { in: integrationIds } } },
     });
   }
+  async deleteMessages(conversationId: string): Promise<void> {
+    await prisma.message.deleteMany({ where: { conversationId } });
+  }
 }
