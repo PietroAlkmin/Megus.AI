@@ -131,12 +131,19 @@ export class ConversationStateMachine {
 
     // Se o cliente já mandou nome+CPF (mesmo "no meio da conversa"), valida JÁ —
     // não deixa a identidade fornecida sem ação esperando o próximo turno.
+    // Modo depende do MOTIVO: intent_emit é o funil fiscal de sempre (arma o
+    // comprovante no sucesso); qualquer outra ação com identidade junto (ex.:
+    // agendamento) é "cadastro" — valida e salva igual, mas NÃO sequestra a
+    // conversa pro fluxo de nota; quem responde é o cérebro.
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
     if (fullName && cpfRaw) {
-      conv.state = ConversationState.CollectingIdentity;
-      await this.d.conversations.save(conv);
-      return this.processIdentity(conv, integration, decision);
+      const mode = decision.action.type === "intent_emit" ? "fiscal" : "cadastro";
+      if (mode === "fiscal") {
+        conv.state = ConversationState.CollectingIdentity;
+        await this.d.conversations.save(conv);
+      }
+      return this.processIdentity(conv, integration, decision, mode);
     }
 
     await this.send(conv, decision.reply, instance);
@@ -160,17 +167,41 @@ export class ConversationStateMachine {
     return this.processIdentity(conv, integration, decision);
   }
 
-  /** Valida dígito + CPF↔nome a partir da decisão já obtida, cria cliente e avança. */
-  private async processIdentity(conv: Conversation, integration: Integration, decision: AgentDecision): Promise<void> {
+  /**
+   * Valida dígito + CPF↔nome a partir da decisão já obtida, cria cliente e avança.
+   *
+   * `mode` (default "fiscal") separa o DESTINO pós-validação sem duplicar a
+   * validação em si:
+   * - "fiscal": o funil de emissão de sempre — `handleIdentity` chama SEM
+   *   informar `mode` (states CollectingIdentity/ValidatingCpf só são
+   *   alcançáveis por esse funil), e `handleChatting` também usa fiscal quando
+   *   a ação é `intent_emit`. Byte-idêntico ao comportamento pré-existente.
+   * - "cadastro": identidade dada em conversa livre por outro motivo (ex.:
+   *   agendamento). Valida e salva o contato do MESMO jeito (mesmo bloco), mas
+   *   NÃO arma o comprovante — o estado da conversa não é tocado aqui (fica
+   *   como estava, ex. New) e quem fala é o cérebro (`decision.reply`), nunca
+   *   o "me manda o comprovante" fiscal. Falhas em cadastro não contam
+   *   tentativa nem levam a handoff — esse contador é regra do funil fiscal.
+   */
+  private async processIdentity(
+    conv: Conversation,
+    integration: Integration,
+    decision: AgentDecision,
+    mode: "fiscal" | "cadastro" = "fiscal",
+  ): Promise<void> {
     const instance = integration.evolutionInstance || undefined;
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
 
     // Identidade ainda não fornecida: strings vazias → pede de novo sem contar tentativa.
+    // (Em modo cadastro isto não deveria ocorrer — handleChatting só chama com os
+    // dois campos preenchidos — mas a guarda fica sã: re-pede sem mexer no estado.)
     if (!fullName || !cpfRaw) {
       await this.send(conv, ["Preciso do seu nome completo e CPF para emitir a nota. Pode mandar?"], instance);
-      conv.state = ConversationState.CollectingIdentity;
-      await this.d.conversations.save(conv);
+      if (mode === "fiscal") {
+        conv.state = ConversationState.CollectingIdentity;
+        await this.d.conversations.save(conv);
+      }
       return;
     }
 
@@ -179,22 +210,28 @@ export class ConversationStateMachine {
     const lookup = cpf ? await this.d.cpf.lookupName(cpf.digits) : { found: false, name: null };
     const ok = !!cpf && lookup.found && lookup.name != null && nameMatch(fullName, lookup.name);
     if (!ok) {
+      const msg = cpf
+        ? "O nome não bateu com o CPF informado. Pode conferir e mandar de novo?"
+        : "Esse CPF não parece válido. Pode conferir e mandar de novo?";
+      if (mode === "cadastro") {
+        // Cadastro (identidade em conversa livre): repete o erro sem contar
+        // tentativa nem acionar handoff — attempts/handoff é regra do funil fiscal.
+        await this.send(conv, [msg], instance);
+        return;
+      }
       const n = (this.attempts.get(conv.id) ?? 0) + 1;
       this.attempts.set(conv.id, n);
       if (n >= this.d.config.cpfMaxAttempts) {
         await this.handoff(conv, "CPF↔nome não confere após tentativas", instance);
         return;
       }
-      const msg = cpf
-        ? "O nome não bateu com o CPF informado. Pode conferir e mandar de novo?"
-        : "Esse CPF não parece válido. Pode conferir e mandar de novo?";
       await this.send(conv, [msg], instance);
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
       return;
     }
 
-    // OK: cria/dedup o contato e o cliente no backend fiscal.
+    // OK: cria/dedup o contato e o cliente no backend fiscal — MESMO bloco nos 2 modos.
     this.attempts.delete(conv.id);
     let contact = await this.d.contacts.findByCpf(integration.id, cpf.digits);
     const now = new Date();
@@ -217,8 +254,17 @@ export class ConversationStateMachine {
     await this.d.fiscal.upsertCustomer({
       integrationRef: integration.fiscalProviderRef, name: fullName, cpf: cpf.digits, whatsapp: conv.whatsappNumber,
     });
-
     conv.contactId = contact.id;
+
+    if (mode === "cadastro") {
+      // NÃO arma o comprovante: a conversa segue (estado atual — ex. New) e quem
+      // fala é o cérebro (a resposta natural já decidida, ex. "vou confirmar seu
+      // horário"), nunca o "me manda o comprovante" — isso é fiscal, não cadastro.
+      await this.d.conversations.save(conv);
+      if (decision.reply.length > 0) await this.send(conv, decision.reply, instance);
+      return;
+    }
+
     conv.state = ConversationState.AwaitingComprovante;
     await this.d.conversations.save(conv);
     await this.send(conv, ["Perfeito! Agora me envia o comprovante de pagamento (foto ou PDF) que eu emito sua nota."], instance);
