@@ -27,17 +27,26 @@ export function ferramentasRoutes(deps: FerramentasRoutesDeps): Router {
   r.post("/agenda/conectar", async (req: Request, res: Response) => {
     const { companyId } = req.auth as AuthContext;
 
-    if (!deps.connectOps || !deps.gcalAuthConfigId) {
+    // Sentinela do contrato do port (defense-in-depth, espelha forCompany""):
+    // usuário sem empresa NUNCA vira lookup/bucket "" no Composio.
+    if (!deps.connectOps || !deps.gcalAuthConfigId || companyId === "") {
       fail(res, "Agenda indisponível no momento.", 503, "TOOLS_UNAVAILABLE");
       return;
     }
 
-    const { redirectUrl } = await deps.connectOps.initiate(companyId, deps.gcalAuthConfigId);
-    if (!redirectUrl) {
+    try {
+      const { redirectUrl } = await deps.connectOps.initiate(companyId, deps.gcalAuthConfigId);
+      if (!redirectUrl) {
+        fail(res, "Não foi possível iniciar a conexão.", 502, "TOOLS_CONNECT_FAILED");
+        return;
+      }
+      ok(res, { url: redirectUrl });
+    } catch (err) {
+      // Falha do Composio vira envelope 502 — nunca um 500 cru do Express
+      // (que vaza stack e quebra o contrato ResultResponse do front).
+      console.warn(`[ferramentas] conectar agenda falhou p/ empresa ${companyId}:`, err instanceof Error ? err.message : err);
       fail(res, "Não foi possível iniciar a conexão.", 502, "TOOLS_CONNECT_FAILED");
-      return;
     }
-    ok(res, { url: redirectUrl });
   });
 
   // GET /api/agente/ferramentas/agenda/status — conectado? Rota de LEITURA/informativa:
@@ -46,7 +55,8 @@ export function ferramentasRoutes(deps: FerramentasRoutesDeps): Router {
   r.get("/agenda/status", async (req: Request, res: Response) => {
     const { companyId } = req.auth as AuthContext;
 
-    if (!deps.connectOps) {
+    // Sem provider OU usuário sem empresa (sentinela ""): informativo, false.
+    if (!deps.connectOps || companyId === "") {
       ok(res, { conectado: false });
       return;
     }
