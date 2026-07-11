@@ -91,10 +91,13 @@ describe("VercelAgentEngine", () => {
     const engine = new VercelAgentEngine(generate, (id) => id);
     const nativeStub = { fake: "composio-tool" }; // stand-in por uma tool nativa do SDK do motor
 
-    await engine.run({ ...BASE_OPTS, nativeTools: { propose_next: nativeStub } });
+    // colidente + não-colidente na MESMA chamada: distingue "nossa prevalece"
+    // de "nativeTools ignoradas por inteiro" (X_TOOL tem que sobreviver).
+    await engine.run({ ...BASE_OPTS, nativeTools: { propose_next: nativeStub, X_TOOL: {} } });
 
     const arg = (generate as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls[0]![0];
     expect((arg.tools as Record<string, unknown>).propose_next).not.toBe(nativeStub);
+    expect(Object.keys(arg.tools as object)).toContain("X_TOOL");
   });
 
   it("system do composer vai em `instructions` — NUNCA como message (ai@7 rejeita em runtime)", async () => {

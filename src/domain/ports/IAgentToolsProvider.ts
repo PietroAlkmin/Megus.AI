@@ -12,6 +12,13 @@ export interface AgentToolInfo { name: string; description: string }
 /** Toolset dinâmico por empresa: nativas do SDK do motor + infos pro prompt. */
 export interface AgentToolset { nativeTools: Record<string, unknown>; infos: AgentToolInfo[] }
 export interface IAgentToolsProvider {
-  /** Tools disponíveis pra EMPRESA (conexões ativas dela; vazio se nenhuma). */
+  /**
+   * Tools disponíveis pra EMPRESA (conexões ativas dela; vazio se nenhuma).
+   *
+   * CONTRATO DURO do sentinela vazio: `companyId === ""` (integração sem dono no
+   * assembler) devolve toolset VAZIO imediatamente — NUNCA vira lookup real no
+   * provedor. Histórico: leniência com companyId vazio já abriu acesso
+   * cross-tenant aqui (ver pertenceAoTenant/resolveUserCompanyId); não repetir.
+   */
   forCompany(companyId: string): Promise<AgentToolset>;
 }
