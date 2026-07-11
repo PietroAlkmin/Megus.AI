@@ -11,7 +11,7 @@ import type { IFiscalProvider } from "../../domain/ports/IFiscalProvider";
 import type { IMessagingProvider, InboundMessage } from "../../domain/ports/IMessagingProvider";
 import type {
   IContactRepository, IConversationRepository,
-  IEmissionIntentRepository, IServiceRepository,
+  IEmissionIntentRepository, IServiceRepository, ICompanyProfileRepository,
 } from "../../domain/ports/repositories";
 import { randomUUID } from "node:crypto";
 import { sanitizeFiscalText } from "../../domain/services/sanitizeFiscalText";
@@ -38,6 +38,8 @@ export interface StateMachineDeps {
   conversations: IConversationRepository;
   emissions: IEmissionIntentRepository;
   services: IServiceRepository;
+  /** Cadastro da aba Empresa — entra no contexto do cérebro (bloco "Sobre a empresa"). */
+  companyProfiles: ICompanyProfileRepository;
   config: { cpfMaxAttempts: number; comprovanteMinConfidence: number };
 }
 
@@ -277,7 +279,12 @@ export class ConversationStateMachine {
     const services = await this.d.services.listByIntegration(integration.id);
     const history = await this.d.conversations.getHistory(conv.id, 20);
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
-    return assembleContext({ conversation: conv, agentConfig: cfg, integration, services, contact, history, today: formatToday() });
+    // Cadastro rico da empresa (aba Empresa) — o companyId é opcional na entidade
+    // (fixtures antigas); sem ele, o contexto segue sem o bloco da empresa.
+    const companyProfile = integration.companyId
+      ? await this.d.companyProfiles.getByCompanyId(integration.companyId)
+      : null;
+    return assembleContext({ conversation: conv, agentConfig: cfg, integration, companyProfile, services, contact, history, today: formatToday() });
   }
 
   private async send(conv: Conversation, bubbles: string[], instance?: string): Promise<void> {

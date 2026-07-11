@@ -21,12 +21,50 @@ const LANG_DIRECTIVE: Record<AgentPersona["lang"], string> = {
   es: "Responde en español.",
 };
 
+// Rótulo humano dos segmentos (mesmo catálogo do painel — frontend/src/lib/segmentos.ts).
+// Ids desconhecidos passam como vieram: dado real, não placeholder.
+const SEGMENTO_LABEL: Record<string, string> = {
+  varejo: "Comércio / Varejo",
+  restaurante: "Restaurante",
+  servicos: "Serviços / Consultório",
+  saude: "Saúde / Clínica",
+  beleza: "Beleza / Estética",
+  educacao: "Educação / Cursos",
+};
+
 function buildIdentityBlock(ctx: AgentContext): string {
   const emojiDirective = ctx.persona.emojis ? "Pode usar emojis com moderação." : "NÃO use emojis.";
+  // Apresentação pelo nome FANTASIA quando existe ("Clínica Sorriso") — ninguém
+  // se apresenta pela razão social ("... Ltda"); ela vai no bloco da empresa.
+  const displayName = ctx.business.profile?.fantasyName ?? ctx.business.companyName;
+  const segmento = SEGMENTO_LABEL[ctx.persona.segment] ?? ctx.persona.segment;
   return (
-    `Você é o ${ctx.persona.name}, atendente da ${ctx.business.companyName}. ` +
+    `Você é o ${ctx.persona.name}, atendente da ${displayName}. ` +
     `${TONE_DIRECTIVE[ctx.persona.tone]} ${emojiDirective} ${LANG_DIRECTIVE[ctx.persona.lang]} ` +
-    `Segmento: ${ctx.persona.segment}.`
+    `Segmento: ${segmento}.`
+  );
+}
+
+/** Bloco "Sobre a empresa" — só o que a empresa PREENCHEU no cadastro (aba Empresa). */
+function buildEmpresaBlock(ctx: AgentContext): string | null {
+  const p = ctx.business.profile;
+  if (!p) return null;
+
+  const linhas: string[] = [];
+  if (ctx.business.companyName && ctx.business.companyName !== p.fantasyName)
+    linhas.push(`- Razão social: ${ctx.business.companyName}`);
+  if (p.address) linhas.push(`- Endereço: ${p.address}`);
+  if (p.city) linhas.push(`- Cidade: ${p.city}${p.state ? `/${p.state}` : ""}`);
+  else if (p.state) linhas.push(`- UF: ${p.state}`);
+  if (p.phone) linhas.push(`- Telefone: ${p.phone}`);
+  if (p.email) linhas.push(`- E-mail: ${p.email}`);
+  if (p.pixKey) linhas.push(`- Pagamento: Pix${p.pixType ? ` (${p.pixType})` : ""}, chave ${p.pixKey}`);
+  if (p.paymentInstructions) linhas.push(`- Instruções de pagamento: ${p.paymentInstructions}`);
+  if (linhas.length === 0) return null;
+
+  return (
+    `Sobre a empresa (use estes dados quando o cliente perguntar sobre a empresa ou como pagar; ` +
+    `não invente o que não está aqui):\n${linhas.join("\n")}`
   );
 }
 
@@ -59,6 +97,9 @@ export function composePrompt(ctx: AgentContext): AIMessage[] {
   const blocks: string[] = [buildIdentityBlock(ctx)];
 
   if (ctx.persona.instructions.trim()) blocks.push(ctx.persona.instructions);
+
+  const empresa = buildEmpresaBlock(ctx);
+  if (empresa) blocks.push(empresa);
 
   const catalog = buildCatalogBlock(ctx);
   if (catalog) blocks.push(catalog);

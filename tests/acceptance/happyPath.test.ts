@@ -27,7 +27,7 @@ describe("Aceite: caminho feliz do piloto (§7)", () => {
     const cpf = new MockCpfProvider({ "52998224725": "João da Silva" });
     const fiscal = new MockFiscalProvider();
 
-    const sm = new ConversationStateMachine({ brain, cpf, comprovante, fiscal, messaging, contacts: repos.contacts, conversations: repos.conversations, emissions: repos.emissions, services: repos.services, config: { cpfMaxAttempts: 2, comprovanteMinConfidence: 0.8 } });
+    const sm = new ConversationStateMachine({ brain, cpf, comprovante, fiscal, messaging, contacts: repos.contacts, conversations: repos.conversations, emissions: repos.emissions, services: repos.services, companyProfiles: repos.companyProfiles, config: { cpfMaxAttempts: 2, comprovanteMinConfidence: 0.8 } });
     const uc = new HandleInboundMessage({ integrations: repos.integrations, agentConfigs: repos.agentConfigs, conversations: repos.conversations, contacts: repos.contacts, stateMachine: sm });
 
     const from = "5511988887777"; const to = "5511999990000";

@@ -15,7 +15,7 @@ function depsWith(repos: InMemoryRepositories): StateMachineDeps {
     comprovante: { analyze: vi.fn() },
     fiscal: { upsertCustomer: vi.fn(), emitNfse: vi.fn(async () => ({ success: true, fiscalKey: "MOCK123", pdfUrl: "mock://nfse/MOCK123.pdf", message: null })) },
     messaging: { start: vi.fn(), getConnectionStatus: () => "connected", getQrCode: vi.fn(), onInboundMessage: vi.fn(), sendText: vi.fn(), sendMedia: vi.fn(), startTyping: vi.fn(), stopTyping: vi.fn() },
-    contacts: repos.contacts, conversations: repos.conversations, emissions: repos.emissions, services: repos.services,
+    contacts: repos.contacts, conversations: repos.conversations, emissions: repos.emissions, services: repos.services, companyProfiles: repos.companyProfiles,
     config: { cpfMaxAttempts: 2, comprovanteMinConfidence: 0.8 },
   };
 }

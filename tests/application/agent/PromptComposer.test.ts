@@ -5,11 +5,16 @@ import type { AgentContext } from "../../../src/domain/ports/IAgentBrain";
 function ctx(over: Partial<AgentContext> = {}): AgentContext {
   return {
     persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "Seja gentil.", fewShotDialogs: [] },
-    business: { companyName: "Clínica X", services: [{ description: "Massagem", price: 180, emissivel: true }, { description: "Consulta", price: 250, emissivel: false }] },
+    business: { companyName: "Clínica X", profile: null, services: [{ description: "Massagem", price: 180, emissivel: true }, { description: "Consulta", price: 250, emissivel: false }] },
     state: "new", history: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null }, today: "sábado, 5 de julho de 2026",
     ...over,
   };
 }
+
+const PROFILE_CHEIO = {
+  fantasyName: "Clínica Sorriso", address: "Al. Rio Negro, 1200", city: "São Paulo", state: "SP", phone: "(11) 4002-8922",
+  email: "oi@sorriso.com", pixType: "cnpj", pixKey: "11222333000181", paymentInstructions: "Envie o comprovante aqui.",
+};
 describe("composePrompt", () => {
   it("system carrega nome, empresa, catálogo com preços e a data", () => {
     const msgs = composePrompt(ctx());
@@ -36,5 +41,35 @@ describe("composePrompt", () => {
   it("regra fiscal está no system (nunca dizer que emitiu)", () => {
     const sys = composePrompt(ctx())[0]!.content as string;
     expect(sys).toMatch(/nunca diga que emitiu/i);
+  });
+  it("segmento entra com rótulo humano, não o id cru", () => {
+    const sys = composePrompt(ctx())[0]!.content as string;
+    expect(sys).toContain("Saúde / Clínica");
+    expect(sys).not.toContain("Segmento: saude.");
+  });
+  it("com cadastro: apresenta pelo nome FANTASIA e monta o bloco da empresa (Pix incluso)", () => {
+    const sys = composePrompt(
+      ctx({ business: { companyName: "Clínica Sorriso Ltda", profile: PROFILE_CHEIO, services: [] } }),
+    )[0]!.content as string;
+    expect(sys).toContain("atendente da Clínica Sorriso."); // fantasia na apresentação
+    expect(sys).toContain("Razão social: Clínica Sorriso Ltda");
+    expect(sys).toContain("Endereço: Al. Rio Negro, 1200");
+    expect(sys).toContain("Cidade: São Paulo/SP");
+    expect(sys).toContain("Pix (cnpj), chave 11222333000181");
+    expect(sys).toContain("Envie o comprovante aqui.");
+    expect(sys).toContain("não invente o que não está aqui");
+  });
+  it("sem cadastro (profile null): sem bloco de empresa e apresentação pela razão social", () => {
+    const sys = composePrompt(ctx())[0]!.content as string;
+    expect(sys).toContain("atendente da Clínica X.");
+    expect(sys).not.toContain("Sobre a empresa");
+  });
+  it("campos ausentes do cadastro NÃO viram linha (sem placeholder no prompt)", () => {
+    const sys = composePrompt(
+      ctx({ business: { companyName: "Clínica X", profile: { ...PROFILE_CHEIO, email: null, paymentInstructions: null }, services: [] } }),
+    )[0]!.content as string;
+    expect(sys).not.toContain("E-mail");
+    expect(sys).not.toContain("Instruções de pagamento");
+    expect(sys).toContain("Telefone: (11) 4002-8922");
   });
 });

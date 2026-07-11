@@ -5,7 +5,7 @@ import type { AgentContext } from "../../../src/domain/ports/IAgentBrain";
 
 const EMPTY_CONTEXT: AgentContext = {
   persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "", fewShotDialogs: [] },
-  business: { companyName: "Clínica X", services: [] },
+  business: { companyName: "Clínica X", profile: null, services: [] },
   state: "new",
   history: [],
   collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null },

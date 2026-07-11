@@ -24,8 +24,23 @@ export interface AgentBusinessService {
   emissivel: boolean;
 }
 
+/** Cadastro rico da empresa (aba Empresa do painel) — só campos PREENCHIDOS chegam aqui. */
+export interface AgentBusinessProfile {
+  fantasyName: string | null; // nome fantasia (apresentação natural: "Clínica Sorriso")
+  address: string | null; // "onde vocês ficam?" — rua/número/bairro
+  city: string | null;
+  state: string | null;
+  phone: string | null;
+  email: string | null;
+  pixType: string | null;
+  pixKey: string | null;
+  paymentInstructions: string | null;
+}
+
 export interface AgentBusiness {
-  companyName: string; // integration.fiscalName
+  companyName: string; // integration.fiscalName (razão social)
+  /** null quando a empresa não preencheu o cadastro — o prompt omite o bloco. */
+  profile: AgentBusinessProfile | null;
   services: AgentBusinessService[]; // serviços da integração; emissivel = está em linkedServiceIds
 }
 

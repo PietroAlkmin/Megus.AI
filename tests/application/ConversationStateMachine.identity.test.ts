@@ -12,7 +12,7 @@ function baseDeps(repos: InMemoryRepositories): StateMachineDeps {
     fiscal: { emitNfse: vi.fn(), upsertCustomer: vi.fn(async () => ({ customerId: "cust1", created: true })) },
     messaging: { start: vi.fn(), getConnectionStatus: () => "connected", getQrCode: vi.fn(), onInboundMessage: vi.fn(), sendText: vi.fn(), sendMedia: vi.fn(), startTyping: vi.fn(), stopTyping: vi.fn() },
     contacts: repos.contacts, conversations: repos.conversations,
-    emissions: repos.emissions, services: repos.services,
+    emissions: repos.emissions, services: repos.services, companyProfiles: repos.companyProfiles,
     config: { cpfMaxAttempts: 2, comprovanteMinConfidence: 0.8 },
   };
 }
