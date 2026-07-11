@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "./client";
+import { resolveUserCompanyId } from "./resolveUserCompanyId";
 import type { IUserRepository } from "../../../domain/ports/repositories";
 import type { User } from "../../../domain/entities/User";
 
@@ -98,7 +99,7 @@ export class PrismaUserRepository implements IUserRepository {
     createdAt: Date; updatedAt: Date;
     Membership: { companyId: string }[];
   }): User {
-    const companyId = row.Membership[0]?.companyId ?? "";
+    const companyId = resolveUserCompanyId(row.Membership);
     return {
       id: row.id,
       email: row.email,

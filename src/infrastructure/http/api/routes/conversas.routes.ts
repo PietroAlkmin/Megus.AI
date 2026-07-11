@@ -24,10 +24,11 @@ function statusDe(state: string, humanHandoff: boolean): string {
   return "BOT";
 }
 
-// A integração pertence ao tenant do token? (companyId ausente = fixture
-// in-memory de tenant único — passa; no Prisma o campo SEMPRE vem preenchido.)
+// A integração pertence ao tenant do token? Comparação ESTRITA por companyId —
+// sem bypass: uma integração com companyId vazio NÃO é "de todo mundo" (isso
+// abriria acesso cross-tenant). Fixtures de teste devem trazer o companyId real.
 function pertenceAoTenant(integ: Integration | null, companyId: string): integ is Integration {
-  return integ !== null && (!integ.companyId || integ.companyId === companyId);
+  return integ !== null && integ.companyId === companyId;
 }
 
 function nomeAnexo(mediaUrl: string): string {

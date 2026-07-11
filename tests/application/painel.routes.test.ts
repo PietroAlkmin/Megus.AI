@@ -187,6 +187,25 @@ describe("painel com dados reais (sem mock)", () => {
     expect(cruzado.status).toBe(404);
   });
 
+  it("conversas: integração com companyId VAZIO não é acessível por nenhum tenant (predicado sem bypass)", async () => {
+    // Regressão do bypass `!integ.companyId` em pertenceAoTenant: uma integração
+    // sem companyId NÃO pode ser "de todo mundo" — tem que dar 404.
+    const repos = new InMemoryRepositories();
+    const now = new Date();
+    repos.seed({
+      companies: [{ id: "c1", name: "Alfa" }],
+      users: [{ id: "u1", email: "t@megus.ai", passwordHash: "x", companyId: "c1", displayName: "T", createdAt: now, updatedAt: now }],
+      memberships: [{ userId: "u1", companyId: "c1" }],
+      integrations: [
+        { id: "intGhost", companyId: "", displayName: "Fantasma", whatsappNumber: "5511900000000", fiscalDoc: "1", fiscalName: "F", fiscalProviderRef: null, active: true, createdAt: now, updatedAt: now },
+      ],
+    });
+    const url = await sobe(repos);
+
+    const res = await fetch(`${url}/api/agentes/intGhost/conversas`, { headers: { Authorization: `Bearer ${makeToken("c1")}` } });
+    expect(res.status).toBe(404);
+  });
+
   it("mensagens: histórico da conversa; conversa de outra empresa → 404", async () => {
     const { repos, aberta, deBeta } = await seedCenario();
     const url = await sobe(repos);
