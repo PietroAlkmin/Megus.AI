@@ -72,26 +72,27 @@ export class ComposioAgentToolsProvider implements IAgentToolsProvider {
    * (scoping por tenant). `toolkits: ["googlecalendar"]` no `create()` é filtro
    * NATIVO (confirmado no .d.mts: `ToolRouterCreateSessionConfig.toolkits`) —
    * best effort, já que o slug de TOOLKIT não é verificável localmente (catálogo
-   * remoto do Composio). Quem GARANTE o catálogo curado (só Google Calendar por
-   * ora — Kapty.Docs plano Fase B) é o filtro por PREFIXO de tool abaixo:
-   * `GOOGLECALENDAR_` é o slug de TOOL, esse sim confirmado (mesmas strings do
-   * plano: GOOGLECALENDAR_FIND_FREE_SLOTS/EVENTS_LIST/CREATE_EVENT). Cinto e
-   * suspensório: mesmo se o slug de toolkit acima estiver errado (ou a conta
-   * tiver outros toolkits conectados no futuro), nunca vaza tool fora do catálogo.
+   * remoto do Composio). Quem GARANTE o catálogo curado é `keepCalendarTools`
+   * (pura, testada): mesmo se o slug de toolkit estiver errado (ou a conta tiver
+   * outros toolkits conectados no futuro), nunca vaza tool fora do catálogo.
    */
   static fromEnv(apiKey: string, ttlMs?: number): ComposioAgentToolsProvider {
     const composio = new Composio({ apiKey, provider: new VercelProvider() });
     const sessions: ComposioSessionFactory = async (userId: string) => {
       const session = await composio.create(userId, { toolkits: ["googlecalendar"] });
-      return {
-        tools: async () => {
-          const all = await session.tools();
-          return Object.fromEntries(Object.entries(all).filter(([name]) => name.startsWith("GOOGLECALENDAR_")));
-        },
-      };
+      return { tools: async () => keepCalendarTools(await session.tools()) };
     };
     return new ComposioAgentToolsProvider(sessions, ttlMs);
   }
+}
+
+/**
+ * Curadoria do catálogo (garantia anti-vazamento): só tools do Google Calendar
+ * (prefixo de TOOL `GOOGLECALENDAR_`, confirmado: FIND_FREE_SLOTS/EVENTS_LIST/
+ * CREATE_EVENT) passam pro motor e pro prompt. Pura → testável direto.
+ */
+export function keepCalendarTools(all: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(all).filter(([name]) => name.startsWith("GOOGLECALENDAR_")));
 }
 
 function toInfos(toolset: Record<string, unknown>): AgentToolInfo[] {

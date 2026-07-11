@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ComposioAgentToolsProvider, type ComposioSessionFactory } from "../../../src/infrastructure/tools/composio/ComposioAgentToolsProvider";
+import { ComposioAgentToolsProvider, keepCalendarTools, type ComposioSessionFactory } from "../../../src/infrastructure/tools/composio/ComposioAgentToolsProvider";
 
 /** Fábrica fake — mesmo shape do ComposioSessionFactory (userId → sessão com .tools()). Zero rede. */
 function fakeSessions(toolsByUser: Record<string, Record<string, unknown>>): ComposioSessionFactory {
@@ -94,5 +94,41 @@ describe("ComposioAgentToolsProvider", () => {
     const { infos } = await provider.forCompany("co-A");
 
     expect(infos).toEqual([{ name: "GOOGLECALENDAR_WEIRD", description: "GOOGLECALENDAR_WEIRD" }]);
+  });
+
+  it("erro NÃO entra no cache: falha transiente → a próxima chamada tenta de novo e recebe as tools", async () => {
+    let calls = 0;
+    const sessions: ComposioSessionFactory = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("composio fora do ar");
+      return { tools: async () => ({ GOOGLECALENDAR_CREATE_EVENT: { description: "Cria evento" } }) };
+    });
+    const provider = new ComposioAgentToolsProvider(sessions);
+
+    const down = await provider.forCompany("co-A");
+    const up = await provider.forCompany("co-A");
+
+    expect(down).toEqual({ nativeTools: {}, infos: [] });
+    expect(up.infos.map((i) => i.name)).toEqual(["GOOGLECALENDAR_CREATE_EVENT"]);
+    expect(sessions).toHaveBeenCalledTimes(2); // o vazio do erro NÃO ficou pinado no TTL
+  });
+});
+
+describe("keepCalendarTools (curadoria do catálogo — garantia anti-vazamento)", () => {
+  it("só tools GOOGLECALENDAR_* passam; o resto é descartado", () => {
+    const all = {
+      GOOGLECALENDAR_CREATE_EVENT: { description: "Cria evento" },
+      GOOGLECALENDAR_FIND_FREE_SLOTS: { description: "Horários livres" },
+      GMAIL_SEND_EMAIL: { description: "NÃO pode vazar" },
+      SLACK_POST: {},
+    };
+    expect(Object.keys(keepCalendarTools(all)).sort()).toEqual([
+      "GOOGLECALENDAR_CREATE_EVENT",
+      "GOOGLECALENDAR_FIND_FREE_SLOTS",
+    ]);
+  });
+
+  it("vazio → vazio (sem surpresa)", () => {
+    expect(keepCalendarTools({})).toEqual({});
   });
 });
