@@ -238,16 +238,14 @@ describe("ConversationStateMachine — cobrança pendente nasce com o evento (Ta
     expect(saveSpy.mock.calls.every((c) => c[0]!.status === "pendente" && c[0]!.amount === 180)).toBe(true);
   });
 
-  // CONTRATO EM CAMADAS (concern da Task 3, RESOLVIDO no brain): a SM confia no
-  // que recebe — toolResult de marcar presente ⇒ evento REAL criado ⇒ Charge.
-  // Quem garante essa premissa é o AgentBrain: quando o gate de identidade foi
-  // aplicado, ele FILTRA os resultados da tool de marcar antes de devolver a
-  // decision (o stub bloqueado nunca chega aqui — testado em AgentBrain.test:
-  // "gate aplicado → toolResults ... FILTRADOS"). Este teste documenta o lado
-  // da SM: ela NÃO re-inspeciona o output; um decision adulterado (só possível
-  // por bypass do brain) criaria Charge mesmo — por design, a defesa mora numa
-  // camada só.
-  it("SM confia no contrato do brain: qualquer toolResult de marcar presente na decision cria Charge (o filtro do stub é responsabilidade do brain)", async () => {
+  // DEFESA EM DUAS CAMADAS (concern da Task 3, fechado em dobro): (1) o brain
+  // FILTRA os resultados da tool de marcar quando o gate de identidade foi
+  // aplicado (AgentBrain.test: "gate aplicado → toolResults ... FILTRADOS");
+  // (2) mesmo que um resultado de stub VAZE por bypass do brain, o output dele
+  // carrega `error: IDENTIDADE_PENDENTE` — e o guard de soft-error da própria SM
+  // (isSoftFailure) o descarta. Este teste prova a camada (2): decision
+  // adulterada com resultado de stub NÃO vira cobrança.
+  it("stub vazado por bypass do brain TAMBÉM não cria Charge — o guard de soft-error da SM pega (defesa em profundidade)", async () => {
     const repos = new InMemoryRepositories();
     const deps = depsWith(repos);
     (deps.brain.decide as any).mockResolvedValue({
@@ -255,13 +253,13 @@ describe("ConversationStateMachine — cobrança pendente nasce com o evento (Ta
       action: { type: "reply" },
       toolResults: [{ name: BOOKING_TOOL_NAME, output: { error: "IDENTIDADE_PENDENTE", instrucao: "..." } }],
     });
-    const conv = await verifiedConversation(repos); // contato JÁ verificado — mesmo assim, o resultado é do stub (simula o modelo tentando antes da validação valer)
+    const conv = await verifiedConversation(repos); // simula bypass: resultado de stub numa decision de contato verificado
     const sm = new ConversationStateMachine(deps);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await sm.advance(conv, agentConfig, integration, inbound("marca aí"));
 
-    const charge = await repos.charges.findLatestChargeableByContact("int1", "ct1");
-    expect(charge).not.toBeNull(); // comportamento ATUAL — ver Concerns do report
-    expect(charge?.calendarEventId).toBeNull(); // sem .data no output do stub, extractEventId não acha nada
+    expect(await repos.charges.findLatestChargeableByContact("int1", "ct1")).toBeNull();
+    warnSpy.mockRestore();
   });
 });
