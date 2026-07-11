@@ -242,7 +242,7 @@ async function bootstrap(): Promise<void> {
   server.listen(env.PORT, () =>
     logger.info(
       { port: env.PORT, messaging: env.MESSAGING_PROVIDER },
-      "Megus AI no ar — webhook /webhook/evolution, dev /dev/inbound, QR /qr",
+      `Megus AI no ar — webhook /webhook/evolution${env.DEV_INBOUND_ENABLED ? ", dev /dev/inbound" : ""}, QR /qr`,
     ),
   );
 }
