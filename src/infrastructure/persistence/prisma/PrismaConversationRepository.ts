@@ -22,10 +22,6 @@ export class PrismaConversationRepository implements IConversationRepository {
     });
     return convToDomain(created);
   }
-  async getById(conversationId: string): Promise<Conversation | null> {
-    const r = await prisma.conversation.findUnique({ where: { id: conversationId } });
-    return r ? convToDomain(r) : null;
-  }
   async findByWhatsappNumber(integrationId: string, number: string): Promise<Conversation | null> {
     const r = await prisma.conversation.findFirst({ where: { integrationId, whatsappNumber: number } });
     return r ? convToDomain(r) : null;
@@ -37,6 +33,11 @@ export class PrismaConversationRepository implements IConversationRepository {
       orderBy: { lastInboundAt: "desc" },
     });
     return rows.map(convToDomain);
+  }
+
+  async getById(id: string): Promise<Conversation | null> {
+    const r = await prisma.conversation.findUnique({ where: { id } });
+    return r ? convToDomain(r) : null;
   }
   
   async save(conv: Conversation): Promise<void> {

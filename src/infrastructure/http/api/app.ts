@@ -28,7 +28,7 @@ export interface ApiDeps {
   connectOps?: ComposioConnectOps;
   /** Auth Config id do Google Calendar no Composio (dashboard). `undefined` = /conectar fica 503. */
   gcalAuthConfigId?: string;
-  /** Envio de WhatsApp (Task 4 — botão Cobrar dispara o Kaua). `undefined` = a rota de cobrar Charge fica indisponível (503) — ex.: testes de outras rotas que não usam mensageria. */
+  /** Envio de WhatsApp (cobrar Charge + enviar humano nas Conversas). `undefined` = essas rotas ficam indisponíveis (503) — ex.: testes que não usam mensageria. */
   messaging?: IMessagingProvider;
 }
 
@@ -92,6 +92,7 @@ export function createApiApp(deps: ApiDeps): Express {
     conversations: deps.repos.conversations,
     contacts: deps.repos.contacts,
     integrations: deps.repos.integrations,
+    messaging: deps.messaging,
     authMiddleware,
   });
   app.use("/api/agentes", conversas.agentesRouter);

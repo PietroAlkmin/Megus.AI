@@ -80,8 +80,8 @@ export interface IConversationRepository {
     contactId: string,
     number: string,
   ): Promise<Conversation>;
-  getById(conversationId: string): Promise<Conversation | null>;
   findByWhatsappNumber(integrationId: string, number: string): Promise<Conversation | null>;
+  getById(id: string): Promise<Conversation | null>;
   listByIntegrationId(integrationId: string): Promise<Conversation[]>;
   save(conversation: Conversation): Promise<void>;
   appendMessage(message: Message): Promise<void>;

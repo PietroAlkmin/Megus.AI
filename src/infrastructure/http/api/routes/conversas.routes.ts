@@ -1,8 +1,10 @@
 import { Router, type Request, type Response } from "express";
+import { randomUUID } from "node:crypto";
 import { ok, fail } from "../result";
 import { ConversationState } from "../../../../domain/entities/ConversationState";
 import type { AuthContext } from "../authMiddleware";
 import type { Integration } from "../../../../domain/entities/Integration";
+import type { IMessagingProvider } from "../../../../domain/ports/IMessagingProvider";
 import type {
   IConversationRepository,
   IContactRepository,
@@ -13,6 +15,8 @@ export interface ConversasRoutesDeps {
   conversations: IConversationRepository;
   contacts: IContactRepository;
   integrations: IIntegrationRepository;
+  /** Envio humano pelo WhatsApp (rota /enviar). Ausente = a rota responde 503 (ex.: testes sem messaging). */
+  messaging?: IMessagingProvider;
   authMiddleware: (req: Request, res: Response, next: () => void) => void;
 }
 
@@ -40,6 +44,12 @@ function nomeAnexo(mediaUrl: string): string {
  *  - GET  /api/agentes/:agentId/conversas   (lista conversas de um agente)
  *  - GET  /api/conversas/:convId/mensagens  (mensagens de uma conversa)
  *  - POST /api/conversas/:convId/assumir    (humano assume: bot cala — SM respeita humanHandoff)
+ *  - POST /api/conversas/:convId/retomar    (devolve ao bot — humanHandoff=false)
+ *  - POST /api/conversas/:convId/enviar     (humano manda WhatsApp; só com a conversa assumida)
+ *
+ * TODAS passam pelo tenant do JWT (conversa → integração → companyId, comparação
+ * estrita). As rotas retomar/enviar vieram do feat/integracao e foram re-baseadas
+ * aqui por cima do check — a versão original nasceu de uma base sem o hardening.
  */
 export function createConversasRouters(deps: ConversasRoutesDeps) {
   // Router montado em /api/agentes
@@ -68,6 +78,8 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
         ultima: ultimaMsg ? ultimaMsg.body || (ultimaMsg.mediaUrl ? "📎 anexo" : "") : "",
         hora: c.lastInboundAt ? new Date(c.lastInboundAt).toISOString() : null,
         status: statusDe(c.state, c.humanHandoff),
+        // O front do assumir/retomar (feat/integracao) decide o botão por este flag.
+        humanHandoff: c.humanHandoff,
       });
     }
     ok(res, lista);
@@ -119,7 +131,73 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
     conv.humanHandoff = true;
     conv.updatedAt = new Date();
     await deps.conversations.save(conv);
-    ok(res, { id: conv.id, status: "HUMANO" }, "Conversa assumida.");
+    ok(res, { id: conv.id, status: "HUMANO", humanHandoff: true }, "Você assumiu a conversa.");
+  });
+
+  // Retomar: devolve a conversa ao bot (humanHandoff=false).
+  conversasRouter.post("/:convId/retomar", async (req: Request, res: Response) => {
+    const { companyId } = req.auth as AuthContext;
+    const convId = String(req.params.convId ?? "");
+
+    const conv = await conversaDoTenant(convId, companyId);
+    if (!conv) {
+      fail(res, "Conversa não encontrada.", 404, "NOT_FOUND");
+      return;
+    }
+
+    conv.humanHandoff = false;
+    conv.updatedAt = new Date();
+    await deps.conversations.save(conv);
+    ok(res, { id: conv.id, status: "BOT", humanHandoff: false }, "Bot retomou a conversa.");
+  });
+
+  // Enviar: humano manda mensagem pelo WhatsApp — só com a conversa ASSUMIDA
+  // (409 NOT_ASSUMED caso contrário; defesa que já veio do feat/integracao).
+  conversasRouter.post("/:convId/enviar", async (req: Request, res: Response) => {
+    const { companyId } = req.auth as AuthContext;
+    const convId = String(req.params.convId ?? "");
+    const texto = String((req.body?.texto ?? "")).trim();
+    if (!texto) { fail(res, "Mensagem vazia.", 400, "VALIDATION"); return; }
+
+    if (!deps.messaging) {
+      fail(res, "Envio indisponível no momento.", 503, "SEND_UNAVAILABLE");
+      return;
+    }
+
+    const conv = await conversaDoTenant(convId, companyId);
+    if (!conv) {
+      fail(res, "Conversa não encontrada.", 404, "NOT_FOUND");
+      return;
+    }
+    if (!conv.humanHandoff) {
+      fail(res, "Assuma a conversa antes de enviar mensagens.", 409, "NOT_ASSUMED");
+      return;
+    }
+
+    // Instância REAL do tenant (persistida no pareamento) — nunca um nome fabricado:
+    // a original derivava "megus-int_<id>", que não existe pro piloto ("Megus").
+    const integ = await deps.integrations.getById(conv.integrationId);
+    const instance = integ?.evolutionInstance || undefined;
+
+    try {
+      await deps.messaging.sendText({ to: conv.whatsappNumber, text: texto, instance });
+    } catch {
+      fail(res, "Não foi possível enviar pelo WhatsApp. Verifique a conexão.", 502, "SEND_FAILED");
+      return;
+    }
+
+    // Registra como "human" no histórico — o cérebro vê a fala do atendente.
+    await deps.conversations.appendMessage({
+      id: randomUUID(),
+      conversationId: convId,
+      direction: "outbound",
+      author: "human",
+      kind: "text",
+      body: texto,
+      mediaUrl: null,
+      createdAt: new Date(),
+    });
+    ok(res, { id: conv.id, enviado: true }, "Mensagem enviada.");
   });
 
   return { agentesRouter, conversasRouter };

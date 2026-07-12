@@ -202,7 +202,8 @@ export class ConversationStateMachine {
       if (mode === "fiscal") {
         conv.state = ConversationState.CollectingIdentity;
         await this.d.conversations.save(conv);
-        const validated = await this.processIdentity(conv, integration, decision, mode);
+        const temMidia = Boolean(inbound.media);
+        const validated = await this.processIdentity(conv, integration, decision, mode, temMidia);
         // "Comprovante seco" (bug 12/07): a MÍDIA deste inbound chegou junto do
         // armamento do funil — o roteamento já tinha passado quando o estado
         // virou AwaitingComprovante e a imagem se perdia (cliente caía na guarda
@@ -314,7 +315,7 @@ export class ConversationStateMachine {
   /** Coleta nome+CPF: chama o cérebro e delega a validação (fluxo fiscal não replaneja). */
   private async handleIdentity(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
-    const validated = await this.processIdentity(conv, integration, decision);
+    const validated = await this.processIdentity(conv, integration, decision, "fiscal", Boolean(inbound.media));
     // Mesma regra do "comprovante seco": identidade validou NESTE turno e a mídia
     // veio junto (ex.: comprovante com legenda contendo nome+CPF) → gate B já.
     if (validated && inbound.media) {
@@ -344,6 +345,8 @@ export class ConversationStateMachine {
     integration: Integration,
     decision: AgentDecision,
     mode: "fiscal" | "cadastro" = "fiscal",
+    /** true quando o caller vai encaminhar a mídia deste turno ao gate B (não pedir re-envio). */
+    skipComprovanteAsk = false,
   ): Promise<boolean> {
     const instance = integration.evolutionInstance || undefined;
     const fullName = (decision.extracted?.fullName ?? "").trim();
@@ -423,7 +426,12 @@ export class ConversationStateMachine {
 
     conv.state = ConversationState.AwaitingComprovante;
     await this.d.conversations.save(conv);
-    await this.send(conv, ["Perfeito! Agora me envia o comprovante de pagamento (foto ou PDF) que eu emito sua nota."], instance);
+    // Quando o comprovante JÁ veio no mesmo turno (caller vai encaminhar a mídia
+    // pro gate B agora), pedir "me envia o comprovante" seria bolha órfã —
+    // o cliente receberia o pedido E a nota juntos.
+    if (!skipComprovanteAsk) {
+      await this.send(conv, ["Perfeito! Agora me envia o comprovante de pagamento (foto ou PDF) que eu emito sua nota."], instance);
+    }
     return true;
   }
 

@@ -106,8 +106,10 @@ describe("GET/PUT /api/agente", () => {
     expect(body.data.instructions).toBe("Seja cordial.");
     expect(body.data.fewShotDialogs).toEqual([{ q: "quanto custa?", a: "R$ 180." }]);
     expect(body.data.integrationId).toBe("int1");
-    // escopo persona: não vaza capabilities/linkedServiceIds no envelope da rota
-    expect(body.data.capabilities).toBeUndefined();
+    // Contrato AMPLIADO no feat/integracao: o GET agora expõe capabilities (o
+    // AgenteForm configura agenda/fiscal/serviços vinculados). O que segue
+    // valendo: linkedServiceIds não vaza SOLTO no topo do envelope.
+    expect(body.data.capabilities).toMatchObject({ chat: true });
     expect(body.data.linkedServiceIds).toBeUndefined();
   });
 

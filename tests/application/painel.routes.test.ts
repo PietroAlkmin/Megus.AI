@@ -235,6 +235,64 @@ describe("painel com dados reais (sem mock)", () => {
     expect(body.data.find((c) => c.id === bot.id)?.status).toBe("HUMANO");
   });
 
+  it("retomar: devolve ao bot (humanHandoff=false); conversa de outra empresa → 404", async () => {
+    const { repos, bot, deBeta } = await seedCenario();
+    const url = await sobe(repos);
+    const token = makeToken("c1");
+
+    await fetch(`${url}/api/conversas/${bot.id}/assumir`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`${url}/api/conversas/${bot.id}/retomar`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    expect(res.status).toBe(200);
+    const conv = await repos.conversations.getById(bot.id);
+    expect(conv?.humanHandoff).toBe(false);
+
+    const cruzado = await fetch(`${url}/api/conversas/${deBeta.id}/retomar`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    expect(cruzado.status).toBe(404);
+  });
+
+  it("enviar (humano): exige conversa ASSUMIDA (409), usa a instância REAL da integração, grava como 'human'; cross-tenant → 404 SEM enviar", async () => {
+    const { repos, bot, deBeta } = await seedCenario();
+    const sendText = vi.fn(async () => {});
+    const messaging = { start: vi.fn(), getConnectionStatus: vi.fn(() => "connected" as const), getQrCode: vi.fn(), onInboundMessage: vi.fn(), sendText, sendMedia: vi.fn(), startTyping: vi.fn(), stopTyping: vi.fn() };
+    // sobe com messaging (a rota /enviar depende dele)
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner, messaging: messaging as never });
+    const listening = await listen(app);
+    server = listening.server;
+    const url = `http://localhost:${listening.port}`;
+    const token = makeToken("c1");
+    // dá uma instância REAL à integração (o envio deve usá-la, nunca um nome fabricado)
+    const intA = await repos.integrations.getById("intA");
+    await repos.integrations.updateConnection("intA", "inst-alfa-real", intA!.whatsappNumber || "");
+
+    // sem assumir → 409, nada enviado
+    const semAssumir = await fetch(`${url}/api/conversas/${bot.id}/enviar`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ texto: "oi do humano" }),
+    });
+    expect(semAssumir.status).toBe(409);
+    expect(sendText).not.toHaveBeenCalled();
+
+    // assume e envia
+    await fetch(`${url}/api/conversas/${bot.id}/assumir`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    const ok2 = await fetch(`${url}/api/conversas/${bot.id}/enviar`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ texto: "oi do humano" }),
+    });
+    expect(ok2.status).toBe(200);
+    expect(sendText).toHaveBeenCalledWith(expect.objectContaining({ text: "oi do humano", instance: "inst-alfa-real" }));
+    const hist = await repos.conversations.getHistory(bot.id, 10);
+    expect(hist.some((m) => m.author === "human" && m.body === "oi do humano")).toBe(true);
+
+    // cross-tenant: conversa da Beta com token da Alfa → 404 e NENHUM envio extra
+    const chamadas = sendText.mock.calls.length;
+    const cruzado = await fetch(`${url}/api/conversas/${deBeta.id}/enviar`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ texto: "invasao" }),
+    });
+    expect(cruzado.status).toBe(404);
+    expect(sendText.mock.calls.length).toBe(chamadas);
+  });
+
   it("cobranças: lista real da empresa, cobrar registra e outra empresa não alcança (404)", async () => {
     const { repos } = await seedCenario();
     const url = await sobe(repos);

@@ -16,6 +16,18 @@ export interface AgenteRoutesDeps {
 }
 
 // Só os campos de PERSONA — capabilities/knowledgeFiles ficam fora do escopo desta rota.
+// Persona + capabilities (ações) + knowledgeFiles do agente.
+function capabilitiesVazias() {
+  return {
+    chat: true as const,
+    agenda: false,
+    agendaLink: null as string | null,
+    fiscal: false,
+    fiscalDocType: null as ("nfe" | "nfce" | "nfse" | null),
+    linkedServiceIds: [] as string[],
+  };
+}
+
 function personaVazia() {
   return {
     integrationId: null as string | null,
@@ -26,6 +38,8 @@ function personaVazia() {
     lang: "pt" as const,
     instructions: "",
     fewShotDialogs: [] as { q: string; a: string }[],
+    capabilities: capabilitiesVazias(),
+    knowledgeFiles: [] as string[],
   };
 }
 
@@ -39,8 +53,18 @@ function personaDe(config: AgentConfig) {
     lang: config.lang,
     instructions: config.instructions,
     fewShotDialogs: config.fewShotDialogs,
+    capabilities: config.capabilities,
+    knowledgeFiles: config.knowledgeFiles,
   };
 }
+
+const capabilitiesSchema = z.object({
+  agenda: z.boolean(),
+  agendaLink: z.string().nullable(),
+  fiscal: z.boolean(),
+  fiscalDocType: z.enum(["nfe", "nfce", "nfse"]).nullable(),
+  linkedServiceIds: z.array(z.string()),
+});
 
 const personaSchema = z.object({
   name: z.string().min(1, "Informe o nome do agente."),
@@ -53,6 +77,8 @@ const personaSchema = z.object({
     .array(z.object({ q: z.string(), a: z.string() }))
     .optional()
     .default([]),
+  // capabilities (ações) — opcional: chamadas antigas sem esse campo continuam válidas.
+  capabilities: capabilitiesSchema.optional(),
 });
 
 export function agenteRoutes(deps: AgenteRoutesDeps): Router {
@@ -92,20 +118,24 @@ export function agenteRoutes(deps: AgenteRoutesDeps): Router {
 
     const existing = await deps.agentConfigs.getByIntegrationId(integ.id);
     const now = new Date();
+    const { capabilities: capsInput, ...persona } = parsed.data;
+
     const config: AgentConfig = existing
-      ? { ...existing, ...parsed.data, updatedAt: now }
+      ? {
+          ...existing,
+          ...persona,
+          capabilities: capsInput
+            ? { chat: true, ...capsInput }
+            : existing.capabilities,
+          updatedAt: now,
+        }
       : {
           id: "ag_" + randomUUID().slice(0, 8),
           integrationId: integ.id,
-          ...parsed.data,
-          capabilities: {
-            chat: true,
-            agenda: false,
-            agendaLink: null,
-            fiscal: false,
-            fiscalDocType: null,
-            linkedServiceIds: [],
-          },
+          ...persona,
+          capabilities: capsInput
+            ? { chat: true, ...capsInput }
+            : capabilitiesVazias(),
           knowledgeFiles: [],
           createdAt: now,
           updatedAt: now,
