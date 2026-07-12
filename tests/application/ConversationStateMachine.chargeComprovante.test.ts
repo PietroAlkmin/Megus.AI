@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ConversationStateMachine, type StateMachineDeps } from "../../src/application/agent/ConversationStateMachine";
 import { InMemoryRepositories } from "../../src/infrastructure/persistence/memory/InMemoryRepositories";
 import { ConversationState } from "../../src/domain/entities/ConversationState";
+import type { AgentConfig } from "../../src/domain/entities/AgentConfig";
 import type { InboundMessage } from "../../src/domain/ports/IMessagingProvider";
 
 /**
@@ -12,14 +13,14 @@ import type { InboundMessage } from "../../src/domain/ports/IMessagingProvider";
  */
 
 const integration = { id: "int1", companyId: "c1", displayName: "X", whatsappNumber: "5511999990000", fiscalDoc: "11222333000181", fiscalName: "Clínica Alfa Ltda", fiscalProviderRef: null, active: true, createdAt: new Date(), updatedAt: new Date() };
-const agentConfig = {
-  id: "ag1", integrationId: "int1", name: "Kaua", segment: "saude", tone: "equilibrado" as const, emojis: true, lang: "pt" as const,
-  instructions: "", capabilities: { chat: true, agenda: true, agendaLink: null, fiscal: true, fiscalDocType: "nfse" as const, linkedServiceIds: ["svc1"] },
+const agentConfig: AgentConfig = {
+  id: "ag1", integrationId: "int1", name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt",
+  instructions: "", capabilities: { chat: true, agenda: true, agendaLink: null, fiscal: true, fiscalDocType: "nfse", linkedServiceIds: ["svc1"] },
   knowledgeFiles: [], fewShotDialogs: [], createdAt: new Date(), updatedAt: new Date(),
 };
 
 function mediaInbound(): InboundMessage {
-  return { providerMessageId: "m-media", from: "5511988887777", to: "5511999990000", kind: "image", text: null, media: { mimetype: "image/jpeg", base64: "xxx", url: null }, timestamp: new Date() };
+  return { providerMessageId: "m-media", from: "5511988887777", to: "5511999990000", kind: "image", text: null, media: { mimetype: "image/jpeg", base64: "xxx" }, timestamp: new Date() };
 }
 
 async function seedVerifiedWithCharge(repos: InMemoryRepositories, opts: { charge: boolean } = { charge: true }) {
