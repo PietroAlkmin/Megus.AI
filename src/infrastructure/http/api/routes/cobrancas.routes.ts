@@ -142,7 +142,9 @@ function montarMensagemCobranca(params: {
     `${saudacao} Passando para combinar o pagamento da sua ${params.description}: ${formatBRL(params.amount)}.`,
   ];
   if (params.pixKey) {
-    partes.push(`Pix (${params.pixType ?? ""}): ${params.pixKey}.`);
+    // "(tipo)" só quando existe — pixType vazio no cadastro renderizaria "Pix (): chave".
+    const tipo = params.pixType?.trim() ? ` (${params.pixType.trim()})` : "";
+    partes.push(`Pix${tipo}: ${params.pixKey}.`);
   }
   partes.push("Depois é só me enviar o comprovante por aqui que eu já emito sua nota fiscal. 😊");
   return partes.join("\n\n");
