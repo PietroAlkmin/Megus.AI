@@ -50,8 +50,20 @@ export default function CobrancasView() {
     mutationFn: cobrancasService.cobrar,
     onSuccess: () => {
       // o backend registra a cobrança (chargeSentAt); o disparo automático no
-      // WhatsApp ainda não existe — não prometer o que não aconteceu
+      // WhatsApp ainda não existe pra este fluxo — não prometer o que não aconteceu
       toast.success("Cobrança registrada.");
+      queryClient.invalidateQueries({ queryKey: ["cobrancas"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Não foi possível enviar a cobrança.");
+    },
+  });
+
+  // Charge (Task 4): o Kaua dispara a mensagem de verdade no WhatsApp do paciente.
+  const cobrarChargeMutation = useMutation({
+    mutationFn: cobrancasService.cobrarCharge,
+    onSuccess: () => {
+      toast.success("Cobrança enviada pelo WhatsApp.");
       queryClient.invalidateQueries({ queryKey: ["cobrancas"] });
     },
     onError: (error) => {
@@ -118,6 +130,11 @@ export default function CobrancasView() {
                 <tbody>
                   {cobrancas.map((c) => {
                     const st = statusDe(c);
+                    // Charge (Task 4): o botão fica disponível até "paga" (dá pra
+                    // reenviar mesmo já "cobrada"); EmissionIntent mantém a regra
+                    // de sempre — some assim que "cobrado" registra o fato.
+                    const podeCobrar = c.charge ? !c.pago : !c.pago && !c.cobrado;
+                    const mutation = c.charge ? cobrarChargeMutation : cobrarMutation;
                     return (
                       <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
                         <td className="px-4 py-3 font-medium text-foreground">{c.nome}</td>
@@ -128,14 +145,14 @@ export default function CobrancasView() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{c.notaNum ?? "—"}</td>
                         <td className="px-4 py-3 text-right">
-                          {!c.pago && !c.cobrado ? (
+                          {podeCobrar ? (
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={cobrarMutation.isPending}
-                              onClick={() => cobrarMutation.mutate(c.id)}
+                              disabled={mutation.isPending}
+                              onClick={() => mutation.mutate(c.id)}
                             >
-                              {cobrarMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                              {mutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
                               Cobrar
                             </Button>
                           ) : (

@@ -69,6 +69,8 @@ export interface IAgentConfigRepository {
 export interface IContactRepository {
   findByCpf(integrationId: string, cpfDigits: string): Promise<Contact | null>;
   findByWhatsapp(integrationId: string, number: string): Promise<Contact | null>;
+  /** Busca direta por id — usada quando só se tem o contactId (ex.: Charge). */
+  getById(id: string): Promise<Contact | null>;
   save(contact: Contact): Promise<void>;
 }
 

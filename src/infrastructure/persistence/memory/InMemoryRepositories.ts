@@ -128,6 +128,7 @@ export class InMemoryRepositories {
       this._contacts.find((c) => c.integrationId === integrationId && c.cpf === cpf) ?? null,
     findByWhatsapp: async (integrationId, number) =>
       this._contacts.find((c) => c.integrationId === integrationId && c.whatsappNumber === number) ?? null,
+    getById: async (id) => this._contacts.find((c) => c.id === id) ?? null,
     save: async (contact) => {
       const i = this._contacts.findIndex((c) => c.id === contact.id);
       if (i >= 0) this._contacts[i] = contact;

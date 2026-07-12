@@ -32,6 +32,7 @@ import { PrismaAgentConfigRepository } from "./infrastructure/persistence/prisma
 import { PrismaContactRepository } from "./infrastructure/persistence/prisma/PrismaContactRepository";
 import { PrismaConversationRepository } from "./infrastructure/persistence/prisma/PrismaConversationRepository";
 import { PrismaEmissionIntentRepository } from "./infrastructure/persistence/prisma/PrismaEmissionIntentRepository";
+import { PrismaChargeRepository } from "./infrastructure/persistence/prisma/PrismaChargeRepository";
 import { PrismaServiceRepository } from "./infrastructure/persistence/prisma/PrismaServiceRepository";
 import { PrismaMembershipRepository } from "./infrastructure/persistence/prisma/PrismaMembershipRepository";
 import { seedPilot } from "./infrastructure/persistence/seedPilot";
@@ -148,6 +149,7 @@ async function bootstrap(): Promise<void> {
     repos.contacts = new PrismaContactRepository();
     repos.conversations = new PrismaConversationRepository();
     repos.emissions = new PrismaEmissionIntentRepository();
+    repos.charges = new PrismaChargeRepository();
     repos.services = new PrismaServiceRepository();
     repos.memberships = new PrismaMembershipRepository();
     await seedPilot({ whatsappNumber: env.PILOT_WHATSAPP_NUMBER });
@@ -202,6 +204,7 @@ async function bootstrap(): Promise<void> {
     provisioner,
     connectOps: toolsProvider,
     gcalAuthConfigId: env.COMPOSIO_GCAL_AUTH_CONFIG_ID,
+    messaging,
   });
 
   // Sem banco (dev local/sandbox): usuário de teste para login imediato via

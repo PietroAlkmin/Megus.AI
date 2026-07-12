@@ -14,6 +14,7 @@ import { cobrancasRoutes } from "./routes/cobrancas.routes";
 import { whatsappRoutes } from "./routes/whatsapp.routes";
 import { ferramentasRoutes } from "./routes/ferramentas.routes";
 import type { IWhatsAppProvisioner } from "../../../domain/ports/IWhatsAppProvisioner";
+import type { IMessagingProvider } from "../../../domain/ports/IMessagingProvider";
 import type { ComposioConnectOps } from "../../tools/composio/ComposioAgentToolsProvider";
 
 export interface ApiDeps {
@@ -27,6 +28,8 @@ export interface ApiDeps {
   connectOps?: ComposioConnectOps;
   /** Auth Config id do Google Calendar no Composio (dashboard). `undefined` = /conectar fica 503. */
   gcalAuthConfigId?: string;
+  /** Envio de WhatsApp (Task 4 — botão Cobrar dispara o Kaua). `undefined` = a rota de cobrar Charge fica indisponível (503) — ex.: testes de outras rotas que não usam mensageria. */
+  messaging?: IMessagingProvider;
 }
 
 /**
@@ -98,6 +101,11 @@ export function createApiApp(deps: ApiDeps): Express {
   app.use("/api/cobrancas", cobrancasRoutes({
     emissions: deps.repos.emissions,
     integrations: deps.repos.integrations,
+    charges: deps.repos.charges,
+    contacts: deps.repos.contacts,
+    conversations: deps.repos.conversations,
+    companyProfiles: deps.repos.companyProfiles,
+    messaging: deps.messaging,
     authMiddleware,
   }));
 

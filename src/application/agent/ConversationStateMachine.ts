@@ -410,6 +410,20 @@ export class ConversationStateMachine {
     if (!result.success || !result.pdfUrl) { await this.handoff(conv, result.message ?? "falha na emissão", instance); return; }
 
     await this.d.emissions.save({ ...intent, status: "emitted", fiscalKey: result.fiscalKey, pdfUrl: result.pdfUrl, updatedAt: new Date() });
+
+    // Gate B (Task 4): nota emitida com sucesso quita a Charge cobrável mais
+    // recente do contato (pendente ou cobrada), se houver uma. Não-fatal —
+    // nunca pode derrubar um fluxo fiscal que já teve êxito.
+    try {
+      const charge = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
+      if (charge) {
+        const quitadaEm = new Date();
+        await this.d.charges.save({ ...charge, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+      }
+    } catch (err) {
+      console.warn(`[cobranca] falha ao marcar cobranca como paga (conv=${conv.id}):`, err instanceof Error ? err.message : err);
+    }
+
     await this.d.messaging.sendMedia({ to: conv.whatsappNumber, mimetype: "application/pdf", url: result.pdfUrl, filename: "nota-fiscal.pdf", caption: "Sua nota fiscal está pronta! ✅", instance });
 
     conv.state = ConversationState.Done;

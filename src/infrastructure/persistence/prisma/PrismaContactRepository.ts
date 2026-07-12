@@ -15,6 +15,10 @@ export class PrismaContactRepository implements IContactRepository {
     const r = await prisma.contact.findFirst({ where: { integrationId, whatsappNumber: number } });
     return r ? toDomain(r) : null;
   }
+  async getById(id: string): Promise<Contact | null> {
+    const r = await prisma.contact.findUnique({ where: { id } });
+    return r ? toDomain(r) : null;
+  }
   async save(contact: Contact): Promise<void> {
     await prisma.contact.upsert({
       where: { id: contact.id },
