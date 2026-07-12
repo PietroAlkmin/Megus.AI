@@ -88,10 +88,24 @@ function buildCatalogBlock(ctx: AgentContext): string | null {
   return `Catálogo de serviços:\n${lines.join("\n")}\nSó cote preços desta lista; não invente valores.`;
 }
 
+/**
+ * Cadastro é GENÉRICO (des-overfit, bateria 3 de 12/07): a regra de identidade
+ * morava dentro da regra da nota e o modelo aprendeu "nome+CPF = emissão de
+ * nota" — recebia cadastro de um agendamento e derivava pra "vou seguir com a
+ * emissão da nota". Cadastro serve à ação EM CURSO, qualquer que seja.
+ */
+function buildCadastroRuleBlock(): string {
+  return (
+    "Cadastro do cliente (nome completo + CPF): algumas ações exigem cadastro validado. " +
+    "Quando o cliente fornecer esses dados, devolva-os em extracted (action provide_identity) — o sistema valida e avisa. " +
+    "O cadastro serve à AÇÃO EM CURSO na conversa, qualquer que seja; NÃO presuma que é para nota fiscal."
+  );
+}
+
 function buildFiscalRuleBlock(ctx: AgentContext): string {
   return (
-    `Estado atual: ${ctx.state}. Quando o cliente quiser emitir a nota, use a action intent_emit e peça nome completo + CPF. ` +
-    `Ao receber nome e CPF, devolva-os em extracted com action provide_identity. NUNCA diga que emitiu a nota — quem emite é o sistema.`
+    `Estado atual: ${ctx.state}. Quando o cliente quiser emitir a nota fiscal, use a action intent_emit. ` +
+    `NUNCA diga que emitiu a nota — quem emite é o sistema.`
   );
 }
 
@@ -132,6 +146,7 @@ export function composePrompt(ctx: AgentContext, tools: PromptToolInfo[] = []): 
   const catalog = buildCatalogBlock(ctx);
   if (catalog) blocks.push(catalog);
 
+  blocks.push(buildCadastroRuleBlock());
   blocks.push(buildFiscalRuleBlock(ctx));
 
   const toolsBlock = buildToolsBlock(tools);

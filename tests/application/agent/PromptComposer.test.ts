@@ -43,6 +43,14 @@ describe("composePrompt", () => {
     const sys = composePrompt(ctx())[0]!.content as string;
     expect(sys).toMatch(/nunca diga que emitiu/i);
   });
+  it("cadastro é regra GENÉRICA, separada da fiscal (não presumir que nome+CPF é pra nota)", () => {
+    const sys = composePrompt(ctx())[0]!.content as string;
+    expect(sys).toContain("AÇÃO EM CURSO");
+    expect(sys).toMatch(/não presuma que é para nota fiscal/i);
+    // e a regra da NOTA não fala mais em pedir nome+CPF (des-overfit)
+    const fiscalIdx = sys.indexOf("intent_emit");
+    expect(sys.slice(fiscalIdx, fiscalIdx + 160)).not.toMatch(/nome completo \+ CPF/);
+  });
   it("segmento entra com rótulo humano, não o id cru", () => {
     const sys = composePrompt(ctx())[0]!.content as string;
     expect(sys).toContain("Saúde / Clínica");

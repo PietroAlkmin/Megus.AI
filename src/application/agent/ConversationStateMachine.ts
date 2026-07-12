@@ -220,7 +220,9 @@ export class ConversationStateMachine {
       // não sai. Sinal de fluxo genérico (mecanismo notices), não regra de cenário.
       const replanned = await this.d.brain.decide(
         await this.context(conv, cfg, integration, [
-          "O cadastro do cliente acabou de ser VALIDADO com sucesso. Se havia uma ação aguardando esse cadastro (por exemplo, concluir uma marcação combinada na conversa), execute-a AGORA usando a ferramenta adequada — não peça os dados novamente e não diga que ainda falta validação.",
+          // GENÉRICO de propósito (sem exemplo de cenário — evita overfit): vale
+          // pra qualquer ação que dependia do cadastro, hoje e no futuro.
+          "O cadastro do cliente acabou de ser VALIDADO com sucesso. Retome a ação em curso da conversa e conclua-a NESTE turno — se ela depende de uma ferramenta disponível, CHAME a ferramenta agora. Não peça os dados novamente e não anuncie que 'vai seguir': conclua e confirme o resultado ao cliente.",
         ]),
       );
       console.log(`[cerebro] replan conv=${conv.id} tools=[${(replanned.toolResults ?? []).map((t) => t.name).join(",")}] action=${replanned.action.type}`);
