@@ -40,7 +40,9 @@ function toOpenAiMessage(m: AIMessage): unknown {
   const content = m.content.map((p) =>
     p.type === "text"
       ? { type: "text", text: p.text }
-      : { type: "image_url", image_url: { url: p.url ?? `data:${p.mimetype};base64,${p.base64}` } },
+      // base64 em mãos VENCE a url: mídia do WhatsApp vem com url criptografada
+      // (mmg.whatsapp.net) que a OpenAI não consegue baixar (invalid_image_url).
+      : { type: "image_url", image_url: { url: p.base64 ? `data:${p.mimetype};base64,${p.base64}` : (p.url ?? "") } },
   );
   return { role: m.role, content };
 }

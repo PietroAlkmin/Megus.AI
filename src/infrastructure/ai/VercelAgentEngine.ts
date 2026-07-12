@@ -127,7 +127,9 @@ function toSdkMessage(m: AIMessage): unknown {
   const content = m.content.map((p: AIContentPart) =>
     p.type === "text"
       ? { type: "text", text: p.text }
-      : { type: "image", image: p.url ?? `data:${p.mimetype};base64,${p.base64}` },
+      // mesma regra do OpenAIProvider: base64 em mãos VENCE url (mídia do WhatsApp
+      // vem com url criptografada que provedores de visão não conseguem baixar).
+      : { type: "image", image: p.base64 ? `data:${p.mimetype};base64,${p.base64}` : (p.url ?? "") },
   );
   return { role: m.role, content };
 }

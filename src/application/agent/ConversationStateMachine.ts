@@ -440,10 +440,23 @@ export class ConversationStateMachine {
     const service = services.find((s) => cfg.capabilities.linkedServiceIds.includes(s.id)) ?? services[0];
     if (!service) { await this.handoff(conv, "sem serviço vinculado", instance); return; }
 
-    const analysis = await this.d.comprovante.analyze({
-      media: { mimetype: inbound.media.mimetype, base64: inbound.media.base64, url: inbound.media.url },
-      expectedRecipientDoc: integration.fiscalDoc, expectedRecipientName: integration.fiscalName,
-    });
+    // Falha do ANALISADOR ≠ rejeição do comprovante (prod 12/07: url de mídia
+    // inválida na visão matou o fluxo em silêncio — nem handoff saiu). Erro de
+    // sistema → mensagem honesta + permanece aguardando (cliente reenvia);
+    // rejeição de verdade continua sendo o handoff logo abaixo.
+    let analysis;
+    try {
+      analysis = await this.d.comprovante.analyze({
+        media: { mimetype: inbound.media.mimetype, base64: inbound.media.base64, url: inbound.media.url },
+        expectedRecipientDoc: integration.fiscalDoc, expectedRecipientName: integration.fiscalName,
+      });
+    } catch (err) {
+      console.warn(`[fiscal] analisador de comprovante falhou (conv=${conv.id}):`, err instanceof Error ? err.message : err);
+      conv.state = ConversationState.AwaitingComprovante;
+      await this.d.conversations.save(conv);
+      await this.send(conv, ["Não consegui ler seu comprovante agora 😕 Pode enviar de novo, por favor?"], instance);
+      return;
+    }
 
     const amountOk = analysis.amount != null && Math.abs(analysis.amount - service.price) < 0.01;
     const ok = analysis.recipientMatches && amountOk && analysis.confidence >= this.d.config.comprovanteMinConfidence;

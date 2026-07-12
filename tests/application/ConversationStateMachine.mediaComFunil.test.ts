@@ -81,6 +81,25 @@ describe("mídia que chega JUNTO do armamento fiscal não se perde", () => {
     expect(conv.humanHandoff).toBe(true); // rejeição → humano (comportamento do gate)
   });
 
+  it("analisador FALHA (erro de sistema, não rejeição) → mensagem honesta + permanece aguardando (nunca silêncio, nunca handoff)", async () => {
+    const repos = new InMemoryRepositories();
+    seed(repos);
+    const deps = depsWith(repos, { amount: 180, recipientMatches: true, confidence: 1 });
+    (deps.comprovante.analyze as any).mockRejectedValue(new Error("invalid_image_url"));
+    const sm = new ConversationStateMachine(deps);
+    const conv = await repos.conversations.getOrCreate("int1", "ct1", "5511988887777");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await sm.advance(conv, agentConfig, integration, mediaInbound());
+
+    expect(conv.humanHandoff).toBe(false); // erro de sistema NÃO transfere
+    expect(conv.state).toBe(ConversationState.AwaitingComprovante); // segue aguardando o reenvio
+    const bubbles = (deps.messaging.sendText as any).mock.calls.map((c: any) => c[0].text as string);
+    expect(bubbles.join(" ")).toContain("Não consegui ler seu comprovante");
+    expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
   it("intent_emit SEM identidade extraída + mídia → identidade primeiro (gate B NÃO roda com contato não-verificado)", async () => {
     const repos = new InMemoryRepositories();
     seed(repos);

@@ -97,6 +97,31 @@ describe("OpenAIProvider", () => {
     expect(imagePart?.image_url?.url).toBe("data:image/jpeg;base64,AAAA");
   });
 
+  it("image com base64 E url → o base64 (data URI) VENCE — url de mídia do WhatsApp é criptografada e a OpenAI não baixa (invalid_image_url, prod 12/07)", async () => {
+    const client = makeClient(JSON.stringify({}));
+    const createSpy = client.chat.completions.create as ReturnType<typeof vi.fn>;
+    const provider = new OpenAIProvider(client);
+
+    await provider.completeWithTool({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", mimetype: "image/jpeg", base64: "BBBB", url: "https://mmg.whatsapp.net/enc/blob" },
+          ],
+        },
+      ],
+      tool: TOOL,
+    });
+
+    const args = createSpy.mock.calls[0]![0] as {
+      messages: { content: { type: string; image_url?: { url: string } }[] }[];
+    };
+    const imagePart = args.messages[0]!.content.find((p) => p.type === "image_url");
+    expect(imagePart?.image_url?.url).toBe("data:image/jpeg;base64,BBBB");
+  });
+
   it("converte mensagem com parte image que já tem url para image_url com url original", async () => {
     const client = makeClient(JSON.stringify({}));
     const createSpy = client.chat.completions.create as ReturnType<typeof vi.fn>;
