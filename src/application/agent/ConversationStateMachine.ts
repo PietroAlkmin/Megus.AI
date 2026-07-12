@@ -202,7 +202,15 @@ export class ConversationStateMachine {
       if (mode === "fiscal") {
         conv.state = ConversationState.CollectingIdentity;
         await this.d.conversations.save(conv);
-        await this.processIdentity(conv, integration, decision, mode);
+        const validated = await this.processIdentity(conv, integration, decision, mode);
+        // "Comprovante seco" (bug 12/07): a MÍDIA deste inbound chegou junto do
+        // armamento do funil — o roteamento já tinha passado quando o estado
+        // virou AwaitingComprovante e a imagem se perdia (cliente caía na guarda
+        // "me envia foto ou PDF" em loop). Identidade validada + mídia em mãos →
+        // gate B JÁ, sem pedir re-envio. O gate valida tudo como sempre.
+        if (validated && inbound.media) {
+          return this.handleComprovante(conv, cfg, integration, inbound);
+        }
         return;
       }
       const validated = await this.processIdentity(conv, integration, decision, "cadastro");
@@ -303,10 +311,15 @@ export class ConversationStateMachine {
     }
   }
 
-  /** Coleta nome+CPF: chama o cérebro e delega a validação (retorno ignorado — fluxo fiscal não replaneja). */
+  /** Coleta nome+CPF: chama o cérebro e delega a validação (fluxo fiscal não replaneja). */
   private async handleIdentity(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
-    await this.processIdentity(conv, integration, decision);
+    const validated = await this.processIdentity(conv, integration, decision);
+    // Mesma regra do "comprovante seco": identidade validou NESTE turno e a mídia
+    // veio junto (ex.: comprovante com legenda contendo nome+CPF) → gate B já.
+    if (validated && inbound.media) {
+      return this.handleComprovante(conv, cfg, integration, inbound);
+    }
   }
 
   /**
