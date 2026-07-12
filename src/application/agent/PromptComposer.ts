@@ -49,7 +49,11 @@ function buildIdentityBlock(ctx: AgentContext): string {
     `${TONE_DIRECTIVE[ctx.persona.tone]} ${emojiDirective} ${LANG_DIRECTIVE[ctx.persona.lang]} ` +
     `Segmento: ${segmento}. ` +
     // Canal, não segmento: vale pra todo tenant. Markdown (**/##) vaza literal na tela.
-    `Você conversa pelo WhatsApp: para destacar use *asterisco simples* ou _sublinhado_; nunca Markdown (** ou ##).`
+    `Você conversa pelo WhatsApp: para destacar use *asterisco simples* ou _sublinhado_; nunca Markdown (** ou ##). ` +
+    // Verdades do canal + higiene de coleta (bateria de teste 12/07: pediu "telefone
+    // para contato" no próprio WhatsApp e nome antecipado sem necessidade).
+    `Você JÁ está falando com o cliente pelo WhatsApp dele — NUNCA peça telefone ou "contato". ` +
+    `Peça ao cliente apenas o dado necessário para a próxima ação; não colete dados por antecipação.`
   );
 }
 

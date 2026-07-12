@@ -76,14 +76,16 @@ describe("ComposioAgentToolsProvider", () => {
     expect(sessions).not.toHaveBeenCalled();
   });
 
-  it("infos: nome+description vêm do toolset nativo; nativeTools é passthrough (mesma referência)", async () => {
-    const raw = { GOOGLECALENDAR_CREATE_EVENT: { description: "Cria evento no Google Calendar" } };
+  it("infos: descrição CURADA (PT-BR) prevalece sobre a nativa do Composio; nativeTools segue passthrough (mesma referência)", async () => {
+    const raw = { GOOGLECALENDAR_CREATE_EVENT: { description: "Create an event in Google Calendar" } };
     const sessions = fakeSessions({ "co-A": raw });
     const provider = new ComposioAgentToolsProvider(sessions);
 
     const { infos, nativeTools } = await provider.forCompany("co-A");
 
-    expect(infos).toEqual([{ name: "GOOGLECALENDAR_CREATE_EVENT", description: "Cria evento no Google Calendar" }]);
+    // prompt vê a curadoria (quando usar, em PT-BR); o motor vê a tool nativa intacta
+    expect(infos[0]?.name).toBe("GOOGLECALENDAR_CREATE_EVENT");
+    expect(infos[0]?.description).toContain("SOMENTE depois que o cliente confirmar");
     expect(nativeTools).toBe(raw);
   });
 

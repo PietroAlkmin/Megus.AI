@@ -180,9 +180,26 @@ export function keepCalendarTools(all: Record<string, unknown>): Record<string, 
   return Object.fromEntries(Object.entries(all).filter(([name]) => allowed.has(name)));
 }
 
+/**
+ * Descrições CURADAS (PT-BR, orientadas a QUANDO usar) pro bloco de ferramentas
+ * do prompt — as default do Composio vêm em inglês genérico e o modelo não
+ * entende o momento certo de uso (bateria 12/07: pediu ao cliente pra "chutar"
+ * dia/hora em vez de consultar horários livres proativamente). Só o PROMPT usa
+ * isto; as tools nativas (execute/schema) seguem intactas pro motor.
+ */
+export const CALENDAR_TOOL_DESCRIPTIONS: Record<string, string> = {
+  GOOGLECALENDAR_FIND_FREE_SLOTS:
+    "Consulta os horários LIVRES na agenda da empresa. Use PROATIVAMENTE quando o cliente quiser marcar e ainda não houver dia/horário definido — ofereça opções reais em vez de pedir que ele adivinhe.",
+  GOOGLECALENDAR_EVENTS_LIST:
+    "Lista os compromissos já marcados na agenda da empresa (use para conferir um horário específico).",
+  GOOGLECALENDAR_CREATE_EVENT:
+    "Marca um compromisso na agenda da empresa. Use SOMENTE depois que o cliente confirmar dia e horário — e nunca invente dados do evento.",
+};
+
 function toInfos(toolset: Record<string, unknown>): AgentToolInfo[] {
   return Object.entries(toolset).map(([name, t]) => ({
     name,
-    description: String((t as { description?: unknown } | null | undefined)?.description ?? name),
+    description:
+      CALENDAR_TOOL_DESCRIPTIONS[name] ?? String((t as { description?: unknown } | null | undefined)?.description ?? name),
   }));
 }
