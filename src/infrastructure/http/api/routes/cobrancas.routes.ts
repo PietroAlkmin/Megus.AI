@@ -45,18 +45,21 @@ interface TelaRow {
 }
 
 // Converte a visão de cobrança do banco (EmissionIntent) para o formato da tela.
-// pago = tem paidAt; cobrado = tem chargeSentAt; notaEmitida = status emitido ou tem notaNumber.
-// Byte-idêntico ao de sempre — só ganhou a assinatura de retorno explícita (TelaRow).
+// pago = tem paidAt OU nota emitida; cobrado = tem chargeSentAt; notaEmitida = status emitido ou tem notaNumber.
+// "emitida ⇒ pago" (smoke 12/07): a nota SÓ emite após o comprovante validado (gate B),
+// mas o intent nasce sem paidAt — a tela mostrava a nota recém-emitida como
+// "Pendente + Cobrar" (linha fantasma). Pagamento verificado é pagamento.
 function paraTela(r: CobrancaView): TelaRow {
+  const notaEmitida = r.status === "emitted" || r.notaNumber != null;
   return {
     id: r.id,
     nome: r.tomadorName,
     servico: r.description,
     valor: r.amount,
     agendamento: r.appointmentAt ? r.appointmentAt.toISOString() : null,
-    pago: r.paidAt != null,
+    pago: r.paidAt != null || notaEmitida,
     pagoEm: r.paidAt ? r.paidAt.toISOString() : null,
-    notaEmitida: r.status === "emitted" || r.notaNumber != null,
+    notaEmitida,
     notaNum: r.notaNumber,
     cobrado: r.chargeSentAt != null,
     cobradoEm: r.chargeSentAt ? r.chargeSentAt.toISOString() : null,

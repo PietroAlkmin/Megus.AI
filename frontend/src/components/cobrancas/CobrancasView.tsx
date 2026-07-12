@@ -43,8 +43,12 @@ function MetricCard({ icon, label, value }: MetricCardProps) {
 
 export default function CobrancasView() {
   const queryClient = useQueryClient();
-  const cobrancasQuery = useQuery({ queryKey: ["cobrancas"], queryFn: cobrancasService.listCobrancas });
-  const metricasQuery = useQuery({ queryKey: ["cobrancas", "metricas"], queryFn: cobrancasService.getMetricas });
+  // Polling: pagamentos acontecem FORA da tela (comprovante no WhatsApp → nota →
+  // baixa) — sem isto, só um F5 mostrava a atualização (smoke 12/07). 8s cobre o
+  // ciclo sem pesar; refetch ao focar cobre quem voltou de outra aba.
+  const LIVE = { refetchInterval: 8000, refetchOnWindowFocus: "always" as const, staleTime: 0 };
+  const cobrancasQuery = useQuery({ queryKey: ["cobrancas"], queryFn: cobrancasService.listCobrancas, ...LIVE });
+  const metricasQuery = useQuery({ queryKey: ["cobrancas", "metricas"], queryFn: cobrancasService.getMetricas, ...LIVE });
 
   const cobrarMutation = useMutation({
     mutationFn: cobrancasService.cobrar,
