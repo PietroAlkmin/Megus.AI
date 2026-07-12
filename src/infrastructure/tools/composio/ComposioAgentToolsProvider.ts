@@ -193,7 +193,7 @@ export const CALENDAR_TOOL_DESCRIPTIONS: Record<string, string> = {
   GOOGLECALENDAR_EVENTS_LIST:
     "Lista os compromissos já marcados na agenda da empresa (use para conferir um horário específico).",
   GOOGLECALENDAR_CREATE_EVENT:
-    "Marca um compromisso na agenda da empresa. Use SOMENTE depois que o cliente confirmar dia e horário — e nunca invente dados do evento.",
+    "Marca um compromisso na agenda da empresa. Use SOMENTE depois que o cliente confirmar dia e horário — uma confirmação já dada na conversa continua valendo (não re-pergunte). Nunca invente dados do evento.",
 };
 
 function toInfos(toolset: Record<string, unknown>): AgentToolInfo[] {
