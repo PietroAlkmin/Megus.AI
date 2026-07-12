@@ -174,4 +174,44 @@ describe("ConversationStateMachine — identidade em conversa livre (cadastro, n
     expect(contato?.cpfNameVerified).toBe(true);
     expect(conv.state).toBe(ConversationState.New);
   });
+
+  it("REPLAN pós-validação: o cérebro roda de novo com contexto verificado e completa o agendamento no MESMO turno (falha real 12/07)", async () => {
+    const repos = new InMemoryRepositories();
+    repos.seed({
+      integrations: [integration],
+      services: [{ id: "svc1", integrationId: "int1", code: "0107", description: "Massagem", price: 180, issCode: "0107" }],
+    });
+    const deps = baseDeps(repos);
+    // 1ª decide (turno da identidade): modelo entrega extracted; a resposta é PRÉ-validação.
+    // 2ª decide (REPLAN, ctx verificado): o gate abriu, o modelo marcou — toolResult presente.
+    (deps.brain.decide as any)
+      .mockResolvedValueOnce({
+        reply: ["Recebi seus dados, vou validar."],
+        action: { type: "provide_identity" },
+        extracted: { fullName: "João da Silva", cpf: "529.982.247-25" },
+      })
+      .mockResolvedValueOnce({
+        reply: ["Prontinho! Sua massagem ficou para 14/07 às 18h ✅"],
+        action: { type: "reply" },
+        toolResults: [{ name: "GOOGLECALENDAR_CREATE_EVENT", output: { successful: true, error: null, data: { response_data: { id: "evt-replan" } } } }],
+      });
+    (deps.cpf.lookupName as any).mockResolvedValue({ found: true, name: "João da Silva" });
+
+    const sm = new ConversationStateMachine(deps);
+    const conv = await repos.conversations.getOrCreate("int1", "ct1", "5511988887777");
+    await sm.advance(conv, agentConfig, integration, inbound("João da Silva, 529.982.247-25 — pode marcar 14/07 18h"));
+
+    // decide 2×: identidade + replan
+    expect(deps.brain.decide).toHaveBeenCalledTimes(2);
+    // a fala do turno é a do REPLAN — a pré-validação NUNCA sai (era a falha do teste real)
+    const bubbles = (deps.messaging.sendText as any).mock.calls.map((c: any) => c[0].text as string);
+    expect(bubbles).toContain("Prontinho! Sua massagem ficou para 14/07 às 18h ✅");
+    expect(bubbles).not.toContain("Recebi seus dados, vou validar.");
+    // e a cobrança nasceu do toolResult do replan
+    const contato = await repos.contacts.findByWhatsapp("int1", "5511988887777");
+    const charge = await repos.charges.findLatestChargeableByContact("int1", contato!.id);
+    expect(charge?.status).toBe("pendente");
+    expect(charge?.calendarEventId).toBe("evt-replan");
+    expect(charge?.amount).toBe(180);
+  });
 });

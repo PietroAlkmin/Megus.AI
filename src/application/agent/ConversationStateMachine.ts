@@ -199,8 +199,26 @@ export class ConversationStateMachine {
       if (mode === "fiscal") {
         conv.state = ConversationState.CollectingIdentity;
         await this.d.conversations.save(conv);
+        await this.processIdentity(conv, integration, decision, mode);
+        return;
       }
-      return this.processIdentity(conv, integration, decision, mode);
+      const validated = await this.processIdentity(conv, integration, decision, "cadastro");
+      if (!validated) return;
+
+      // REPLAN (falha real de teste 12/07): a resposta da decision acima foi gerada
+      // ANTES da validação — o modelo não sabia que o cadastro passou e a ação
+      // pendente (ex.: marcar o horário) nunca concluía. Rodamos o cérebro DE NOVO
+      // no mesmo turno, com o contexto já verificado (o gate do CREATE_EVENT abre):
+      // ele completa a ação, a cobrança nasce (toolResults abaixo) e a confirmação
+      // sai natural. Anti-loop: extracted/intent do replan NÃO são processados.
+      const replanned = await this.d.brain.decide(await this.context(conv, cfg, integration));
+      await this.createChargesFromBooking(conv, cfg, integration, replanned);
+      const reply = replanned.reply.length > 0 ? replanned.reply : decision.reply;
+      if (reply.length > 0) await this.send(conv, reply, instance);
+      if (replanned.action.type === "handoff") {
+        await this.handoff(conv, replanned.action.reason, instance);
+      }
+      return;
     }
 
     await this.send(conv, decision.reply, instance);
@@ -271,10 +289,10 @@ export class ConversationStateMachine {
     }
   }
 
-  /** Coleta nome+CPF: chama o cérebro e delega a validação. */
+  /** Coleta nome+CPF: chama o cérebro e delega a validação (retorno ignorado — fluxo fiscal não replaneja). */
   private async handleIdentity(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
-    return this.processIdentity(conv, integration, decision);
+    await this.processIdentity(conv, integration, decision);
   }
 
   /**
@@ -293,12 +311,13 @@ export class ConversationStateMachine {
    *   o "me manda o comprovante" fiscal. Falhas em cadastro não contam
    *   tentativa nem levam a handoff — esse contador é regra do funil fiscal.
    */
+  /** @returns true se a identidade foi validada e salva neste turno (caller pode replanejar). */
   private async processIdentity(
     conv: Conversation,
     integration: Integration,
     decision: AgentDecision,
     mode: "fiscal" | "cadastro" = "fiscal",
-  ): Promise<void> {
+  ): Promise<boolean> {
     const instance = integration.evolutionInstance || undefined;
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
@@ -312,7 +331,7 @@ export class ConversationStateMachine {
         conv.state = ConversationState.CollectingIdentity;
         await this.d.conversations.save(conv);
       }
-      return;
+      return false;
     }
 
     // Nome e CPF foram fornecidos: valida CPF e cruzamento nome↔CPF.
@@ -327,18 +346,18 @@ export class ConversationStateMachine {
         // Cadastro (identidade em conversa livre): repete o erro sem contar
         // tentativa nem acionar handoff — attempts/handoff é regra do funil fiscal.
         await this.send(conv, [msg], instance);
-        return;
+        return false;
       }
       const n = (this.attempts.get(conv.id) ?? 0) + 1;
       this.attempts.set(conv.id, n);
       if (n >= this.d.config.cpfMaxAttempts) {
         await this.handoff(conv, "CPF↔nome não confere após tentativas", instance);
-        return;
+        return false;
       }
       await this.send(conv, [msg], instance);
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
-      return;
+      return false;
     }
 
     // OK: cria/dedup o contato e o cliente no backend fiscal — MESMO bloco nos 2 modos.
@@ -367,17 +386,18 @@ export class ConversationStateMachine {
     conv.contactId = contact.id;
 
     if (mode === "cadastro") {
-      // NÃO arma o comprovante: a conversa segue (estado atual — ex. New) e quem
-      // fala é o cérebro (a resposta natural já decidida, ex. "vou confirmar seu
-      // horário"), nunca o "me manda o comprovante" — isso é fiscal, não cadastro.
+      // NÃO arma o comprovante (isso é fiscal). E NÃO fala: a resposta da decision
+      // foi gerada ANTES desta validação existir — quem fala é o REPLAN do caller
+      // (handleChatting), com o contexto já verificado. Falha real de teste 12/07:
+      // a resposta velha ("vou prosseguir...") saía e o agendamento nunca concluía.
       await this.d.conversations.save(conv);
-      if (decision.reply.length > 0) await this.send(conv, decision.reply, instance);
-      return;
+      return true;
     }
 
     conv.state = ConversationState.AwaitingComprovante;
     await this.d.conversations.save(conv);
     await this.send(conv, ["Perfeito! Agora me envia o comprovante de pagamento (foto ou PDF) que eu emito sua nota."], instance);
+    return true;
   }
 
   private async handleComprovante(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
