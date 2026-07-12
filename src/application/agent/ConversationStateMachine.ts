@@ -114,6 +114,21 @@ export class ConversationStateMachine {
       case ConversationState.VerifyingComprovante:
         return this.handleComprovante(conversation, agentConfig, integration, inbound);
       default:
+        // Costura Cobrar→comprovante (review final Plano 7): depois de agendar/cobrar
+        // a conversa fica LIVRE (New) — mas o comprovante prometido ("me envia aqui")
+        // precisa alcançar o gate B mesmo assim. Extensão da regra dura de mídia:
+        // mídia + contato JÁ verificado + cobrança em aberto → gate B. Só mídia
+        // aciona (texto segue conversa normal — sem railroading); os gates em si
+        // (validação/emissão) não mudam em nada.
+        if (inbound.media) {
+          const contact = await this.d.contacts.findByWhatsapp(integration.id, conversation.whatsappNumber);
+          if (contact?.cpfNameVerified) {
+            const chargeable = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
+            if (chargeable) {
+              return this.handleComprovante(conversation, agentConfig, integration, inbound);
+            }
+          }
+        }
         // New, ReadyToEmit, Done e qualquer outro estado não-fiscal → conversa livre.
         // O default deixa de ser o "Um momento" morto: o cérebro responde em todo estado.
         return this.handleChatting(conversation, agentConfig, integration, inbound);
