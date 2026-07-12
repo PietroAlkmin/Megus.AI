@@ -682,6 +682,22 @@ publicar o código no VPS e `docker compose up -d --build`.
 
 Checklist de produção — itens conhecidos e ainda pendentes, ver seção 11.
 
+### 10.1 Fluxo agendamento → cobrança (jul/2026)
+
+Quando o cliente marca um horário pela conversa (tools de agenda, seção 4.2),
+**marcar exige cadastro validado**: sem nome+CPF verificados (mesmo gate A do
+fluxo fiscal), a tool de marcar é substituída por código e o modelo é
+instruído a coletar os dados — validação em conversa livre NÃO arma o fluxo
+de comprovante (transição pós-identidade é condicional ao contexto). Cada
+marcação real cria uma **Cobrança pendente** (tabela `Charge`, migration
+manual `scripts/migrations/2026-07-12-charge.sql`), visível na tela de
+Cobranças. O botão **Cobrar** dispara uma mensagem proativa no WhatsApp do
+paciente (valor + Pix do cadastro) e marca `cobrada`. O comprovante que o
+paciente mandar alcança o gate B **mesmo em conversa livre** (mídia + cadastro
+verificado + cobrança em aberto → gate B); validado → nota emitida → cobrança
+`paga`. Falha do provedor de agenda (soft-error) e tentativa bloqueada pelo
+gate de identidade NUNCA viram cobrança (defesa em duas camadas, testada).
+
 ## 11. Decisões-chave (com o porquê)
 
 - **A IA nunca emite — só propõe.** Decisão de segurança de base do produto:
