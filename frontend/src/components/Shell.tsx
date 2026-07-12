@@ -1,8 +1,8 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import Brand from "@/components/Brand";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Bot, Building2, LogOut, MessageSquare, MessagesSquare, Receipt, Users, Zap } from "lucide-react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 // Empresa e Agente entram nesta etapa (Task 2 — onboarding) com rota própria.
 // Integrações segue reservada para o próximo canal além do WhatsApp.
@@ -19,6 +19,7 @@ const NAV_ITEMS = [
 export default function Shell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   function handleLogout() {
     logout();
@@ -102,7 +103,9 @@ export default function Shell() {
         </aside>
 
         <main className="min-w-0 flex-1 overflow-auto bg-background">
-          <Outlet />
+          <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

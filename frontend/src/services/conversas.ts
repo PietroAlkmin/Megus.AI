@@ -8,6 +8,7 @@ export interface Conversa {
   ultima: string;
   hora: string | null;
   status: "BOT" | "AGUARDANDO" | "HUMANO";
+  humanHandoff?: boolean;
   naoLidas: number;
 }
 
@@ -30,7 +31,17 @@ export async function listMensagens(convId: string): Promise<Mensagem[]> {
   return apiFetch<Mensagem[]>("GET", `/api/conversas/${encodeURIComponent(convId)}/mensagens`);
 }
 
-/** POST /api/conversas/:convId/assumir — humano assume a conversa. */
-export async function assumir(convId: string): Promise<{ id: string; status: string }> {
-  return apiFetch<{ id: string; status: string }>("POST", `/api/conversas/${encodeURIComponent(convId)}/assumir`);
+/** POST /api/conversas/:convId/assumir — humano assume (pausa o bot). */
+export async function assumir(convId: string): Promise<{ id: string; status: string; humanHandoff: boolean }> {
+  return apiFetch("POST", `/api/conversas/${encodeURIComponent(convId)}/assumir`);
+}
+
+/** POST /api/conversas/:convId/retomar — devolve a conversa ao bot. */
+export async function retomar(convId: string): Promise<{ id: string; status: string; humanHandoff: boolean }> {
+  return apiFetch("POST", `/api/conversas/${encodeURIComponent(convId)}/retomar`);
+}
+
+/** POST /api/conversas/:convId/enviar — humano envia mensagem pelo WhatsApp. */
+export async function enviar(convId: string, texto: string): Promise<{ id: string; enviado: boolean }> {
+  return apiFetch("POST", `/api/conversas/${encodeURIComponent(convId)}/enviar`, { texto });
 }

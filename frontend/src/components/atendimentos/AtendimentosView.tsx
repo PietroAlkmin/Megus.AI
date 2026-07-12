@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   Activity, Bot, FileText, Loader2, MessageSquare, TriangleAlert,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import * as atendimentosService from "@/services/atendimentos";
 import type { Agente } from "@/services/atendimentos";
 
@@ -34,10 +36,19 @@ function MetricCard({ icon, label, value }: MetricCardProps) {
   );
 }
 
-function AgenteCard({ a }: { a: Agente }) {
+function AgenteCard({ a, onOpen }: { a: Agente; onOpen: (id: string) => void }) {
   const st = STATUS[a.status] ?? STATUS.pausado;
   return (
-    <Card className={a.alerta ? "border-amber-300" : undefined}>
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(a.id)}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(a.id); } }}
+      className={cn(
+        "cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40",
+        a.alerta ? "border-amber-300" : undefined,
+      )}
+    >
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -77,6 +88,7 @@ function AgenteCard({ a }: { a: Agente }) {
 }
 
 export default function AtendimentosView() {
+  const navigate = useNavigate();
   const agentesQuery = useQuery({ queryKey: ["agentes"], queryFn: atendimentosService.listAgentes });
   const metricasQuery = useQuery({ queryKey: ["agentes", "metricas"], queryFn: atendimentosService.getMetricas });
 
@@ -98,7 +110,7 @@ export default function AtendimentosView() {
     );
   }
 
-  const agentes = agentesQuery.data ?? [];
+  const agentes: Agente[] = agentesQuery.data ?? [];
   const m = metricasQuery.data;
 
   return (
@@ -123,7 +135,7 @@ export default function AtendimentosView() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {agentes.map((a) => (
-            <AgenteCard key={a.id} a={a} />
+            <AgenteCard key={a.id} a={a} onOpen={(id) => { navigate(`/conversas?agente=${encodeURIComponent(id)}`); }} />
           ))}
         </div>
       )}

@@ -12,6 +12,7 @@ import { createConversasRouters } from "./routes/conversas.routes";
 import { cobrancasRoutes } from "./routes/cobrancas.routes";
 import { whatsappRoutes } from "./routes/whatsapp.routes";
 import type { IWhatsAppProvisioner } from "../../../domain/ports/IWhatsAppProvisioner";
+import type { IMessagingProvider } from "../../../domain/ports/IMessagingProvider";
 
 export interface ApiDeps {
   repos: InMemoryRepositories;
@@ -22,6 +23,8 @@ export interface ApiDeps {
   useMock: boolean;
   /** provisionamento de instância WhatsApp por tenant (Evolution admin API). */
   provisioner: IWhatsAppProvisioner;
+  /** envio de mensagens (Evolution/Log) — usado pelo "assumir conversa". */
+  messaging: IMessagingProvider;
 }
 
 /**
@@ -70,10 +73,11 @@ export function createApiApp(deps: ApiDeps): Express {
 
   // Conversas: dois routers (um em /api/agentes para .../conversas, outro em /api/conversas)
   const conversas = createConversasRouters({
-    useMock: deps.useMock,
-    conversations: deps.repos.conversations,
-    authMiddleware,
-  });
+      useMock: deps.useMock,
+      conversations: deps.repos.conversations,
+      messaging: deps.messaging,
+      authMiddleware,
+    });
   app.use("/api/agentes", conversas.agentesRouter);
   app.use("/api/conversas", conversas.conversasRouter);
 

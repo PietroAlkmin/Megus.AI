@@ -177,6 +177,7 @@ async function bootstrap(): Promise<void> {
     corsOrigins: env.CORS_ORIGINS === "*" ? "*" : env.CORS_ORIGINS.split(",").map((s) => s.trim()),
     useMock: env.USE_MOCK_DATA,
     provisioner,
+    messaging,
   });
 
   // Sem banco (dev local/sandbox): usuário de teste para login imediato via

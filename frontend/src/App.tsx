@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/context/AuthContext";
 import RequireAuth from "@/components/RequireAuth";
+import RequireOnboarding from "@/components/RequireOnboarding";
 import Shell from "@/components/Shell";
 import Login from "@/pages/Login";
 import Cadastro from "@/pages/Cadastro";
@@ -35,22 +36,32 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
+            {/* Onboarding em TELA CHEIA (fora do Shell) — primeiro login */}
+            <Route
+              path="/onboarding"
+              element={
+                <RequireAuth>
+                  <Onboarding />
+                </RequireAuth>
+              }
+            />
             <Route
               path="/"
               element={
                 <RequireAuth>
-                  <Shell />
+                  <RequireOnboarding>
+                    <Shell />
+                  </RequireOnboarding>
                 </RequireAuth>
               }
             >
               <Route index element={<Home />} />
               <Route path="empresa" element={<Empresa />} />
-              <Route path="agente" element={<Agente />} />
-              <Route path="conectar" element={<ConectarWhatsApp />} />
-              <Route path="onboarding" element={<Onboarding />} />
-              <Route path="cobrancas" element={<Cobrancas />} />
               <Route path="atendimentos" element={<Atendimentos />} />
               <Route path="conversas" element={<Conversas />} />
+              <Route path="cobrancas" element={<Cobrancas />} />
+              <Route path="agente" element={<Agente />} />
+              <Route path="conectar" element={<ConectarWhatsApp />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -34,6 +34,11 @@ export class PrismaConversationRepository implements IConversationRepository {
     });
     return rows.map(convToDomain);
   }
+
+  async getById(id: string): Promise<Conversation | null> {
+    const r = await prisma.conversation.findUnique({ where: { id } });
+    return r ? convToDomain(r) : null;
+  }
   
   async save(conv: Conversation): Promise<void> {
     await prisma.conversation.upsert({

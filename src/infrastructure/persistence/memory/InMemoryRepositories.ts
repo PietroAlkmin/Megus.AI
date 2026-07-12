@@ -121,11 +121,15 @@ export class InMemoryRepositories {
 
     listByIntegrationId: async (integrationId) =>
       this._conversations.filter((c) => c.integrationId === integrationId),
+
+    getById: async (id) => this._conversations.find((c) => c.id === id) ?? null,
     
     appendMessage: async (m) => { this._messages.push(m); },
     getHistory: async (conversationId, limit) =>
       this._messages.filter((m) => m.conversationId === conversationId).slice(-limit),
   };
+
+  
 
   emissions: IEmissionIntentRepository = {
     save: async (intent) => {
