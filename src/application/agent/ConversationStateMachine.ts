@@ -174,6 +174,9 @@ export class ConversationStateMachine {
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */
   private async handleChatting(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
+    // Observabilidade dos smokes: o que o modelo FEZ neste decide (tools executadas +
+    // ação) — sem isso a bateria de teste real fica cega ("chamou a tool ou só falou?").
+    console.log(`[cerebro] decide conv=${conv.id} tools=[${(decision.toolResults ?? []).map((t) => t.name).join(",")}] action=${decision.action.type}`);
 
     // Cobrança pendente nasce JUNTO com o evento (Task 3, Plano 7) — roda em TODA
     // decide() deste método, ANTES do ramo de identidade: no MESMO turno em que o
@@ -211,7 +214,16 @@ export class ConversationStateMachine {
       // no mesmo turno, com o contexto já verificado (o gate do CREATE_EVENT abre):
       // ele completa a ação, a cobrança nasce (toolResults abaixo) e a confirmação
       // sai natural. Anti-loop: extracted/intent do replan NÃO são processados.
-      const replanned = await this.d.brain.decide(await this.context(conv, cfg, integration));
+      // Aviso EXPLÍCITO no contexto do replan (falha real 2ª bateria 12/07): sem
+      // isso o modelo — instruído antes a "aguardar a validação" — não percebe o
+      // "cliente verificado" sutil dos coletados, só acusa recebimento e a marcação
+      // não sai. Sinal de fluxo genérico (mecanismo notices), não regra de cenário.
+      const replanned = await this.d.brain.decide(
+        await this.context(conv, cfg, integration, [
+          "O cadastro do cliente acabou de ser VALIDADO com sucesso. Se havia uma ação aguardando esse cadastro (por exemplo, concluir uma marcação combinada na conversa), execute-a AGORA usando a ferramenta adequada — não peça os dados novamente e não diga que ainda falta validação.",
+        ]),
+      );
+      console.log(`[cerebro] replan conv=${conv.id} tools=[${(replanned.toolResults ?? []).map((t) => t.name).join(",")}] action=${replanned.action.type}`);
       await this.createChargesFromBooking(conv, cfg, integration, replanned);
       const reply = replanned.reply.length > 0 ? replanned.reply : decision.reply;
       if (reply.length > 0) await this.send(conv, reply, instance);
@@ -465,7 +477,7 @@ export class ConversationStateMachine {
     await this.d.conversations.save(conv);
   }
 
-  private async context(conv: Conversation, cfg: AgentConfig, integration: Integration): Promise<AgentContext> {
+  private async context(conv: Conversation, cfg: AgentConfig, integration: Integration, notices?: string[]): Promise<AgentContext> {
     const services = await this.d.services.listByIntegration(integration.id);
     const history = await this.d.conversations.getHistory(conv.id, 20);
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
@@ -474,7 +486,7 @@ export class ConversationStateMachine {
     const companyProfile = integration.companyId
       ? await this.d.companyProfiles.getByCompanyId(integration.companyId)
       : null;
-    return assembleContext({ conversation: conv, agentConfig: cfg, integration, companyProfile, services, contact, history, today: formatToday() });
+    return assembleContext({ conversation: conv, agentConfig: cfg, integration, companyProfile, services, contact, history, today: formatToday(), notices });
   }
 
   private async send(conv: Conversation, bubbles: string[], instance?: string): Promise<void> {

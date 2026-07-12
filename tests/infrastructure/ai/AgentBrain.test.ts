@@ -198,7 +198,8 @@ describe("AgentBrain", () => {
     const result = await wrapped.execute({});
     expect(result).toEqual({
       error: "IDENTIDADE_PENDENTE",
-      instrucao: "Antes de marcar, peça o nome completo e o CPF do cliente e aguarde a validação do cadastro.",
+      instrucao:
+        "Antes de marcar, peça o nome completo e o CPF do cliente. Assim que o sistema validar o cadastro (um aviso do sistema confirmará), chame esta ferramenta NOVAMENTE para concluir a marcação combinada.",
     });
     expect(originalExecute).not.toHaveBeenCalled(); // a tool REAL nunca executou
     expect(seen?.nativeTools?.GOOGLECALENDAR_FIND_FREE_SLOTS).toBe(otherTool); // outra tool intocada (mesma referência)

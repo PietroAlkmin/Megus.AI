@@ -22,6 +22,8 @@ export interface AssembleContextInput {
   contact: Contact | null;
   history: Message[];
   today: string; // já formatada pelo caller (determinístico)
+  /** Avisos transientes do sistema pra ESTE turno (ver AgentContext.notices). */
+  notices?: string[];
 }
 
 /** Mascara um CPF (11 dígitos) mantendo só as bordas: "529.***.**7-25". */
@@ -70,7 +72,7 @@ function toBusinessProfile(p: CompanyProfile | null): AgentBusinessProfile | nul
 }
 
 export function assembleContext(input: AssembleContextInput): AgentContext {
-  const { conversation, agentConfig, integration, companyProfile, services, contact, history, today } = input;
+  const { conversation, agentConfig, integration, companyProfile, services, contact, history, today, notices } = input;
 
   return {
     // integration.companyId é opcional (fixtures antigas); o caminho Prisma SEMPRE
@@ -103,5 +105,7 @@ export function assembleContext(input: AssembleContextInput): AgentContext {
       emissionStatus: null, // sem lookup do intent nesta task (YAGNI) — o estado da conversa já informa
     },
     today,
+    // Só entra quando há aviso real — nada de array vazio virando bloco no prompt.
+    ...(notices && notices.length > 0 ? { notices } : {}),
   };
 }

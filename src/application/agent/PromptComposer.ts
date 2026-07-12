@@ -136,6 +136,12 @@ export function composePrompt(ctx: AgentContext, tools: PromptToolInfo[] = []): 
   const collected = buildCollectedBlock(ctx);
   if (collected) blocks.push(collected);
 
+  // Avisos transientes do sistema (sinal de FLUXO deste turno, ex.: "cadastro
+  // validado agora"). Genérico: renderiza o que vier injetado, nada hardcoded.
+  if (ctx.notices && ctx.notices.length > 0) {
+    blocks.push(`Avisos do sistema (válidos AGORA, aja de acordo):\n${ctx.notices.map((n) => `- ${n}`).join("\n")}`);
+  }
+
   blocks.push(`Hoje é ${ctx.today}.`);
 
   const system: AIMessage = { role: "system", content: blocks.join("\n\n") };

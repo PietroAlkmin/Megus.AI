@@ -60,6 +60,10 @@ export interface AgentContext {
   history: Message[];
   collected: AgentCollected;
   today: string; // data corrente PT-BR (ex.: "sábado, 5 de julho de 2026")
+  /** Avisos TRANSIENTES do sistema para ESTE turno (ex.: "cadastro validado agora —
+   *  conclua a ação pendente"). Mecanismo genérico de sinal de FLUXO — nunca regra
+   *  de cenário/segmento (princípio do prompt agnóstico). */
+  notices?: string[];
 }
 
 export type AgentProposedAction =

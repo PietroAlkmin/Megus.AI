@@ -203,6 +203,11 @@ describe("ConversationStateMachine — identidade em conversa livre (cadastro, n
 
     // decide 2×: identidade + replan
     expect(deps.brain.decide).toHaveBeenCalledTimes(2);
+    // o REPLAN recebe o AVISO explícito de cadastro validado (2ª bateria 12/07:
+    // sem o aviso, o modelo não percebia o "verificado" sutil e não concluía)
+    const ctxReplan = (deps.brain.decide as any).mock.calls[1][0];
+    expect(ctxReplan.notices?.join(" ")).toContain("VALIDADO com sucesso");
+    expect(ctxReplan.collected.cpfNameVerified).toBe(true);
     // a fala do turno é a do REPLAN — a pré-validação NUNCA sai (era a falha do teste real)
     const bubbles = (deps.messaging.sendText as any).mock.calls.map((c: any) => c[0].text as string);
     expect(bubbles).toContain("Prontinho! Sua massagem ficou para 14/07 às 18h ✅");

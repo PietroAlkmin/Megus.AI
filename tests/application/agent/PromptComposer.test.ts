@@ -82,6 +82,13 @@ describe("composePrompt", () => {
     const sys = composePrompt(ctx())[0]!.content as string;
     expect(sys).not.toContain("Ferramentas disponíveis");
   });
+  it("notices: avisos transientes entram como bloco 'Avisos do sistema'; sem notices, sem bloco", () => {
+    const com = composePrompt(ctx({ notices: ["O cadastro do cliente acabou de ser VALIDADO com sucesso."] }))[0]!.content as string;
+    expect(com).toContain("Avisos do sistema");
+    expect(com).toContain("- O cadastro do cliente acabou de ser VALIDADO com sucesso.");
+    const sem = composePrompt(ctx())[0]!.content as string;
+    expect(sem).not.toContain("Avisos do sistema");
+  });
   it("campos ausentes do cadastro NÃO viram linha (sem placeholder no prompt)", () => {
     const sys = composePrompt(
       ctx({ business: { companyName: "Clínica X", profile: { ...PROFILE_CHEIO, email: null, paymentInstructions: null }, services: [] } }),
