@@ -117,4 +117,37 @@ describe("transcrição de áudio no state machine", () => {
 
     expect(d.comprovante.analyze).toHaveBeenCalledOnce();
   });
+
+  // Caso EXATO da 1ª cliente (Dra. Renata, 13/07): paciente respondeu nome+CPF por
+  // áudio no funil de identidade. O cérebro deve receber o read-back e, se optar por
+  // confirmar (sem extrair ainda), a conversa segue coletando — sem gate B, sem avanço.
+  it("áudio transcrito no funil de identidade → read-back chega ao cérebro; sem extrair, segue coletando", async () => {
+    const repos = new InMemoryRepositories(); seed(repos);
+    const d = deps(repos);
+    (d.brain.decide as any).mockResolvedValue({ reply: ["Entendi seu CPF como 546.252.558-30, confirma?"], action: { type: "reply" } });
+    const sm = new ConversationStateMachine(d);
+    const conv = await repos.conversations.getOrCreate("int1", "ct1", FROM);
+    conv.state = ConversationState.CollectingIdentity;
+    await repos.conversations.save(conv);
+
+    await sm.advance(conv, agentConfig, integration, audioComTexto("é o Pietro Alkmin, CPF meia quatro seis..."));
+
+    const ctx = (d.brain.decide as any).mock.calls[0][0] as { notices?: string[] };
+    expect((ctx.notices ?? []).join(" ")).toContain("transcrita de um áudio");
+    expect(d.comprovante.analyze).not.toHaveBeenCalled();
+    expect(conv.state).toBe(ConversationState.CollectingIdentity); // não avançou sem dado extraído
+  });
+
+  it("mensagem de TEXTO (não transcrita) → cérebro NÃO recebe o aviso de read-back", async () => {
+    const repos = new InMemoryRepositories(); seed(repos);
+    const d = deps(repos);
+    const sm = new ConversationStateMachine(d);
+    const conv = await repos.conversations.getOrCreate("int1", "ct1", FROM);
+    const texto: InboundMessage = { providerMessageId: "t", from: FROM, to: "5511999990000", kind: "text", text: "oi", media: null, timestamp: new Date() };
+
+    await sm.advance(conv, agentConfig, integration, texto);
+
+    const ctx = (d.brain.decide as any).mock.calls[0][0] as { notices?: string[] };
+    expect((ctx.notices ?? []).join(" ")).not.toContain("transcrita de um áudio");
+  });
 });
