@@ -6,19 +6,18 @@ import { toast } from "@/components/ui/sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as authService from "@/services/auth";
 import { ApiError } from "@/lib/api";
-import { Bot, Building2, LogOut, MessageSquare, MessagesSquare, Receipt, Users, Zap } from "lucide-react";
+import { Bot, Building2, LogOut, MessageSquare, MessagesSquare, Receipt, Zap } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 // Empresa e Agente entram nesta etapa (Task 2 — onboarding) com rota própria.
 // Integrações: canal (WhatsApp) + ferramentas do agente (agenda/Google Calendar).
 const NAV_ITEMS = [
-  { id: "inicio", label: "Início", icon: Users, to: "/" as const },
   { id: "atendimentos", label: "Atendimentos", icon: MessageSquare, to: "/atendimentos" as const },
   { id: "conversas", label: "Conversas", icon: MessagesSquare, to: "/conversas" as const },
-  { id: "empresa", label: "Empresa", icon: Building2, to: "/empresa" as const },
-  { id: "agente", label: "Agente", icon: Bot, to: "/agente" as const },
-  { id: "integracoes", label: "Integrações", icon: Zap, to: "/integracoes" as const },
   { id: "cobrancas", label: "Cobranças", icon: Receipt, to: "/cobrancas" as const },
+  { id: "integracoes", label: "Integrações", icon: Zap, to: "/integracoes" as const },
+  { id: "agente", label: "Agente", icon: Bot, to: "/agente" as const },
+  { id: "empresa", label: "Empresa", icon: Building2, to: "/empresa" as const },
 ] as const;
 
 export default function Shell() {
@@ -98,7 +97,6 @@ export default function Shell() {
                 <NavLink
                   key={item.id}
                   to={item.to}
-                  end={item.to === "/"}
                   title={item.label}
                   className="flex flex-col items-center justify-center gap-1 rounded-md py-2"
                 >

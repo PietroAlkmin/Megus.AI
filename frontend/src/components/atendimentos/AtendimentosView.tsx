@@ -83,8 +83,8 @@ function AgenteCard({ a, onOpen }: { a: Agente; onOpen: (id: string) => void }) 
           )}
           <div className="text-muted-foreground">Conversas abertas</div>
           <div className="text-right text-foreground">{a.conversas}</div>
-          <div className="text-muted-foreground">Notas hoje</div>
-          <div className="text-right text-foreground">{a.notasHoje}</div>
+          <div className="text-muted-foreground">Notas este mês</div>
+          <div className="text-right text-foreground">{a.notasMes}</div>
         </div>
 
         {a.alerta && (
@@ -130,8 +130,8 @@ export default function AtendimentosView() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <MetricCard icon={<Activity className="size-4" />} label="Operando" value={m ? `${m.operando}/${m.total}` : "—"} />
         <MetricCard icon={<MessageSquare className="size-4" />} label="Conversas abertas" value={m?.abertas ?? "—"} />
-        <MetricCard icon={<FileText className="size-4" />} label="Notas hoje" value={m?.notasHoje ?? "—"} />
-        <MetricCard icon={<MessageSquare className="size-4" />} label="Mensagens hoje" value={m?.msgsHoje ?? "—"} />
+        <MetricCard icon={<FileText className="size-4" />} label="Notas este mês" value={m?.notasMes ?? "—"} />
+        <MetricCard icon={<MessageSquare className="size-4" />} label="Mensagens este mês" value={m?.msgsMes ?? "—"} />
         <MetricCard icon={<Activity className="size-4" />} label="Transferências" value={m?.transferencias ?? "—"} />
         <MetricCard icon={<TriangleAlert className="size-4" />} label="Alertas" value={m?.alertas ?? "—"} />
       </div>

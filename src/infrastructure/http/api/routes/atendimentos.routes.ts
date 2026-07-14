@@ -10,6 +10,8 @@ import type {
   IAgentConfigRepository,
 } from "../../../../domain/ports/repositories";
 
+import { startOfMonthSaoPaulo } from "../time";
+
 export interface AtendimentosRoutesDeps {
   integrations: IIntegrationRepository;
   agentConfigs: IAgentConfigRepository;
@@ -22,7 +24,7 @@ export interface AtendimentosRoutesDeps {
 // Campos sem fonte real (tempo de resposta, não-lidas) NÃO existem no payload —
 // o painel omite o que o backend não mede (regra: nada de placeholder).
 async function agentesReais(deps: AtendimentosRoutesDeps, companyId: string) {
-  const hoje = startOfTodaySaoPaulo();
+  const inicioMes = startOfMonthSaoPaulo();
   const integrations = await deps.integrations.listByCompanyId(companyId);
   const agentes = [];
   for (const integ of integrations) {
@@ -31,8 +33,8 @@ async function agentesReais(deps: AtendimentosRoutesDeps, companyId: string) {
     const abertas = convs.filter((c) => c.state !== ConversationState.Done);
     const aguardandoHumano = abertas.filter((c) => c.humanHandoff).length;
     const emissoes = await deps.emissions.listByIntegrationId(integ.id);
-    const notasHoje = emissoes.filter(
-      (e) => (e.status === "emitted" || e.notaNumber != null) && e.createdAt >= hoje,
+    const notasMes = emissoes.filter(
+      (e) => (e.status === "emitted" || e.notaNumber != null) && e.createdAt >= inicioMes,
     ).length;
 
     const conectado = Boolean(integ.whatsappNumber);
@@ -45,7 +47,7 @@ async function agentesReais(deps: AtendimentosRoutesDeps, companyId: string) {
       // sem agente = "atencao"; sem número = "desconectado"; senão "operando"
       status: !cfg ? "atencao" : !conectado ? "desconectado" : "operando",
       conversas: abertas.length,
-      notasHoje,
+      notasMes,
       aguardandoHumano,
       alerta: !cfg
         ? "Agente ainda não configurado"
@@ -72,13 +74,13 @@ export function atendimentosRoutes(deps: AtendimentosRoutesDeps): Router {
     const { companyId } = req.auth as AuthContext;
     const agentes = await agentesReais(deps, companyId);
     const integrationIds = agentes.map((a) => a.id);
-    const msgsHoje = await deps.conversations.countMessagesSince(integrationIds, startOfTodaySaoPaulo());
+    const msgsMes = await deps.conversations.countMessagesSince(integrationIds, startOfMonthSaoPaulo());
     ok(res, {
       operando: agentes.filter((a) => a.status === "operando").length,
       total: agentes.length,
       abertas: agentes.reduce((s, a) => s + a.conversas, 0),
-      notasHoje: agentes.reduce((s, a) => s + a.notasHoje, 0),
-      msgsHoje,
+      notasMes: agentes.reduce((s, a) => s + a.notasMes, 0),
+      msgsMes,
       transferencias: agentes.reduce((s, a) => s + a.aguardandoHumano, 0),
       alertas: agentes.filter((a) => a.alerta).length,
     });

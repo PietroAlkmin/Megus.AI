@@ -12,7 +12,7 @@ export interface Agente {
   segmento: string | null;
   status: "operando" | "atencao" | "desconectado" | "pausado";
   conversas: number;
-  notasHoje: number;
+  notasMes: number;
   aguardandoHumano: number;
   alerta: string | null;
 }
@@ -22,8 +22,8 @@ export interface AgentesMetricas {
   operando: number;
   total: number;
   abertas: number;
-  notasHoje: number;
-  msgsHoje: number;
+  notasMes: number;
+  msgsMes: number;
   transferencias: number;
   alertas: number;
 }

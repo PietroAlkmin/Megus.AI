@@ -7,7 +7,6 @@ import RequireOnboarding from "@/components/RequireOnboarding";
 import Shell from "@/components/Shell";
 import Login from "@/pages/Login";
 import Cadastro from "@/pages/Cadastro";
-import Home from "@/pages/Home";
 import Empresa from "@/pages/Empresa";
 import Agente from "@/pages/Agente";
 import ConectarWhatsApp from "@/pages/ConectarWhatsApp";
@@ -56,7 +55,7 @@ export default function App() {
                 </RequireAuth>
               }
             >
-              <Route index element={<Home />} />
+              <Route index element={<Navigate to="/atendimentos" replace />} />
               <Route path="empresa" element={<Empresa />} />
               <Route path="atendimentos" element={<Atendimentos />} />
               <Route path="conversas" element={<Conversas />} />
