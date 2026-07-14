@@ -22,6 +22,12 @@ export interface InboundMessage {
   text: string | null;
   media: InboundMedia | null;
   timestamp: Date;
+  /**
+   * true quando `text` veio de transcrição de áudio (voz→texto), não digitado.
+   * O state machine usa isso para avisar o cérebro a confirmar dados sensíveis
+   * (read-back), já que a transcrição pode conter imprecisões.
+   */
+  transcribed?: boolean;
 }
 
 export interface OutboundText {

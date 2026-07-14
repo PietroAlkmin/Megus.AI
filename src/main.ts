@@ -14,6 +14,9 @@ import { currentDateTimeTool } from "./infrastructure/ai/tools/currentDateTimeTo
 import { ComprovanteAnalyzer } from "./infrastructure/ai/ComprovanteAnalyzer";
 import { MockComprovanteAnalyzer } from "./infrastructure/ai/MockComprovanteAnalyzer";
 import type { IComprovanteAnalyzer } from "./domain/ports/IComprovanteAnalyzer";
+import { OpenAiAudioTranscriber } from "./infrastructure/ai/OpenAiAudioTranscriber";
+import { MockAudioTranscriber } from "./infrastructure/ai/MockAudioTranscriber";
+import type { IAudioTranscriber } from "./domain/ports/IAudioTranscriber";
 import { EvolutionMessagingProvider } from "./infrastructure/messaging/evolution/EvolutionMessagingProvider";
 import { EvolutionProvisioner } from "./infrastructure/messaging/evolution/EvolutionProvisioner";
 import { LogMessagingProvider } from "./infrastructure/messaging/LogMessagingProvider";
@@ -164,6 +167,11 @@ async function bootstrap(): Promise<void> {
     env.COMPROVANTE_PROVIDER === "mock"
       ? new MockComprovanteAnalyzer({ amount: PILOT_SERVICE_PRICE, confidence: 1 })
       : new ComprovanteAnalyzer(ai, env.AI_MODEL_VISION);
+  // Transcrição de áudio (voz→texto) — mesma OPENAI_API_KEY da visão. mock só em dev.
+  const transcriber: IAudioTranscriber =
+    env.TRANSCRIBE_PROVIDER === "mock"
+      ? new MockAudioTranscriber()
+      : new OpenAiAudioTranscriber(openai, env.AI_MODEL_TRANSCRIBE);
   const stateMachine = new ConversationStateMachine({
     brain: new AgentBrain(agentEngine, env.AI_MODEL_CHAT, [currentDateTimeTool], env.AI_MAX_STEPS, toolsProvider),
     cpf,
@@ -188,6 +196,7 @@ async function bootstrap(): Promise<void> {
     conversations: repos.conversations,
     contacts: repos.contacts,
     stateMachine,
+    transcriber,
   });
 
   // Registra o handler de inbound no provider e sobe

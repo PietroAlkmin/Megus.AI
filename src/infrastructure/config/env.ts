@@ -46,6 +46,12 @@ const schema = z.object({
   CPF_PROVIDER: z.enum(["mock", "serpro"]).default("mock"),
   // Comprovante: "openai" usa visão real; "mock" auto-aprova (SÓ demo/dev).
   COMPROVANTE_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
+  // Transcrição de áudio (voz→texto): "openai" usa audio.transcriptions real;
+  // "mock" devolve texto fixo (SÓ demo/dev). Mesma OPENAI_API_KEY da visão.
+  TRANSCRIBE_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
+  // Modelo de transcrição. gpt-4o-transcribe pela acurácia em números (CPF) em
+  // PT-BR; whisper-1 é o fallback garantido se o modelo não estiver na conta.
+  AI_MODEL_TRANSCRIBE: z.string().default("gpt-4o-transcribe"),
   // URL do PDF de demo servido pelo app; o mock fiscal devolve esta URL p/ o WhatsApp baixar.
   MOCK_NOTA_PDF_URL: z.string().optional(),
 

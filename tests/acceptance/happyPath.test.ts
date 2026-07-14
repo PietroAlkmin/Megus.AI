@@ -4,6 +4,7 @@ import { ConversationStateMachine } from "../../src/application/agent/Conversati
 import { InMemoryRepositories } from "../../src/infrastructure/persistence/memory/InMemoryRepositories";
 import { MockFiscalProvider } from "../../src/infrastructure/fiscal/MockFiscalProvider";
 import { MockCpfProvider } from "../../src/infrastructure/cpf/MockCpfProvider";
+import { MockAudioTranscriber } from "../../src/infrastructure/ai/MockAudioTranscriber";
 import type { InboundMessage } from "../../src/domain/ports/IMessagingProvider";
 import { ConversationState } from "../../src/domain/entities/ConversationState";
 
@@ -28,7 +29,7 @@ describe("Aceite: caminho feliz do piloto (§7)", () => {
     const fiscal = new MockFiscalProvider();
 
     const sm = new ConversationStateMachine({ brain, cpf, comprovante, fiscal, messaging, contacts: repos.contacts, conversations: repos.conversations, emissions: repos.emissions, services: repos.services, companyProfiles: repos.companyProfiles, charges: repos.charges, config: { cpfMaxAttempts: 2, comprovanteMinConfidence: 0.8 } });
-    const uc = new HandleInboundMessage({ integrations: repos.integrations, agentConfigs: repos.agentConfigs, conversations: repos.conversations, contacts: repos.contacts, stateMachine: sm });
+    const uc = new HandleInboundMessage({ integrations: repos.integrations, agentConfigs: repos.agentConfigs, conversations: repos.conversations, contacts: repos.contacts, stateMachine: sm, transcriber: new MockAudioTranscriber() });
 
     const from = "5511988887777"; const to = "5511999990000";
     const text = (t: string): InboundMessage => ({ providerMessageId: "x", from, to, kind: "text", text: t, media: null, timestamp: new Date() });
