@@ -168,10 +168,15 @@ async function bootstrap(): Promise<void> {
       ? new MockComprovanteAnalyzer({ amount: PILOT_SERVICE_PRICE, confidence: 1 })
       : new ComprovanteAnalyzer(ai, env.AI_MODEL_VISION);
   // Transcrição de áudio (voz→texto) — mesma OPENAI_API_KEY da visão. mock só em dev.
+  // Cliente DEDICADO, SEM o override `fetch: globalThis.fetch`: o upload multipart do
+  // áudio quebra com ele ("Connection error"). O override existe pro gzip do chat/visão
+  // (node-fetch engasga), mas estraga o multipart — verificado 14/07 contra o áudio real
+  // da 1ª cliente (o default do SDK transcreveu "Meu nome é Leandro e meu CPF é ...").
+  const openaiAudio = new OpenAI({ apiKey: env.OPENAI_API_KEY ?? "placeholder-sem-chave" }) as any;
   const transcriber: IAudioTranscriber =
     env.TRANSCRIBE_PROVIDER === "mock"
       ? new MockAudioTranscriber()
-      : new OpenAiAudioTranscriber(openai, env.AI_MODEL_TRANSCRIBE);
+      : new OpenAiAudioTranscriber(openaiAudio, env.AI_MODEL_TRANSCRIBE);
   const stateMachine = new ConversationStateMachine({
     brain: new AgentBrain(agentEngine, env.AI_MODEL_CHAT, [currentDateTimeTool], env.AI_MAX_STEPS, toolsProvider),
     cpf,
