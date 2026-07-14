@@ -4,7 +4,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Bot, Calendar, Check, FileText, Languages, Layers, Loader2, MessageCircle,
+  Bot, Check, FileText, Languages, Layers, Loader2, MessageCircle,
   Pencil, Plus, Smile, Sparkles, Trash2, Upload, Zap,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
@@ -356,28 +356,6 @@ export default function AgenteForm({ onSaved }: AgenteFormProps) {
                 <p className="text-xs text-muted-foreground">Responde com base nas instruções e nos materiais de treinamento.</p>
               </div>
               <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-[11px] font-bold uppercase text-success">Ativo</span>
-            </div>
-
-            {/* Agendar */}
-            <div className="rounded-xl border border-border bg-card px-4 py-3.5">
-              <div className="flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground"><Calendar className="size-4" /></span>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold text-foreground">Agendar atendimentos</span>
-                  <p className="text-xs text-muted-foreground">Compartilha o link da sua agenda para o cliente escolher o horário.</p>
-                </div>
-                <Switch checked={v.capabilities.agenda} onCheckedChange={(c) => form.setValue("capabilities.agenda", c, { shouldDirty: true })} />
-              </div>
-              {v.capabilities.agenda && (
-                <div className="mt-3 border-t border-dashed pt-3">
-                  <CampoLabel icon={<Calendar className="size-3.5" />} hint="O agente envia este link quando o cliente pede para marcar um horário.">Link da agenda</CampoLabel>
-                  <Input
-                    placeholder="https://calendly.com/sua-clinica · Google Agenda, Calendly…"
-                    value={v.capabilities.agendaLink ?? ""}
-                    onChange={(e) => form.setValue("capabilities.agendaLink", e.target.value || null, { shouldDirty: true })}
-                  />
-                </div>
-              )}
             </div>
 
             {/* Emitir nota */}
