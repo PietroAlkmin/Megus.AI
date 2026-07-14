@@ -9,7 +9,7 @@ import { BOOKING_TOOL_NAME } from "../../domain/ports/IAgentToolsProvider";
 import type { ICpfProvider } from "../../domain/ports/ICpfProvider";
 import type { IComprovanteAnalyzer } from "../../domain/ports/IComprovanteAnalyzer";
 import type { IFiscalProvider } from "../../domain/ports/IFiscalProvider";
-import type { IMessagingProvider, InboundMessage } from "../../domain/ports/IMessagingProvider";
+import type { IMessagingProvider, InboundMessage, InboundMedia } from "../../domain/ports/IMessagingProvider";
 import type {
   IChargeRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IServiceRepository, ICompanyProfileRepository,
@@ -46,6 +46,25 @@ function isSoftFailure(output: unknown): boolean {
   const o = output as { successful?: unknown; error?: unknown } | null | undefined;
   return o?.successful === false || Boolean(o?.error);
 }
+
+/**
+ * Comprovante é foto/PDF — NUNCA áudio nem texto. O áudio inbound carrega `media`
+ * (base64 do voice note), então checar só `inbound.media` mandaria voz pra visão
+ * por engano; o gate B exige image/document. (Áudio vira texto na entrada e segue
+ * pro cérebro — ver HandleInboundMessage.)
+ */
+function isReceiptMedia(inbound: InboundMessage): inbound is InboundMessage & { media: InboundMedia } {
+  return inbound.media != null && (inbound.kind === "image" || inbound.kind === "document");
+}
+
+/**
+ * Read-back quando a mensagem veio de áudio transcrito: a transcrição pode errar
+ * (ex.: um dígito), então o cérebro confirma dados que precisam ser exatos ANTES
+ * de agir. GENÉRICO de propósito — sem exemplo de cenário, sem "if CPF" no código
+ * (o cérebro julga o que é sensível). Casa com a API de CPF/CNPJ futura.
+ */
+const READBACK_NOTICE =
+  "A última mensagem do cliente foi transcrita de um áudio e pode conter imprecisões. Antes de usar como definitivo qualquer dado que precise estar exato, repita ao cliente o que você entendeu e peça a confirmação.";
 
 /** Data corrente PT-BR (America/Sao_Paulo) para o AgentContext. Runtime real — usa new Date(). */
 function formatToday(): string {
@@ -96,10 +115,20 @@ export class ConversationStateMachine {
 
     if (conversation.humanHandoff) return; // bot calado
 
-    // Regra dura: mídia em estado de comprovante → gate B (handleComprovante) ANTES
-    // de qualquer roteamento ao cérebro. O ato fiscal NUNCA passa pela IA.
+    // Áudio que não pôde ser transcrito (falha na transcrição ou sem bytes):
+    // resposta honesta e NÃO avança estado nem chama o cérebro. Nunca alimenta
+    // "[audio]" cru ao modelo — foi a causa-raiz do loop mudo da 1ª cliente (13/07).
+    if (inbound.kind === "audio" && !inbound.text) {
+      const instance = integration.evolutionInstance || undefined;
+      await this.send(conversation, ["Não consegui ouvir seu áudio 😕 Pode escrever ou mandar de novo, por favor?"], instance);
+      return;
+    }
+
+    // Regra dura: comprovante (foto/PDF) em estado de comprovante → gate B
+    // (handleComprovante) ANTES de qualquer roteamento ao cérebro. O ato fiscal
+    // NUNCA passa pela IA. Áudio não é comprovante (isReceiptMedia exclui voz).
     if (
-      inbound.media &&
+      isReceiptMedia(inbound) &&
       (conversation.state === ConversationState.AwaitingComprovante ||
         conversation.state === ConversationState.VerifyingComprovante)
     ) {
@@ -117,10 +146,10 @@ export class ConversationStateMachine {
         // Costura Cobrar→comprovante (review final Plano 7): depois de agendar/cobrar
         // a conversa fica LIVRE (New) — mas o comprovante prometido ("me envia aqui")
         // precisa alcançar o gate B mesmo assim. Extensão da regra dura de mídia:
-        // mídia + contato JÁ verificado + cobrança em aberto → gate B. Só mídia
-        // aciona (texto segue conversa normal — sem railroading); os gates em si
-        // (validação/emissão) não mudam em nada.
-        if (inbound.media) {
+        // comprovante + contato JÁ verificado + cobrança em aberto → gate B. Só
+        // foto/PDF aciona (texto e áudio seguem conversa normal — sem railroading);
+        // os gates em si (validação/emissão) não mudam em nada.
+        if (isReceiptMedia(inbound)) {
           const contact = await this.d.contacts.findByWhatsapp(integration.id, conversation.whatsappNumber);
           if (contact?.cpfNameVerified) {
             const chargeable = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
@@ -173,7 +202,8 @@ export class ConversationStateMachine {
 
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */
   private async handleChatting(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
-    const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
+    const notices = inbound.transcribed ? [READBACK_NOTICE] : undefined;
+    const decision = await this.d.brain.decide(await this.context(conv, cfg, integration, notices));
     // Observabilidade dos smokes: o que o modelo FEZ neste decide (tools executadas +
     // ação) — sem isso a bateria de teste real fica cega ("chamou a tool ou só falou?").
     console.log(`[cerebro] decide conv=${conv.id} tools=[${(decision.toolResults ?? []).map((t) => t.name).join(",")}] action=${decision.action.type}`);
@@ -202,14 +232,14 @@ export class ConversationStateMachine {
       if (mode === "fiscal") {
         conv.state = ConversationState.CollectingIdentity;
         await this.d.conversations.save(conv);
-        const temMidia = Boolean(inbound.media);
+        const temMidia = isReceiptMedia(inbound);
         const validated = await this.processIdentity(conv, integration, decision, mode, temMidia);
         // "Comprovante seco" (bug 12/07): a MÍDIA deste inbound chegou junto do
         // armamento do funil — o roteamento já tinha passado quando o estado
         // virou AwaitingComprovante e a imagem se perdia (cliente caía na guarda
-        // "me envia foto ou PDF" em loop). Identidade validada + mídia em mãos →
-        // gate B JÁ, sem pedir re-envio. O gate valida tudo como sempre.
-        if (validated && inbound.media) {
+        // "me envia foto ou PDF" em loop). Identidade validada + comprovante em mãos
+        // → gate B JÁ, sem pedir re-envio. O gate valida tudo como sempre.
+        if (validated && isReceiptMedia(inbound)) {
           return this.handleComprovante(conv, cfg, integration, inbound);
         }
         return;
@@ -314,11 +344,12 @@ export class ConversationStateMachine {
 
   /** Coleta nome+CPF: chama o cérebro e delega a validação (fluxo fiscal não replaneja). */
   private async handleIdentity(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
-    const decision = await this.d.brain.decide(await this.context(conv, cfg, integration));
-    const validated = await this.processIdentity(conv, integration, decision, "fiscal", Boolean(inbound.media));
-    // Mesma regra do "comprovante seco": identidade validou NESTE turno e a mídia
-    // veio junto (ex.: comprovante com legenda contendo nome+CPF) → gate B já.
-    if (validated && inbound.media) {
+    const notices = inbound.transcribed ? [READBACK_NOTICE] : undefined;
+    const decision = await this.d.brain.decide(await this.context(conv, cfg, integration, notices));
+    const validated = await this.processIdentity(conv, integration, decision, "fiscal", isReceiptMedia(inbound));
+    // Mesma regra do "comprovante seco": identidade validou NESTE turno e o
+    // comprovante veio junto (foto/PDF com legenda contendo nome+CPF) → gate B já.
+    if (validated && isReceiptMedia(inbound)) {
       return this.handleComprovante(conv, cfg, integration, inbound);
     }
   }
@@ -437,7 +468,10 @@ export class ConversationStateMachine {
 
   private async handleComprovante(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
     const instance = integration.evolutionInstance || undefined;
-    if (inbound.kind === "text" || !inbound.media) {
+    // Só foto/PDF é comprovante — texto e áudio (mesmo transcrito, ex.: "já paguei")
+    // pedem o comprovante de verdade. Backstop: o roteamento em advance já filtra,
+    // mas o switch por estado (AwaitingComprovante) ainda chega aqui com áudio.
+    if (!isReceiptMedia(inbound)) {
       await this.send(conv, ["Me envia o comprovante de pagamento como foto ou PDF, por favor."], instance);
       return;
     }
