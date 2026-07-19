@@ -7,7 +7,7 @@ import AgenteForm from "@/components/agente/AgenteForm";
 import EmpresaForm from "@/components/empresa/EmpresaForm";
 import WhatsAppConnectPanel from "@/components/whatsapp/WhatsAppConnectPanel";
 import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
-import { SKIP_ONBOARDING_KEY } from "@/components/RequireOnboarding";
+import { SKIP_ONBOARDING_KEY } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 

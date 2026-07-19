@@ -8,6 +8,18 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const TOKEN_KEY = "megus_token";
 
+/**
+ * Chave de sessão do "pular onboarding" (RequireOnboarding). Fica aqui junto do
+ * token porque, como ele, é estado de sessão do usuário logado: precisa ser
+ * limpo no login/logout, senão vaza de um usuário para o próximo na MESMA aba
+ * (bug: cliente novo entrava direto no painel porque alguém pulou antes).
+ */
+export const SKIP_ONBOARDING_KEY = "megus:skipOnboarding";
+
+export function clearSkipOnboarding(): void {
+  sessionStorage.removeItem(SKIP_ONBOARDING_KEY);
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
