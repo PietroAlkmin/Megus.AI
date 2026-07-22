@@ -103,8 +103,8 @@ function BlocoHeader({ n, icon, titulo, desc }: { n: number; icon: ReactNode; ti
       </span>
       <div>
         <div className="flex items-center gap-2">
-          <span className="grid size-5 place-items-center rounded-md bg-primary/10 text-[11px] font-bold text-primary">{n}</span>
-          <span className="text-base font-bold text-foreground">{titulo}</span>
+          <span className="grid size-5 place-items-center rounded-md bg-success/10 text-[11px] font-semibold text-success">{n}</span>
+          <span className="font-brand text-lg font-semibold text-foreground">{titulo}</span>
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
       </div>

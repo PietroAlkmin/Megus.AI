@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CalendarClock, CheckCircle2, Clock, FileText, Loader2, Send, TriangleAlert,
-} from "lucide-react";
+import { Loader2, Send, TriangleAlert } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,35 +8,17 @@ import * as cobrancasService from "@/services/cobrancas";
 import type { Cobranca } from "@/services/cobrancas";
 
 function formatBRL(value: number): string {
-  return "R$ " + value.toFixed(2).replace(".", ",");
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// Deriva o rótulo/estilo do status de uma cobrança a partir dos flags.
+// Rótulo/estilo do status pelos flags. Tokens v2: verde = entrou (pago),
+// âmbar = aguardando. "Pendente" é neutro — não é erro, só ainda-não-aconteceu;
+// vermelho aqui seria alarme falso.
 function statusDe(c: Cobranca): { label: string; cls: string } {
-  if (c.pago && c.notaEmitida) return { label: "Pago · nota emitida", cls: "bg-emerald-100 text-emerald-700" };
-  if (c.pago) return { label: "Pago", cls: "bg-emerald-100 text-emerald-700" };
-  if (c.cobrado) return { label: "Cobrado · aguardando", cls: "bg-amber-100 text-amber-700" };
-  return { label: "Pendente", cls: "bg-rose-100 text-rose-700" };
-}
-
-interface MetricCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-}
-
-function MetricCard({ icon, label, value }: MetricCardProps) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <span className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground">{icon}</span>
-        <div>
-          <div className="text-xl font-bold leading-none text-foreground">{value}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{label}</div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  if (c.pago && c.notaEmitida) return { label: "Pago · nota emitida", cls: "bg-success/10 text-success" };
+  if (c.pago) return { label: "Pago", cls: "bg-success/10 text-success" };
+  if (c.cobrado) return { label: "Cobrado · aguardando", cls: "bg-warning/10 text-warning" };
+  return { label: "Pendente", cls: "bg-muted text-muted-foreground" };
 }
 
 export default function CobrancasView() {
@@ -86,7 +66,7 @@ export default function CobrancasView() {
   if (cobrancasQuery.isError) {
     return (
       <Card>
-        <CardContent className="flex items-center gap-2 p-6 text-sm text-rose-600">
+        <CardContent className="flex items-center gap-2 p-6 text-sm text-destructive">
           <TriangleAlert className="size-4" /> Não foi possível carregar as cobranças. Tente recarregar a página.
         </CardContent>
       </Card>
@@ -96,17 +76,43 @@ export default function CobrancasView() {
   const cobrancas = cobrancasQuery.data ?? [];
   const m = metricasQuery.data;
 
+  // "Entrou" = soma dos valores das cobranças pagas (dados reais da própria
+  // lista). "Falta" = valorPendente, que o backend já entrega. Somamos no front
+  // porque a rota de métricas dá a CONTAGEM de pagos, não a soma em R$.
+  // Volume de uma clínica cabe sem paginação; se um dia paginar, mover pro backend.
+  const entrou = cobrancas.reduce((s, c) => (c.pago ? s + c.valor : s), 0);
+  const falta = m?.valorPendente ?? 0;
+  const previsto = entrou + falta;
+  const pct = previsto > 0 ? Math.round((entrou / previsto) * 100) : 0;
+
   return (
     <div className="space-y-6">
-      {/* Métricas */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <MetricCard icon={<CalendarClock className="size-4" />} label="Agendados" value={m?.agendados ?? "—"} />
-        <MetricCard icon={<CheckCircle2 className="size-4" />} label="Pagos" value={m?.pagos ?? "—"} />
-        <MetricCard icon={<Clock className="size-4" />} label="Pendentes" value={m?.pendentes ?? "—"} />
-        <MetricCard icon={<FileText className="size-4" />} label="Notas emitidas" value={m?.notasEmitidas ?? "—"} />
-        <MetricCard icon={<Send className="size-4" />} label="A cobrar" value={m?.aCobrar ?? "—"} />
-        <MetricCard icon={<TriangleAlert className="size-4" />} label="Valor pendente" value={m ? formatBRL(m.valorPendente) : "—"} />
-      </div>
+      {/* Hero: o número que importa — quanto entrou, quanto falta (proposta v2) */}
+      <Card>
+        <CardContent className="p-7 sm:p-9">
+          <div className="text-sm text-muted-foreground">Entrou este mês</div>
+          <div className="mt-3 font-mono text-5xl font-light tracking-tight text-success sm:text-6xl">
+            {formatBRL(entrou)}
+          </div>
+          {/* barra de progresso: entrou vs previsto */}
+          <div className="mt-7 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-success transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+            <span>{pct}% do previsto</span>
+            <span>
+              faltam <span className="font-mono font-light text-warning">{formatBRL(falta)}</span>
+            </span>
+          </div>
+          {/* contexto discreto embaixo — o que eram cards vira uma linha */}
+          <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 border-t pt-5 text-sm text-muted-foreground">
+            <span><b className="font-mono font-medium text-foreground">{m?.agendados ?? "—"}</b> agendados</span>
+            <span><b className="font-mono font-medium text-foreground">{m?.pagos ?? "—"}</b> pagos</span>
+            <span><b className="font-mono font-medium text-warning">{m?.aCobrar ?? "—"}</b> a cobrar</span>
+            <span><b className="font-mono font-medium text-foreground">{m?.notasEmitidas ?? "—"}</b> notas emitidas</span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabela */}
       <Card>
@@ -143,11 +149,11 @@ export default function CobrancasView() {
                       <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
                         <td className="px-4 py-3 font-medium text-foreground">{c.nome}</td>
                         <td className="px-4 py-3 text-muted-foreground">{c.servico}</td>
-                        <td className="px-4 py-3 text-foreground">{formatBRL(c.valor)}</td>
+                        <td className="px-4 py-3 font-mono text-[13px] text-foreground">{formatBRL(c.valor)}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>{st.label}</span>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{c.notaNum ?? "—"}</td>
+                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">{c.notaNum ?? "—"}</td>
                         <td className="px-4 py-3 text-right">
                           {podeCobrar ? (
                             <Button

@@ -81,14 +81,12 @@ export class InMemoryRepositories {
       this._integrations.find((i) => i.whatsappNumber === n) ?? null,
     getById: async (id) => this._integrations.find((i) => i.id === id) ?? null,
 
-    // Integrações sem companyId (fixtures antigas) são visíveis a qualquer tenant;
-    // quando o campo existe, o filtro é estrito — igual ao Prisma.
     getFirstByCompanyId: async (companyId) =>
-      this._integrations.find((i) => !i.companyId || i.companyId === companyId) ?? null,
+      this._integrations.find((i) => i.companyId === companyId) ?? null,
     listByCompanyId: async (companyId) =>
-      this._integrations.filter((i) => !i.companyId || i.companyId === companyId),
+      this._integrations.filter((i) => i.companyId === companyId),
     ensureDefaultForCompany: async (companyId) => {
-      const existing = this._integrations.find((i) => !i.companyId || i.companyId === companyId);
+      const existing = this._integrations.find((i) => i.companyId === companyId);
       if (existing) return existing;
       const now = new Date();
       const created: Integration = {
@@ -188,7 +186,7 @@ export class InMemoryRepositories {
     getById: async (id) => this._emissions.find((e) => e.id === id) ?? null,
     listCobrancasByCompanyId: async (companyId) => {
       const ids = this._integrations
-        .filter((i) => !i.companyId || i.companyId === companyId)
+        .filter((i) => i.companyId === companyId)
         .map((i) => i.id);
       return this._emissions
         .filter((e) => ids.includes(e.integrationId))

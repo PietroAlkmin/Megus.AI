@@ -8,8 +8,7 @@ import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import AuthBackdrop from "@/components/AuthBackdrop";
-import Brand from "@/components/Brand";
+import AuthSplit from "@/components/AuthSplit";
 import { useAuth } from "@/hooks/useAuth";
 import { ApiError } from "@/lib/api";
 
@@ -50,20 +49,13 @@ export default function Cadastro() {
     }
   }
 
-  return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-card">
-      <AuthBackdrop />
-
-      <header className="relative z-10 px-8 py-6">
-        <Brand />
-      </header>
-
-      <main className="relative z-10 flex flex-1 items-center justify-center px-5 pb-6 pt-2">
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex w-full max-w-[452px] flex-col gap-4 rounded-xl border border-border bg-white/[0.82] p-9 shadow-lg backdrop-blur-xl"
-          >
+return (
+    <AuthSplit>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex w-full max-w-[420px] flex-col gap-[18px]"
+        >
             <div className="text-center">
               <h1 className="font-brand text-[26px] font-extrabold tracking-tight text-foreground">Criar conta</h1>
               <p className="mt-[7px] text-[14.5px] text-muted-foreground">Configure os dados da sua clínica para começar.</p>
@@ -162,14 +154,8 @@ export default function Cadastro() {
                 Entrar
               </Link>
             </p>
-          </form>
+</form>
         </Form>
-      </main>
-
-      <footer className="relative z-10 mx-auto max-w-[460px] px-5 pb-7 text-center text-[12.5px] leading-relaxed text-muted-foreground/80">
-        Ao continuar você aceita os <span className="underline underline-offset-2">Termos de uso</span> e a{" "}
-        <span className="underline underline-offset-2">Política de privacidade</span> da Megus AI.
-      </footer>
-    </div>
+    </AuthSplit>
   );
 }
