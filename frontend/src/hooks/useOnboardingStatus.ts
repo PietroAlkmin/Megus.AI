@@ -11,6 +11,7 @@ export interface OnboardingStatus {
   whatsappNumber: string | null;
   /** true quando os 3 passos já foram concluídos — esconde o card/CTA de onboarding. */
   allDone: boolean;
+  isError: boolean;
 }
 
 /**
@@ -35,5 +36,6 @@ export function useOnboardingStatus(): OnboardingStatus {
     whatsappDone,
     whatsappNumber: whatsappQuery.data?.number ?? null,
     allDone: empresaDone && agenteDone && whatsappDone,
+    isError: empresaQuery.isError || agenteQuery.isError || whatsappQuery.isError,
   };
 }

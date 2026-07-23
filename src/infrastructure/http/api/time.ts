@@ -7,3 +7,13 @@ export function startOfTodaySaoPaulo(now: Date = new Date()): Date {
   const sp = new Date(now.getTime() - 3 * 3600_000); // relógio de SP
   return new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth(), sp.getUTCDate(), 3, 0, 0));
 }
+
+/**
+ * Início do mês corrente em America/Sao_Paulo, expresso em UTC.
+ * Mesmo offset fixo -03:00. Usado pelas métricas "no mês" do painel
+ * (notas/mensagens acumuladas no mês corrente).
+ */
+export function startOfMonthSaoPaulo(now: Date = new Date()): Date {
+  const sp = new Date(now.getTime() - 3 * 3600_000); // relógio de SP
+  return new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth(), 1, 3, 0, 0));
+}

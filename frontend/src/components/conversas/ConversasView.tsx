@@ -12,9 +12,9 @@ import * as conversasService from "@/services/conversas";
 import type { Conversa } from "@/services/conversas";
 
 const STATUS_BADGE: Record<Conversa["status"], { label: string; cls: string }> = {
-  BOT: { label: "Bot", cls: "bg-sky-100 text-sky-700" },
-  AGUARDANDO: { label: "Aguardando", cls: "bg-amber-100 text-amber-700" },
-  HUMANO: { label: "Humano", cls: "bg-emerald-100 text-emerald-700" },
+  BOT: { label: "Kaua", cls: "bg-success/10 text-success" },
+  AGUARDANDO: { label: "Aguardando", cls: "bg-warning/10 text-warning" },
+  HUMANO: { label: "Atendente", cls: "bg-secondary text-foreground" },
 };
 
 function horaCurta(iso: string | null): string {
@@ -98,7 +98,7 @@ export default function ConversasView() {
               type="button"
               onClick={() => { setAgenteId(a.id); setConvId(null); }}
               className={`rounded-full border px-3 py-1 text-sm ${
-                a.id === agenteAtivo ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                a.id === agenteAtivo ? "border-success bg-success/10 text-success" : "border-border text-muted-foreground"
               }`}
             >
               {a.nome ? `${a.nome} · ${a.papel}` : a.papel}
@@ -194,11 +194,17 @@ export default function ConversasView() {
                     ) : (
                       mensagens.map((m) => {
                         const daEmpresa = m.autor === "bot" || m.autor === "humano";
+                        // Kaua (bot) = verde da marca; atendente humano = tinta
+                        // (dá pra ver que alguém assumiu); paciente = papel/branco.
+                        const bolha =
+                          m.autor === "bot"
+                            ? "bg-success text-success-foreground"
+                            : m.autor === "humano"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-card text-foreground shadow-sm";
                         return (
                           <div key={m.id} className={`flex ${daEmpresa ? "justify-end" : "justify-start"}`}>
-                            <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${
-                              daEmpresa ? "bg-primary text-primary-foreground" : "bg-white text-foreground shadow-sm"
-                            }`}>
+                            <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${bolha}`}>
                               <div className="mb-0.5 flex items-center gap-1.5 text-[10px] opacity-70">
                                 {m.autor === "bot" ? <Bot className="size-3" /> : m.autor === "humano" ? <UserCog className="size-3" /> : <User className="size-3" />}
                                 {m.autor === "bot" ? "Kaua" : m.autor === "humano" ? "Atendente" : "Paciente"}
@@ -241,7 +247,7 @@ export default function ConversasView() {
       </Card>
 
       {agentesQuery.isError && (
-        <div className="flex items-center gap-2 text-sm text-rose-600">
+        <div className="flex items-center gap-2 text-sm text-destructive">
           <TriangleAlert className="size-4" /> Não foi possível carregar os agentes.
         </div>
       )}

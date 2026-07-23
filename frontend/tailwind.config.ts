@@ -20,11 +20,10 @@ export default {
   				'system-ui',
   				'sans-serif'
   			],
-  			brand: [
-  				'Sora',
-  				'Inter',
-  				'system-ui',
-  				'sans-serif'
+			brand: [
+  				'Fraunces',
+  				'Georgia',
+  				'serif'
   			],
   			mono: [
   				'JetBrains Mono',

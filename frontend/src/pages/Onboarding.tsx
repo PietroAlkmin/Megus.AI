@@ -7,7 +7,7 @@ import AgenteForm from "@/components/agente/AgenteForm";
 import EmpresaForm from "@/components/empresa/EmpresaForm";
 import WhatsAppConnectPanel from "@/components/whatsapp/WhatsAppConnectPanel";
 import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
-import { SKIP_ONBOARDING_KEY } from "@/components/RequireOnboarding";
+import { SKIP_ONBOARDING_KEY } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -64,10 +64,10 @@ export default function Onboarding() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 p-8">
         <header className="mb-8">
-          <h1 className="font-brand text-2xl font-extrabold tracking-tight text-foreground">Configure seu atendente</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Três passos rápidos para o Kaua começar a atender pelo WhatsApp: dados da empresa, a persona do agente e a
-            conexão do número.
+          <h1 className="font-brand text-3xl font-semibold tracking-tight text-foreground">Vamos deixar o Kaua pronto</h1>
+          <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
+            Três passos rápidos e o Kaua começa a atender pelo WhatsApp: os dados da sua clínica,
+            o jeito dele conversar, e a conexão do número.
           </p>
         </header>
 
@@ -77,18 +77,18 @@ export default function Onboarding() {
             <li key={s.id} className="flex flex-1 items-center gap-2 last:flex-none">
               <div
                 className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2",
-                  step === s.id && "bg-primary/10",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors",
+                  step === s.id && "bg-success/[0.08]",
                 )}
                 aria-current={step === s.id ? "step" : undefined}
               >
                 <span
                   className={cn(
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                     doneById[s.id]
                       ? "bg-success text-success-foreground"
                       : step === s.id
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-success text-success-foreground"
                         : "bg-secondary text-muted-foreground",
                   )}
                 >

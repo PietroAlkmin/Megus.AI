@@ -1,4 +1,3 @@
-import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BrandProps {
@@ -6,30 +5,51 @@ interface BrandProps {
   className?: string;
 }
 
-/** Marca Megus AI — mesma anatomia do `MegusBrand` do wireframe (mark + wordmark). */
+/**
+ * Marca Megus — proposta v2.
+ * Logo "a subida": a linha que sobe (receita) terminando num ponto que fecha
+ * sozinho (o ciclo automático). Sem robô, sem "AI" no wordmark.
+ */
 export default function Brand({ size = "md", className }: BrandProps) {
   const markPx = size === "lg" ? 40 : 32;
 
   return (
     <div className={cn("flex items-center gap-[11px]", className)}>
       <span
-        className="flex shrink-0 items-center justify-center rounded-[10px] shadow-[0_4px_12px_rgba(27,35,48,0.22)]"
-        style={{
-          width: markPx,
-          height: markPx,
-          background: "linear-gradient(150deg, hsl(var(--primary-light)), hsl(var(--primary-darker)))",
-        }}
+        className="flex shrink-0 items-center justify-center rounded-[10px] bg-primary"
+        style={{ width: markPx, height: markPx }}
       >
-        <Bot size={markPx * 0.56} strokeWidth={1.9} className="text-white" />
+        <svg
+          width={markPx * 0.62}
+          height={markPx * 0.62}
+          viewBox="0 0 42 42"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M12 27.5L17.5 22L21.5 25.5L30 16.5"
+            stroke="hsl(var(--primary-foreground))"
+            strokeWidth="2.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle
+            cx="30"
+            cy="16.5"
+            r="3.4"
+            fill="hsl(var(--success))"
+            stroke="hsl(var(--primary-foreground))"
+            strokeWidth="1.8"
+          />
+        </svg>
       </span>
       <span
         className={cn(
-          "font-brand inline-flex items-baseline gap-[5px] font-extrabold tracking-tight",
-          size === "lg" ? "text-[22px]" : "text-[17px]",
+          "font-brand font-semibold tracking-tight text-foreground",
+          size === "lg" ? "text-[22px]" : "text-[18px]",
         )}
       >
-        <span className="text-foreground">Megus</span>
-        <span className="text-accent">AI</span>
+        Megus
       </span>
     </div>
   );

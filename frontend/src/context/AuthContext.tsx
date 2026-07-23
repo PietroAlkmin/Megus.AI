@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useState, type ReactNode } from "react";
 import * as authService from "@/services/auth";
-import { getToken } from "@/lib/api";
+import { getToken, clearSkipOnboarding } from "@/lib/api";
 
 export interface AuthContextValue {
   user: authService.AuthUser | null;
@@ -46,7 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (payload: authService.LoginPayload) => {
+const login = useCallback(async (payload: authService.LoginPayload) => {
+    clearSkipOnboarding();
     const result = await authService.login(payload);
     setUser(result.user);
   }, []);
@@ -60,8 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
   }, []);
 
-  const logout = useCallback(() => {
+const logout = useCallback(() => {
     authService.logout();
+    clearSkipOnboarding();
     setUser(null);
   }, []);
 

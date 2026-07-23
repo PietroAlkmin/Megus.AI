@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -7,11 +7,12 @@ import { Building2, CreditCard, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 import * as empresaService from "@/services/empresa";
 
 // Só validamos formato (strings) — o backend aceita todos os campos opcionais/vazios
@@ -63,6 +64,7 @@ export interface EmpresaFormProps {
  */
 export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const empresaQuery = useQuery({ queryKey: ["empresa"], queryFn: empresaService.getEmpresa });
 
   const form = useForm<EmpresaValues>({
@@ -78,7 +80,8 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
       fiscalName: data.fiscalName ?? "",
       fiscalDoc: data.fiscalDoc ?? "",
       municipalRegistration: data.municipalRegistration ?? "",
-      email: data.email ?? "",
+      // sem e-mail salvo ainda? usa o do login como ponto de partida (editável).
+      email: data.email || user?.email || "",
       phone: data.phone ?? "",
       zip: data.zip ?? "",
       address: data.address ?? "",
@@ -91,6 +94,33 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
     // form.reset é estável (react-hook-form) — só precisamos re-rodar quando os dados chegam.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaQuery.data]);
+
+  const [cepStatus, setCepStatus] = useState<"idle" | "buscando" | "nao-encontrado">("idle");
+
+  // Busca rua/cidade/UF pelo CEP (ViaCEP, pública e gratuita). Preenche os campos
+  // mas deixa tudo editável — o número da casa a ViaCEP não traz. Silenciosa em
+  // erro de rede (a pessoa pode digitar à mão).
+  async function buscarCep(cepBruto: string) {
+    const cep = cepBruto.replace(/\D/g, "");
+    if (cep.length !== 8) return;
+    setCepStatus("buscando");
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await resp.json();
+      if (data.erro) {
+        setCepStatus("nao-encontrado");
+        return;
+      }
+      setCepStatus("idle");
+      // logradouro pode vir vazio em CEPs de cidade inteira — só sobrescreve se veio algo.
+      if (data.logradouro) form.setValue("address", data.logradouro, { shouldDirty: true });
+      if (data.localidade) form.setValue("city", data.localidade, { shouldDirty: true });
+      if (data.uf) form.setValue("state", data.uf, { shouldDirty: true });
+    } catch {
+      // rede indisponível — deixa a pessoa preencher manualmente, sem alarme.
+      setCepStatus("idle");
+    }
+  }
 
   const saveMutation = useMutation({
     mutationFn: empresaService.saveEmpresa,
@@ -144,6 +174,7 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
+                    <FormDescription>O nome oficial da empresa na Receita Federal.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -153,10 +184,11 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nome fantasia</FormLabel>
+                    <FormLabel>Nome da clínica</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
+                    <FormDescription>Como sua clínica é conhecida pelos pacientes.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -170,6 +202,7 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                     <FormControl>
                       <Input className="font-mono" {...field} />
                     </FormControl>
+                    <FormDescription>Documento da clínica. Aparece como prestador na nota fiscal.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -183,6 +216,7 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                     <FormControl>
                       <Input className="font-mono" {...field} />
                     </FormControl>
+                    <FormDescription>Número da prefeitura, usado para emitir a nota de serviço.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -192,10 +226,11 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>E-mail</FormLabel>
+                    <FormLabel>E-mail de contato da clínica</FormLabel>
                     <FormControl>
                       <Input type="email" {...field} />
                     </FormControl>
+                    <FormDescription>Onde a clínica recebe avisos. Já preenchemos com o seu — troque se quiser outro.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -205,7 +240,7 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Telefone</FormLabel>
+                    <FormLabel>Telefone da clínica</FormLabel>
                     <FormControl>
                       <Input className="font-mono" {...field} />
                     </FormControl>
@@ -220,8 +255,29 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                   <FormItem>
                     <FormLabel>CEP</FormLabel>
                     <FormControl>
-                      <Input className="font-mono" {...field} />
+                      <Input
+                        className="font-mono"
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          const cep = e.target.value.replace(/\D/g, "");
+                          if (cep.length === 8) buscarCep(cep);
+                        }}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          buscarCep(e.target.value);
+                        }}
+                      />
                     </FormControl>
+                    {cepStatus === "buscando" ? (
+                      <FormDescription className="flex items-center gap-1.5">
+                        <Loader2 className="size-3 animate-spin" /> Buscando endereço…
+                      </FormDescription>
+                    ) : cepStatus === "nao-encontrado" ? (
+                      <FormDescription className="text-warning">CEP não encontrado — preencha o endereço à mão.</FormDescription>
+                    ) : (
+                      <FormDescription>Preenche o endereço automaticamente.</FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -235,6 +291,7 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
+                    <FormDescription>Confira e complete o número.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -284,7 +341,7 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                 name="pixType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo de chave Pix</FormLabel>
+                    <FormLabel>Como você recebe o Pix</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
@@ -299,6 +356,7 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormDescription>O tipo da sua chave Pix — é onde o dinheiro dos pacientes cai.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -306,28 +364,48 @@ export default function EmpresaForm({ onSaved }: EmpresaFormProps) {
               <FormField
                 control={form.control}
                 name="pixKey"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Chave Pix</FormLabel>
-                    <FormControl>
-                      <Input className="font-mono" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  // Se a chave é do tipo CNPJ/CPF, oferece usar o documento já
+                  // cadastrado — sem redigitar. Só aparece se ainda não é igual.
+                  const pixType = form.watch("pixType");
+                  const doc = form.watch("fiscalDoc");
+                  const podeUsarDoc = (pixType === "cnpj" || pixType === "cpf") && doc && field.value !== doc;
+                  return (
+                    <FormItem>
+                      <FormLabel>Sua chave Pix</FormLabel>
+                      <FormControl>
+                        <Input className="font-mono" {...field} />
+                      </FormControl>
+                      {podeUsarDoc ? (
+                        <FormDescription>
+                          <button
+                            type="button"
+                            className="font-medium text-success underline-offset-2 hover:underline"
+                            onClick={() => form.setValue("pixKey", doc, { shouldDirty: true })}
+                          >
+                            Usar o {pixType.toUpperCase()} da clínica ({doc})
+                          </button>
+                        </FormDescription>
+                      ) : (
+                        <FormDescription>A chave que os pacientes usam para te pagar.</FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               <FormField
                 control={form.control}
                 name="paymentInstructions"
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <FormLabel>Mensagem de cobrança</FormLabel>
+                    <FormLabel>Mensagem que o paciente recebe ao ser cobrado</FormLabel>
                     <FormControl>
                       <Textarea rows={3} {...field} />
                     </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      O Kaua envia esta mensagem (com o valor) ao cobrar um cliente que ainda não pagou.
-                    </p>
+                    <FormDescription>
+                      O Kaua envia esta mensagem (com o valor) ao cobrar um paciente que ainda não pagou.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
