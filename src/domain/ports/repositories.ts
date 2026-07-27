@@ -117,6 +117,12 @@ export interface IChargeRepository {
   findByCalendarEventId(integrationId: string, calendarEventId: string): Promise<Charge | null>;
   /** Cobranças das integrações da EMPRESA (join Integration.companyId), mais novas primeiro. */
   listByCompanyId(companyId: string): Promise<Charge[]>;
+  /**
+   * TODAS as cobranças em aberto do contato (status != paga), mais novas primeiro.
+   * O gate B casa o comprovante POR VALOR entre elas: com dois atendimentos em
+   * aberto, olhar só a mais recente rejeita quem pagou a mais antiga.
+   */
+  listChargeableByContact(integrationId: string, contactId: string): Promise<Charge[]>;
   /** Cobrança "cobrável" mais recente do contato (status != paga) — o gate B marca paga. */
   findLatestChargeableByContact(integrationId: string, contactId: string): Promise<Charge | null>;
 }

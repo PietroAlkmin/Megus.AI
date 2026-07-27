@@ -53,7 +53,11 @@ export class AdminCommandHandler {
       const ready = plan.filter((x) => x.kind === "ready").length;
       const invalid = plan.filter((x) => x.kind === "invalid").length;
       const duplicate = plan.filter((x) => x.kind === "duplicate").length;
-      await this.reply(integration, inbound, `Prévia: ${ready} para criar, ${duplicate} duplicado(s), ${invalid} inválido(s). Responda /admin agenda confirmar para aplicar.`);
+      // Ressalvas (ex.: CPF com dígito inválido) não bloqueiam, mas a clínica
+      // precisa VER — senão o dado sai silenciosamente diferente do que ela digitou.
+      const avisos = plan.flatMap((x) => (x.kind === "ready" ? x.warnings : []));
+      const bloco = avisos.length ? `\n⚠️ ${avisos.join("\n⚠️ ")}` : "";
+      await this.reply(integration, inbound, `Prévia: ${ready} para criar, ${duplicate} duplicado(s), ${invalid} inválido(s).${bloco}\n\nResponda /admin agenda confirmar para aplicar.`);
       return true;
     }
     if (text.startsWith("/admin agenda processar")) {

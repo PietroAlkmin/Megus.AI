@@ -3,7 +3,7 @@ import type { IChargeRepository, IContactRepository } from "../../domain/ports/r
 import { parseCalendarAppointment, type CalendarEventInput } from "./CalendarEventParser";
 
 export type CalendarImportPlanItem =
-  | { kind: "ready"; eventId: string; patientKey: string; amount: number; existingContactId: string | null; createContact: boolean; phone: string | null; fullName: string | null; cpf: string | null }
+  | { kind: "ready"; eventId: string; patientKey: string; amount: number; existingContactId: string | null; createContact: boolean; phone: string | null; fullName: string | null; cpf: string | null; warnings: string[] }
   | { kind: "duplicate"; eventId: string; patientKey: string }
   | { kind: "invalid"; eventId: string; patientKey: string; reason: string };
 
@@ -43,7 +43,7 @@ export class CalendarImportPlanner {
         continue;
       }
       const existing = found[0] ?? null;
-      plan.push({ kind: "ready", eventId: candidate.calendarEventId, patientKey: candidate.patientKey, amount: candidate.amount!, existingContactId: existing?.id ?? null, createContact: !existing, phone: candidate.phone, fullName: candidate.fullName, cpf: candidate.cpf });
+      plan.push({ kind: "ready", eventId: candidate.calendarEventId, patientKey: candidate.patientKey, amount: candidate.amount!, existingContactId: existing?.id ?? null, createContact: !existing, phone: candidate.phone, fullName: candidate.fullName, cpf: candidate.cpf, warnings: candidate.warnings });
       // Torna um primeiro atendimento elegível para o próximo evento do mesmo lote.
       if (!existing) known.push({ id: `planned:${candidate.calendarEventId}`, integrationId, whatsappNumber: candidate.phone!, fullName: candidate.fullName ?? candidate.patientKey, cpf: candidate.cpf, cpfNameVerified: false, createdAt: new Date(), updatedAt: new Date() });
     }

@@ -489,9 +489,9 @@ export class ConversationStateMachine {
     await this.d.conversations.save(conv);
 
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
-    const charge = contact
-      ? await this.d.charges.findLatestChargeableByContact(integration.id, contact.id)
-      : null;
+    const abertas = contact
+      ? await this.d.charges.listChargeableByContact(integration.id, contact.id)
+      : [];
 
     // A Agenda pode ter preços individuais. Para cobrança originada dela, o
     // comprovante precisa bater com o valor da Charge, não com o catálogo.
@@ -521,6 +521,16 @@ export class ConversationStateMachine {
       await this.send(conv, ["Não consegui ler seu comprovante agora 😕 Pode enviar de novo, por favor?"], instance);
       return;
     }
+
+    // Casa o comprovante com a cobrança PELO VALOR LIDO, não pela mais recente:
+    // com dois atendimentos em aberto (rotina de quem atende o mesmo paciente
+    // mais de uma vez), quem pagasse o mais antigo era comparado com o mais novo
+    // e via um comprovante CORRETO ser rejeitado. Empate de valor → a mais antiga
+    // (quita primeiro a dívida mais velha). Sem casar → a mais recente, só para a
+    // mensagem de erro citar uma cobrança real.
+    const paga = analysis.amount;
+    const casadas = paga == null ? [] : abertas.filter((c) => Math.abs(c.amount - paga) < 0.01);
+    const charge = casadas[casadas.length - 1] ?? abertas[0] ?? null;
 
     const expectedAmount = charge?.amount ?? service?.price;
     const amountOk = analysis.amount != null && expectedAmount != null && Math.abs(analysis.amount - expectedAmount) < 0.01;
@@ -585,14 +595,13 @@ export class ConversationStateMachine {
 
     await this.d.emissions.save({ ...intent, status: "emitted", fiscalKey: result.fiscalKey, pdfUrl: result.pdfUrl, updatedAt: new Date() });
 
-    // Gate B (Task 4): nota emitida com sucesso quita a Charge cobrável mais
-    // recente do contato (pendente ou cobrada), se houver uma. Não-fatal —
-    // nunca pode derrubar um fluxo fiscal que já teve êxito.
+    // Gate B (Task 4): nota emitida com sucesso quita a MESMA Charge que o
+    // comprovante casou acima (não "a mais recente" — com duas em aberto isso
+    // quitava a errada). Não-fatal: nunca derruba um fluxo fiscal que teve êxito.
     try {
-      const chargeToSettle = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
-      if (chargeToSettle) {
+      if (charge) {
         const quitadaEm = new Date();
-        await this.d.charges.save({ ...chargeToSettle, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+        await this.d.charges.save({ ...charge, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
       }
     } catch (err) {
       console.warn(`[cobranca] falha ao marcar cobranca como paga (conv=${conv.id}):`, err instanceof Error ? err.message : err);

@@ -58,6 +58,14 @@ export class PrismaChargeRepository implements IChargeRepository {
     return rows.map(toDomain);
   }
 
+  async listChargeableByContact(integrationId: string, contactId: string): Promise<Charge[]> {
+    const rows = await prisma.charge.findMany({
+      where: { integrationId, contactId, status: { not: "paga" } },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(toDomain);
+  }
+
   async findLatestChargeableByContact(integrationId: string, contactId: string): Promise<Charge | null> {
     const r = await prisma.charge.findFirst({
       where: { integrationId, contactId, status: { not: "paga" } },

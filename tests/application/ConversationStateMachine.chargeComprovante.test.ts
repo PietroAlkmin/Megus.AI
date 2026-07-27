@@ -55,6 +55,63 @@ function depsWith(repos: InMemoryRepositories): StateMachineDeps {
   } as unknown as StateMachineDeps;
 }
 
+describe("duas cobranças em aberto: o comprovante casa PELO VALOR", () => {
+  // Rotina de quem atende o mesmo paciente mais de uma vez (fisioterapia): duas
+  // consultas em aberto com preços diferentes. Antes, o gate comparava sempre com
+  // a MAIS RECENTE — quem pagava a mais antiga via um comprovante CORRETO ser
+  // rejeitado, e a nota (quando havia) quitava a cobrança errada.
+  async function seedDuasAbertas(repos: InMemoryRepositories) {
+    const conv = await seedVerifiedWithCharge(repos); // ch1 = R$180 (mais antiga)
+    await repos.charges.save({
+      id: "ch2", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 250,
+      status: "pendente", calendarEventId: "evt-2", chargedAt: null, paidAt: null,
+      createdAt: new Date(Date.now() + 60_000), updatedAt: new Date(), // mais RECENTE
+    });
+    return conv;
+  }
+
+  it("paga a cobrança ANTIGA → aceita e quita a antiga (não rejeita nem quita a recente)", async () => {
+    const repos = new InMemoryRepositories();
+    const conv = await seedDuasAbertas(repos);
+    const deps = depsWith(repos);
+    (deps.comprovante.analyze as any).mockResolvedValue({ amount: 180, recipientMatches: true, pixKeyMatches: true, confidence: 1, payerName: "João" });
+    const sm = new ConversationStateMachine(deps);
+
+    await sm.advance(conv, agentConfig, integration, mediaInbound());
+
+    expect(deps.fiscal.emitNfse).toHaveBeenCalledOnce(); // aceito, não rejeitado
+    expect(await repos.charges.getById("ch1")).toMatchObject({ status: "paga" });
+    expect(await repos.charges.getById("ch2")).toMatchObject({ status: "pendente" }); // intacta
+  });
+
+  it("paga a cobrança RECENTE → quita a recente", async () => {
+    const repos = new InMemoryRepositories();
+    const conv = await seedDuasAbertas(repos);
+    const deps = depsWith(repos);
+    (deps.comprovante.analyze as any).mockResolvedValue({ amount: 250, recipientMatches: true, pixKeyMatches: true, confidence: 1, payerName: "João" });
+    const sm = new ConversationStateMachine(deps);
+
+    await sm.advance(conv, agentConfig, integration, mediaInbound());
+
+    expect(await repos.charges.getById("ch2")).toMatchObject({ status: "paga" });
+    expect(await repos.charges.getById("ch1")).toMatchObject({ status: "cobrada" }); // intacta
+  });
+
+  it("valor que não bate com NENHUMA aberta → rejeita (o teto segue valendo)", async () => {
+    const repos = new InMemoryRepositories();
+    const conv = await seedDuasAbertas(repos);
+    const deps = depsWith(repos);
+    (deps.comprovante.analyze as any).mockResolvedValue({ amount: 999, recipientMatches: true, pixKeyMatches: true, confidence: 1, payerName: "João" });
+    const sm = new ConversationStateMachine(deps);
+
+    await sm.advance(conv, agentConfig, integration, mediaInbound());
+
+    expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
+    expect(await repos.charges.getById("ch1")).toMatchObject({ status: "cobrada" });
+    expect(await repos.charges.getById("ch2")).toMatchObject({ status: "pendente" });
+  });
+});
+
 describe("costura Cobrar→comprovante: mídia em estado livre com cobrança em aberto vai pro gate B", () => {
   it("comprovante em estado New + cobrança 'cobrada' → gate B roda: emite nota e quita a cobrança", async () => {
     const repos = new InMemoryRepositories();

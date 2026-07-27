@@ -1,3 +1,5 @@
+import { Cpf } from "../../domain/value-objects/Cpf";
+
 export interface CalendarEventInput {
   id: string;
   summary?: string | null;
@@ -16,6 +18,8 @@ export interface CalendarAppointmentCandidate {
   amount: number | null;
   startAt: string | null;
   errors: string[];
+  /** Ressalvas que NÃO impedem a criação da cobrança (ex.: CPF descartado). */
+  warnings: string[];
 }
 
 function normalized(value: string): string {
@@ -40,7 +44,15 @@ export function parseCalendarAppointment(event: CalendarEventInput): CalendarApp
   const rawPhone = field(description, ["telefone", "celular", "whatsapp"]);
   const rawCpf = field(description, ["cpf"]);
   const errors: string[] = [];
+  const warnings: string[] = [];
   if (!title) errors.push("Título deve começar com 'Consulta '.");
+  // Dígito verificador é matemática pura (offline) — a única conferência de CPF
+  // possível hoje, já que não há provedor oficial. Um typo da secretária NÃO
+  // bloqueia a cobrança (o CPF nem é usado sem fiscal), mas também não entra no
+  // banco como se fosse válido: é descartado e reportado na prévia.
+  const cpfDigits = rawCpf?.replace(/\D/g, "") ?? null;
+  const cpfValido = cpfDigits && Cpf.isValid(cpfDigits) ? cpfDigits : null;
+  if (cpfDigits && !cpfValido) warnings.push(`CPF inválido no evento (${cpfDigits}) — ignorado.`);
   const amountDigits = rawAmount?.replace(/[^0-9,.-]/g, "").replace(/\./g, "").replace(",", ".");
   const amount = amountDigits ? Number(amountDigits) : NaN;
   if (!Number.isFinite(amount) || amount <= 0) errors.push("Valor obrigatório e maior que zero.");
@@ -50,12 +62,13 @@ export function parseCalendarAppointment(event: CalendarEventInput): CalendarApp
     discriminator: keyParts?.[2] ?? null,
     fullName: field(description, ["nome completo", "nome"]),
     phone: rawPhone?.replace(/\D/g, "") ?? null,
-    cpf: rawCpf?.replace(/\D/g, "") ?? null,
+    cpf: cpfValido,
     // A resposta real do Composio já devolveu "Endere?o" (perda do ç). Aceitamos
     // essa variação degradada sem tornar o campo opcional para o parser.
     address: field(description, ["endereco", "endereco do paciente", "endere?o", "endere?o do paciente"]),
     amount: Number.isFinite(amount) ? amount : null,
     startAt: event.start?.dateTime ?? null,
     errors,
+    warnings,
   };
 }

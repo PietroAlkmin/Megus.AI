@@ -244,6 +244,10 @@ export class InMemoryRepositories {
         .filter((c) => ids.includes(c.integrationId))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     },
+    listChargeableByContact: async (integrationId, contactId) =>
+      this._charges
+        .filter((c) => c.integrationId === integrationId && c.contactId === contactId && c.status !== "paga")
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
     findLatestChargeableByContact: async (integrationId, contactId) => {
       const cobraveis = this._charges
         .filter((c) => c.integrationId === integrationId && c.contactId === contactId && c.status !== "paga")

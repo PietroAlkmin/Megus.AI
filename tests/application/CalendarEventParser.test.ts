@@ -14,4 +14,18 @@ describe("parseCalendarAppointment", () => {
   it("rejeita título fora do contrato e valor ausente", () => {
     expect(parseCalendarAppointment({ id: "evt-3", summary: "Retorno", description: "Telefone: 5511999991111" }).errors).toHaveLength(2);
   });
+
+  it("CPF com dígito verificador errado é DESCARTADO e avisado — não entra no banco como válido", () => {
+    // 529.982.247-24 (dígito final trocado): typo plausível da secretária.
+    const r = parseCalendarAppointment({ id: "evt-4", summary: "Consulta Renato", description: "Telefone: 5511999991111\nCPF: 529.982.247-24\nValor: 180" });
+    expect(r.cpf).toBeNull();
+    expect(r.warnings.join(" ")).toContain("CPF inválido");
+    expect(r.errors).toEqual([]); // não bloqueia a cobrança — o CPF nem é usado sem fiscal
+  });
+
+  it("evento sem CPF não gera aviso (campo é opcional)", () => {
+    const r = parseCalendarAppointment({ id: "evt-5", summary: "Consulta Ana", description: "Telefone: 5511999992222\nValor: 200" });
+    expect(r.cpf).toBeNull();
+    expect(r.warnings).toEqual([]);
+  });
 });
