@@ -16,6 +16,8 @@ import type {
   IEmissionIntentRepository, IIntegrationRepository, IServiceRepository,
   IUserRepository, ICompanyProfileRepository, ICompanyServiceRepository, CompanyServiceItem,
   IMembershipRepository, CompanyRef,
+  IAdminWhatsappAccessRepository,
+  IInboundMessageDeduplicator,
 } from "../../../domain/ports/repositories";
 
 interface SeedData {
@@ -28,6 +30,7 @@ interface SeedData {
   companies?: CompanyRef[];
   /** Vínculos usuário↔empresa extras (além do criado junto com o usuário). */
   memberships?: { userId: string; companyId: string }[];
+  adminWhatsappAccesses?: { companyId: string; whatsappNumber: string; active?: boolean }[];
 }
 
 export class InMemoryRepositories {
@@ -45,6 +48,8 @@ export class InMemoryRepositories {
   private _companyServices: CompanyServiceItem[] = [];
   private _companies: CompanyRef[] = [];
   private _memberships: { userId: string; companyId: string; createdAt: Date }[] = [];
+  private _adminWhatsappAccesses: { companyId: string; whatsappNumber: string; active: boolean }[] = [];
+  private _processedInboundMessages = new Set<string>();
 
   seed(data: SeedData): void {
     if (data.integrations) this._integrations.push(...data.integrations);
@@ -60,6 +65,7 @@ export class InMemoryRepositories {
     if (data.memberships) {
       for (const m of data.memberships) this.ensureMembership(m.userId, m.companyId);
     }
+    if (data.adminWhatsappAccesses) this._adminWhatsappAccesses.push(...data.adminWhatsappAccesses.map((x) => ({ ...x, active: x.active ?? true })));
   }
 
   private ensureMembership(userId: string, companyId: string): void {
@@ -113,6 +119,20 @@ export class InMemoryRepositories {
     },
   };
 
+  adminWhatsappAccess: IAdminWhatsappAccessRepository = {
+    isAdmin: async (companyId, whatsappNumber) =>
+      this._adminWhatsappAccesses.some((x) => x.companyId === companyId && x.whatsappNumber === whatsappNumber && x.active),
+  };
+
+  inboundDeduplicator: IInboundMessageDeduplicator = {
+    claim: async (integrationId, providerMessageId) => {
+      const key = `${integrationId}:${providerMessageId}`;
+      if (this._processedInboundMessages.has(key)) return false;
+      this._processedInboundMessages.add(key);
+      return true;
+    },
+  };
+
   agentConfigs: IAgentConfigRepository = {
     getByIntegrationId: async (id) =>
       this._agentConfigs.find((a) => a.integrationId === id) ?? null,
@@ -129,6 +149,7 @@ export class InMemoryRepositories {
     findByWhatsapp: async (integrationId, number) =>
       this._contacts.find((c) => c.integrationId === integrationId && c.whatsappNumber === number) ?? null,
     getById: async (id) => this._contacts.find((c) => c.id === id) ?? null,
+    listByIntegration: async (integrationId) => this._contacts.filter((c) => c.integrationId === integrationId),
     save: async (contact) => {
       const i = this._contacts.findIndex((c) => c.id === contact.id);
       if (i >= 0) this._contacts[i] = contact;
@@ -215,6 +236,8 @@ export class InMemoryRepositories {
       else this._charges.push(charge);
     },
     getById: async (id) => this._charges.find((c) => c.id === id) ?? null,
+    findByCalendarEventId: async (integrationId, calendarEventId) =>
+      this._charges.find((c) => c.integrationId === integrationId && c.calendarEventId === calendarEventId) ?? null,
     listByCompanyId: async (companyId) => {
       const ids = this._integrations.filter((i) => i.companyId === companyId).map((i) => i.id);
       return this._charges

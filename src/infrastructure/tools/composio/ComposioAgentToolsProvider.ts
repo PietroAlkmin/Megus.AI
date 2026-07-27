@@ -1,6 +1,7 @@
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import type { AgentToolInfo, AgentToolset, IAgentToolsProvider } from "../../../domain/ports/IAgentToolsProvider";
+import type { ICalendarEventsReader } from "../../../domain/ports/ICalendarEventsReader";
 
 /**
  * Fatia MÍNIMA do cliente Composio que usamos (injetável → testável sem rede).
@@ -27,6 +28,7 @@ export interface ComposioConnectOps {
   /** Nº de contas ATIVAS da empresa (userId) no toolkit informado — usado pelo GET /status. */
   listActive(userId: string, toolkitSlug: string): Promise<number>;
 }
+
 
 /**
  * Slug do TOOLKIT no Composio — CONFIRMADO no dashboard (print do Pietro, ver Task 2
@@ -62,7 +64,7 @@ interface CacheEntry {
  *   `console.warn` — a conversa do Kaua NUNCA quebra por causa do Composio
  *   estar fora do ar ou a empresa não ter conectado nada ainda.
  */
-export class ComposioAgentToolsProvider implements IAgentToolsProvider, ComposioConnectOps {
+export class ComposioAgentToolsProvider implements IAgentToolsProvider, ComposioConnectOps, ICalendarEventsReader {
   private readonly cache = new Map<string, CacheEntry>();
 
   constructor(
@@ -109,6 +111,14 @@ export class ComposioAgentToolsProvider implements IAgentToolsProvider, Composio
   async listActive(userId: string, toolkitSlug: string): Promise<number> {
     if (!this.connect) throw new Error("ComposioAgentToolsProvider: sem client de conexão (construído fora do fromEnv)");
     return this.connect.listActive(userId, toolkitSlug);
+  }
+
+  async listEvents(companyId: string, timeMin: string): Promise<unknown[]> {
+    const tool = (await this.forCompany(companyId)).nativeTools.GOOGLECALENDAR_EVENTS_LIST as { execute?: (input: unknown) => Promise<unknown> } | undefined;
+    if (!tool?.execute) throw new Error("Agenda não conectada.");
+    const output = await tool.execute({ calendarId: "primary", timeMin, timeZone: "America/Sao_Paulo", orderBy: "startTime", singleEvents: true, maxResults: 250 });
+    const items = (output as { data?: { items?: unknown } } | null)?.data?.items;
+    return Array.isArray(items) ? items : [];
   }
 
   /**

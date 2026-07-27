@@ -9,6 +9,7 @@ import type {
   IContactRepository,
   IConversationRepository,
   ICompanyProfileRepository,
+  IAgentConfigRepository,
   CobrancaView,
 } from "../../../../domain/ports/repositories";
 import type { Charge } from "../../../../domain/entities/Charge";
@@ -22,6 +23,8 @@ export interface CobrancasRoutesDeps {
   contacts: IContactRepository;
   conversations: IConversationRepository;
   companyProfiles: ICompanyProfileRepository;
+  /** Configuração do agente define se a cobrança pode mencionar fluxo fiscal. */
+  agentConfigs?: IAgentConfigRepository;
   /** Envio de WhatsApp da cobrança proativa (Task 4). Ausente = a rota de charge fica indisponível (503) — ex.: testes de outras rotas que não passam messaging. */
   messaging?: IMessagingProvider;
   authMiddleware: (req: Request, res: Response, next: () => void) => void;
@@ -138,6 +141,7 @@ function montarMensagemCobranca(params: {
   amount: number;
   pixType: string | null | undefined;
   pixKey: string | null | undefined;
+  fiscalEnabled: boolean;
 }): string {
   const nome = primeiroNome(params.fullName);
   const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
@@ -149,7 +153,9 @@ function montarMensagemCobranca(params: {
     const tipo = params.pixType?.trim() ? ` (${params.pixType.trim()})` : "";
     partes.push(`Pix${tipo}: ${params.pixKey}.`);
   }
-  partes.push("Depois é só me enviar o comprovante por aqui que eu já emito sua nota fiscal. 😊");
+  partes.push(params.fiscalEnabled
+    ? "Depois é só me enviar o comprovante por aqui que eu já emito sua nota fiscal. 😊"
+    : "Depois é só me enviar o comprovante por aqui para eu confirmar o pagamento. 😊");
   return partes.join("\n\n");
 }
 
@@ -229,12 +235,16 @@ export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
       if (!contact) throw new Error("contato da cobrança não encontrado");
 
       const companyProfile = await deps.companyProfiles.getByCompanyId(companyId);
+      const agentConfig = deps.agentConfigs
+        ? await deps.agentConfigs.getByIntegrationId(integration.id)
+        : null;
       const text = montarMensagemCobranca({
         fullName: contact.fullName,
         description: charge.description,
         amount: charge.amount,
         pixType: companyProfile?.pixType,
         pixKey: companyProfile?.pixKey,
+        fiscalEnabled: agentConfig?.capabilities.fiscal === true,
       });
 
       await deps.messaging.sendText({

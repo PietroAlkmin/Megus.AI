@@ -2,9 +2,10 @@ import type { ConversationStateMachine } from "../agent/ConversationStateMachine
 import type { InboundMessage } from "../../domain/ports/IMessagingProvider";
 import type { IAudioTranscriber } from "../../domain/ports/IAudioTranscriber";
 import type {
-  IAgentConfigRepository, IContactRepository, IConversationRepository, IIntegrationRepository,
+  IAgentConfigRepository, IContactRepository, IConversationRepository, IIntegrationRepository, IInboundMessageDeduplicator,
 } from "../../domain/ports/repositories";
 import { randomUUID } from "node:crypto";
+import type { AdminCommandHandler } from "../admin/AdminCommandHandler";
 
 export interface HandleInboundDeps {
   integrations: IIntegrationRepository;
@@ -13,6 +14,8 @@ export interface HandleInboundDeps {
   contacts: IContactRepository;
   stateMachine: ConversationStateMachine;
   transcriber: IAudioTranscriber;
+  adminCommands?: AdminCommandHandler;
+  inboundDeduplicator?: IInboundMessageDeduplicator;
 }
 
 export class HandleInboundMessage {
@@ -25,11 +28,27 @@ export class HandleInboundMessage {
       return;
     }
 
+    // A Evolution pode entregar o mesmo messages.upsert mais de uma vez. A
+    // reivindicação acontece antes de comandos, estado e IA para que nenhum
+    // efeito colateral seja repetido. IDs ausentes não são deduplicados para
+    // não bloquear mensagens distintas de provedores incompletos.
+    if (inbound.providerMessageId && this.d.inboundDeduplicator) {
+      const claimed = await this.d.inboundDeduplicator.claim(integration.id, inbound.providerMessageId);
+      if (!claimed) {
+        console.info(`[inbound] duplicata ignorada integrationId=${integration.id} providerMessageId=${inbound.providerMessageId}`);
+        return;
+      }
+    }
+
     const agentConfig = await this.d.agentConfigs.getByIntegrationId(integration.id);
     if (!agentConfig) {
       console.warn(`[inbound] agentConfig ausente para integrationId=${integration.id} (from=${inbound.from}) — mensagem ignorada`);
       return;
     }
+
+    // Admin vem ANTES de criar Contact/Conversation ou chamar a Nina. Um comando
+    // administrativo não pode contaminar a conversa de um paciente.
+    if (this.d.adminCommands && await this.d.adminCommands.tryHandle(integration, inbound)) return;
 
     let contact = await this.d.contacts.findByWhatsapp(integration.id, inbound.from);
     const now = new Date();

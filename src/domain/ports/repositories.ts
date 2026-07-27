@@ -71,6 +71,7 @@ export interface IContactRepository {
   findByWhatsapp(integrationId: string, number: string): Promise<Contact | null>;
   /** Busca direta por id — usada quando só se tem o contactId (ex.: Charge). */
   getById(id: string): Promise<Contact | null>;
+  listByIntegration(integrationId: string): Promise<Contact[]>;
   save(contact: Contact): Promise<void>;
 }
 
@@ -113,6 +114,7 @@ export interface IEmissionIntentRepository {
 export interface IChargeRepository {
   save(charge: Charge): Promise<void>;
   getById(id: string): Promise<Charge | null>;
+  findByCalendarEventId(integrationId: string, calendarEventId: string): Promise<Charge | null>;
   /** Cobranças das integrações da EMPRESA (join Integration.companyId), mais novas primeiro. */
   listByCompanyId(companyId: string): Promise<Charge[]>;
   /** Cobrança "cobrável" mais recente do contato (status != paga) — o gate B marca paga. */
@@ -129,6 +131,20 @@ export interface CompanyRef {
 export interface IMembershipRepository {
   listCompaniesByUserId(userId: string): Promise<CompanyRef[]>;
   isMember(userId: string, companyId: string): Promise<boolean>;
+}
+
+/** Autorização por número de WhatsApp para comandos administrativos da empresa. */
+export interface IAdminWhatsappAccessRepository {
+  isAdmin(companyId: string, whatsappNumber: string): Promise<boolean>;
+}
+
+/**
+ * Garante que um webhook de entrada seja processado uma única vez. A Evolution
+ * pode reenviar o mesmo upsert; a operação precisa ser atômica e persistente
+ * para cobrir comandos (inclusive /reset) e sobreviver a reinícios.
+ */
+export interface IInboundMessageDeduplicator {
+  claim(integrationId: string, providerMessageId: string): Promise<boolean>;
 }
 
 export interface IServiceRepository {

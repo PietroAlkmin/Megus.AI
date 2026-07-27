@@ -9,6 +9,8 @@ export interface ComprovanteInput {
   media: { mimetype: string; base64?: string; url?: string };
   expectedRecipientDoc: string; // CNPJ/CPF do prestador
   expectedRecipientName: string;
+  /** Chave Pix efetivamente informada na cobrança; ausente = não há como validá-la. */
+  expectedPixKey?: string | null;
 }
 
 export interface ComprovanteAnalysis {
@@ -16,6 +18,8 @@ export interface ComprovanteAnalysis {
   payerName: string | null;
   recipientDoc: string | null;
   recipientMatches: boolean;
+  recipientPixKey?: string | null;
+  pixKeyMatches?: boolean;
   confidence: number; // 0..1
   raw: string; // texto extraído, para auditoria
 }

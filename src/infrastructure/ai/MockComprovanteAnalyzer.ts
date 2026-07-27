@@ -22,6 +22,8 @@ export class MockComprovanteAnalyzer implements IComprovanteAnalyzer {
       payerName: "Pagador (mock)",
       recipientDoc: input.expectedRecipientDoc.replace(/\D/g, ""),
       recipientMatches: true,
+      recipientPixKey: input.expectedPixKey ?? null,
+      pixKeyMatches: Boolean(input.expectedPixKey),
       confidence: this.cfg.confidence ?? 1,
       raw: "[mock] comprovante auto-aprovado (COMPROVANTE_PROVIDER=mock)",
     };

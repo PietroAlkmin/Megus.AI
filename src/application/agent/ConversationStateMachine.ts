@@ -151,7 +151,9 @@ export class ConversationStateMachine {
         // os gates em si (validação/emissão) não mudam em nada.
         if (isReceiptMedia(inbound)) {
           const contact = await this.d.contacts.findByWhatsapp(integration.id, conversation.whatsappNumber);
-          if (contact?.cpfNameVerified) {
+          // Cobrança sem fiscal não depende da identidade fiscal do paciente:
+          // toda foto/PDF recebida para uma Charge aberta deve ser analisada.
+          if (contact && (contact.cpfNameVerified || !agentConfig.capabilities.fiscal)) {
             const chargeable = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
             if (chargeable) {
               return this.handleComprovante(conversation, agentConfig, integration, inbound);
@@ -228,7 +230,10 @@ export class ConversationStateMachine {
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
     if (fullName && cpfRaw) {
-      const mode = decision.action.type === "intent_emit" ? "fiscal" : "cadastro";
+      // Uma configuração sem fiscal jamais pode armar o funil de nota apenas
+      // porque o modelo escolheu intent_emit. O comportamento do agente segue
+      // a capacidade persistida, não uma inferência do LLM.
+      const mode = decision.action.type === "intent_emit" && cfg.capabilities.fiscal ? "fiscal" : "cadastro";
       if (mode === "fiscal") {
         conv.state = ConversationState.CollectingIdentity;
         await this.d.conversations.save(conv);
@@ -281,7 +286,7 @@ export class ConversationStateMachine {
     // - handoff: transfere pro humano.
     // - reply/answer_question/quote_price/smalltalk/provide_identity/request_comprovante:
     //   só a resposta (já enviada); sem transição fiscal.
-    if (decision.action.type === "intent_emit") {
+    if (decision.action.type === "intent_emit" && cfg.capabilities.fiscal) {
       conv.state = ConversationState.CollectingIdentity;
       await this.d.conversations.save(conv);
     } else if (decision.action.type === "handoff") {
@@ -478,19 +483,31 @@ export class ConversationStateMachine {
     conv.state = ConversationState.VerifyingComprovante;
     await this.d.conversations.save(conv);
 
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    const charge = contact
+      ? await this.d.charges.findLatestChargeableByContact(integration.id, contact.id)
+      : null;
+
+    // A Agenda pode ter preços individuais. Para cobrança originada dela, o
+    // comprovante precisa bater com o valor da Charge, não com o catálogo.
     const services = await this.d.services.listByIntegration(integration.id);
     const service = services.find((s) => cfg.capabilities.linkedServiceIds.includes(s.id)) ?? services[0];
-    if (!service) { await this.handoff(conv, "sem serviço vinculado", instance); return; }
+    if (cfg.capabilities.fiscal && !service) { await this.handoff(conv, "sem serviço vinculado", instance); return; }
 
     // Falha do ANALISADOR ≠ rejeição do comprovante (prod 12/07: url de mídia
     // inválida na visão matou o fluxo em silêncio — nem handoff saiu). Erro de
     // sistema → mensagem honesta + permanece aguardando (cliente reenvia);
     // rejeição de verdade continua sendo o handoff logo abaixo.
     let analysis;
+    const companyProfile = integration.companyId
+      ? await this.d.companyProfiles.getByCompanyId(integration.companyId)
+      : null;
+    const expectedPixKey = companyProfile?.pixKey?.trim() || null;
     try {
       analysis = await this.d.comprovante.analyze({
         media: { mimetype: inbound.media.mimetype, base64: inbound.media.base64, url: inbound.media.url },
         expectedRecipientDoc: integration.fiscalDoc, expectedRecipientName: integration.fiscalName,
+        expectedPixKey,
       });
     } catch (err) {
       console.warn(`[fiscal] analisador de comprovante falhou (conv=${conv.id}):`, err instanceof Error ? err.message : err);
@@ -500,11 +517,32 @@ export class ConversationStateMachine {
       return;
     }
 
-    const amountOk = analysis.amount != null && Math.abs(analysis.amount - service.price) < 0.01;
-    const ok = analysis.recipientMatches && amountOk && analysis.confidence >= this.d.config.comprovanteMinConfidence;
-    if (!ok) { await this.handoff(conv, `comprovante não confere (conf=${analysis.confidence})`, instance); return; }
+    const expectedAmount = charge?.amount ?? service?.price;
+    const amountOk = analysis.amount != null && expectedAmount != null && Math.abs(analysis.amount - expectedAmount) < 0.01;
+    // Sem fiscal, a confirmação automática exige uma chave Pix configurada e
+    // identificada no comprovante. Documento + valor sozinhos não bastam.
+    const pixKeyOk = cfg.capabilities.fiscal ? true : expectedPixKey != null && analysis.pixKeyMatches === true;
+    const ok = analysis.recipientMatches && amountOk && pixKeyOk && analysis.confidence >= this.d.config.comprovanteMinConfidence;
+    if (!ok) {
+      conv.state = ConversationState.AwaitingComprovante;
+      await this.d.conversations.save(conv);
+      await this.send(conv, ["Não consegui confirmar esse comprovante porque os dados não conferem com a cobrança. Confira o valor e a chave Pix e envie novamente, por favor."], instance);
+      return;
+    }
 
-    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    // Cobrança sem fiscal: confirmar e quitar é o ponto final. Não cria
+    // EmissionIntent, não chama o provedor fiscal e não fala em nota.
+    if (!cfg.capabilities.fiscal) {
+      if (charge) {
+        const quitadaEm = new Date();
+        await this.d.charges.save({ ...charge, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+      }
+      conv.state = ConversationState.Done;
+      await this.d.conversations.save(conv);
+      await this.send(conv, ["✅ Pagamento confirmado. Obrigada!"], instance);
+      return;
+    }
+
     if (!contact || !contact.cpf || !contact.fullName) {
       await this.handoff(conv, "dados do tomador ausentes", instance);
       return;
@@ -514,7 +552,7 @@ export class ConversationStateMachine {
       id: randomUUID(), conversationId: conv.id, contactId: conv.contactId, integrationId: integration.id,
       status: "ready" as const,
       tomadorName: sanitizeFiscalText(contact.fullName), tomadorCpf: contact.cpf,
-      serviceId: service.id, description: sanitizeFiscalText(service.description), amount: service.price,
+      serviceId: service!.id, description: sanitizeFiscalText(service!.description), amount: service!.price,
       paymentVerified: true, paymentConfidence: analysis.confidence,
       fiscalKey: null, pdfUrl: null, createdAt: now, updatedAt: now,
     };
@@ -532,10 +570,10 @@ export class ConversationStateMachine {
     // recente do contato (pendente ou cobrada), se houver uma. Não-fatal —
     // nunca pode derrubar um fluxo fiscal que já teve êxito.
     try {
-      const charge = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
-      if (charge) {
+      const chargeToSettle = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
+      if (chargeToSettle) {
         const quitadaEm = new Date();
-        await this.d.charges.save({ ...charge, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+        await this.d.charges.save({ ...chargeToSettle, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
       }
     } catch (err) {
       console.warn(`[cobranca] falha ao marcar cobranca como paga (conv=${conv.id}):`, err instanceof Error ? err.message : err);

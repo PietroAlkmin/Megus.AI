@@ -68,6 +68,21 @@ model Company {
   paymentInstructions   String?       @db.NVarChar(Max)
   Integration           Integration[]
   Membership            Membership[]
+  AdminWhatsappAccess   AdminWhatsappAccess[]
+}
+
+/** Números autorizados a executar comandos administrativos pelo WhatsApp. */
+model AdminWhatsappAccess {
+  id             String   @id
+  companyId      String
+  whatsappNumber String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+  Company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, whatsappNumber])
+  @@index([companyId, active])
 }
 
 model Contact {
@@ -168,6 +183,16 @@ model Message {
   Conversation   Conversation @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId, createdAt])
+}
+
+model ProcessedInboundMessage {
+  id                String   @id
+  integrationId     String
+  providerMessageId String
+  createdAt         DateTime @default(now())
+
+  @@unique([integrationId, providerMessageId])
+  @@index([createdAt])
 }
 
 model Service {

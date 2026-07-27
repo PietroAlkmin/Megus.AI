@@ -5,6 +5,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { env } from "./infrastructure/config/env";
 import { InMemoryRepositories } from "./infrastructure/persistence/memory/InMemoryRepositories";
 import { MockCpfProvider } from "./infrastructure/cpf/MockCpfProvider";
+import { UnavailableCpfProvider } from "./infrastructure/cpf/UnavailableCpfProvider";
+import type { ICpfProvider } from "./domain/ports/ICpfProvider";
 import { MockFiscalProvider } from "./infrastructure/fiscal/MockFiscalProvider";
 import { OpenAIProvider } from "./infrastructure/ai/OpenAIProvider";
 import { AgentBrain } from "./infrastructure/ai/AgentBrain";
@@ -38,6 +40,13 @@ import { PrismaEmissionIntentRepository } from "./infrastructure/persistence/pri
 import { PrismaChargeRepository } from "./infrastructure/persistence/prisma/PrismaChargeRepository";
 import { PrismaServiceRepository } from "./infrastructure/persistence/prisma/PrismaServiceRepository";
 import { PrismaMembershipRepository } from "./infrastructure/persistence/prisma/PrismaMembershipRepository";
+import { PrismaAdminWhatsappAccessRepository } from "./infrastructure/persistence/prisma/PrismaAdminWhatsappAccessRepository";
+import { PrismaInboundMessageDeduplicator } from "./infrastructure/persistence/prisma/PrismaInboundMessageDeduplicator";
+import { AdminCommandHandler } from "./application/admin/AdminCommandHandler";
+import { CalendarImportPlanner } from "./application/admin/CalendarImportPlanner";
+import { CalendarImportExecutor } from "./application/admin/CalendarImportExecutor";
+import { CalendarImportService } from "./application/admin/CalendarImportService";
+import { AdminChargeService } from "./application/admin/AdminChargeService";
 import { seedPilot } from "./infrastructure/persistence/seedPilot";
 import { seedPilotAdmin } from "./infrastructure/persistence/seedPilotAdmin";
 
@@ -155,6 +164,8 @@ async function bootstrap(): Promise<void> {
     repos.charges = new PrismaChargeRepository();
     repos.services = new PrismaServiceRepository();
     repos.memberships = new PrismaMembershipRepository();
+    repos.adminWhatsappAccess = new PrismaAdminWhatsappAccessRepository();
+    repos.inboundDeduplicator = new PrismaInboundMessageDeduplicator();
     await seedPilot({ whatsappNumber: env.PILOT_WHATSAPP_NUMBER });
     await seedPilotAdmin();
     logger.info("[persistência] TODOS os repositórios usando Prisma (banco real) + piloto semeado (dados + login)");
@@ -162,7 +173,12 @@ async function bootstrap(): Promise<void> {
     logger.info("[persistência] tudo in-memory (sem DATABASE_URL)");
   }
 
-  const cpf = new MockCpfProvider({ "54625255830": "Pietro Augusto Mota Alkmin" });
+  // Produção nunca pode aceitar um CPF de demonstração. Enquanto não houver
+  // um provedor oficial de CPF, o fluxo normal pede atendimento humano; os
+  // dados confirmados pela clínica via Agenda não passam por este provider.
+  const cpf: ICpfProvider = env.DATABASE_URL
+    ? new UnavailableCpfProvider()
+    : new MockCpfProvider({ "54625255830": "Pietro Augusto Mota Alkmin" });
   const comprovante: IComprovanteAnalyzer =
     env.COMPROVANTE_PROVIDER === "mock"
       ? new MockComprovanteAnalyzer({ amount: PILOT_SERVICE_PRICE, confidence: 1 })
@@ -202,6 +218,15 @@ async function bootstrap(): Promise<void> {
     contacts: repos.contacts,
     stateMachine,
     transcriber,
+    inboundDeduplicator: repos.inboundDeduplicator,
+    adminCommands: new AdminCommandHandler({
+      access: repos.adminWhatsappAccess,
+      messaging,
+      charges: new AdminChargeService({ charges: repos.charges, contacts: repos.contacts, integrations: repos.integrations, configs: repos.agentConfigs, profiles: repos.companyProfiles, conversations: repos.conversations, messaging }),
+      calendar: toolsProvider
+        ? new CalendarImportService({ reader: toolsProvider, planner: new CalendarImportPlanner({ contacts: repos.contacts, charges: repos.charges }), executor: new CalendarImportExecutor({ contacts: repos.contacts, charges: repos.charges }) })
+        : undefined,
+    }),
   });
 
   // Registra o handler de inbound no provider e sobe

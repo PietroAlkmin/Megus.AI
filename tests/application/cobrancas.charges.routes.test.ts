@@ -182,6 +182,8 @@ describe("cobrancas — charges (Task 4: botao Cobrar dispara o WhatsApp)", () =
     expect(args.text).toContain("Massagem");
     expect(args.text).toContain("R$ 180,00");
     expect(args.text).toContain("Pix (celular): 11999998888");
+    expect(args.text).toContain("confirmar o pagamento");
+    expect(args.text).not.toContain("nota fiscal");
 
     const charge = await repos.charges.getById(chargePendente.id);
     expect(charge?.status).toBe("cobrada");

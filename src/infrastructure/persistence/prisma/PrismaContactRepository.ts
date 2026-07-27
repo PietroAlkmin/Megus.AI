@@ -19,6 +19,10 @@ export class PrismaContactRepository implements IContactRepository {
     const r = await prisma.contact.findUnique({ where: { id } });
     return r ? toDomain(r) : null;
   }
+  async listByIntegration(integrationId: string): Promise<Contact[]> {
+    const rows = await prisma.contact.findMany({ where: { integrationId } });
+    return rows.map(toDomain);
+  }
   async save(contact: Contact): Promise<void> {
     await prisma.contact.upsert({
       where: { id: contact.id },

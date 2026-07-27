@@ -46,7 +46,7 @@ function depsWith(repos: InMemoryRepositories): StateMachineDeps {
   return {
     brain: { decide: vi.fn(async () => ({ reply: ["oi!"], action: { type: "reply" as const } })) },
     cpf: { lookupName: vi.fn(async () => ({ found: true, name: "João da Silva" })) },
-    comprovante: { analyze: vi.fn(async () => ({ amount: 180, recipientMatches: true, confidence: 1, payerName: "João" })) },
+    comprovante: { analyze: vi.fn(async () => ({ amount: 180, recipientMatches: true, pixKeyMatches: true, confidence: 1, payerName: "João" })) },
     fiscal: { upsertCustomer: vi.fn(async () => {}), emitNfse: vi.fn(async () => ({ success: true, fiscalKey: "key-1", pdfUrl: "http://x/nota.pdf", message: null })) },
     messaging: { start: vi.fn(), getConnectionStatus: vi.fn(() => "connected" as const), getQrCode: vi.fn(), onInboundMessage: vi.fn(), sendText: vi.fn(async () => {}), sendMedia: vi.fn(async () => {}), startTyping: vi.fn(), stopTyping: vi.fn() },
     contacts: repos.contacts, conversations: repos.conversations, emissions: repos.emissions, services: repos.services,
@@ -70,6 +70,28 @@ describe("costura Cobrar→comprovante: mídia em estado livre com cobrança em 
     const charge = await repos.charges.getById("ch1");
     expect(charge?.status).toBe("paga"); // gate B quitou
     expect(conv.state).toBe(ConversationState.Done);
+  });
+
+  it("clínica sem fiscal: quita cobrança confirmada sem emitir nem prometer nota", async () => {
+    const repos = new InMemoryRepositories();
+    const conv = await seedVerifiedWithCharge(repos);
+    const deps = depsWith(repos);
+    const sm = new ConversationStateMachine(deps);
+    const semFiscal: AgentConfig = {
+      ...agentConfig,
+      capabilities: { ...agentConfig.capabilities, fiscal: false, fiscalDocType: null },
+    };
+    await repos.companyProfiles.save({
+      companyId: "c1", name: "Clínica Alfa", fiscalName: "Clínica Alfa Ltda", fiscalDoc: "11222333000181",
+      municipalRegistration: "", email: "", phone: "", zip: "", address: "", city: "", state: "",
+      pixType: "cnpj", pixKey: "11222333000181", paymentInstructions: "", updatedAt: new Date(),
+    });
+
+    await sm.advance(conv, semFiscal, integration, mediaInbound());
+
+    expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
+    expect(await repos.charges.getById("ch1")).toMatchObject({ status: "paga" });
+    expect(deps.messaging.sendText).toHaveBeenCalledWith(expect.objectContaining({ text: "✅ Pagamento confirmado. Obrigada!" }));
   });
 
   it("mídia em New SEM cobrança em aberto → papo comum (nada de gate B)", async () => {

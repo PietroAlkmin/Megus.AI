@@ -36,6 +36,22 @@ describe("HandleInboundMessage", () => {
     expect(contact).not.toBeNull();
   });
 
+  it("mesmo providerMessageId recebido duas vezes → processa apenas uma vez", async () => {
+    const repos = seeded();
+    const sm = { advance: vi.fn() } as any;
+    const uc = new HandleInboundMessage({
+      integrations: repos.integrations, agentConfigs: repos.agentConfigs,
+      conversations: repos.conversations, contacts: repos.contacts,
+      stateMachine: sm, transcriber: new MockAudioTranscriber(),
+      inboundDeduplicator: repos.inboundDeduplicator,
+    });
+
+    await uc.execute(inbound);
+    await uc.execute({ ...inbound });
+
+    expect(sm.advance).toHaveBeenCalledOnce();
+  });
+
   it("áudio com base64 → transcreve, grava a transcrição no histórico e marca transcribed", async () => {
     const repos = seeded();
     const sm = { advance: vi.fn() } as any;

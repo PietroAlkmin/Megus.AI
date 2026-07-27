@@ -38,6 +38,10 @@ export class PrismaChargeRepository implements IChargeRepository {
     const r = await prisma.charge.findUnique({ where: { id } });
     return r ? toDomain(r) : null;
   }
+  async findByCalendarEventId(integrationId: string, calendarEventId: string): Promise<Charge | null> {
+    const r = await prisma.charge.findFirst({ where: { integrationId, calendarEventId } });
+    return r ? toDomain(r) : null;
+  }
 
   // Percorre Integration -> Charge (join por companyId), devolvendo mais novas primeiro.
   async listByCompanyId(companyId: string): Promise<Charge[]> {

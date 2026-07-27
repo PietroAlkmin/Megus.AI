@@ -106,6 +106,7 @@ export function createApiApp(deps: ApiDeps): Express {
     contacts: deps.repos.contacts,
     conversations: deps.repos.conversations,
     companyProfiles: deps.repos.companyProfiles,
+    agentConfigs: deps.repos.agentConfigs,
     messaging: deps.messaging,
     authMiddleware,
   }));
