@@ -47,15 +47,40 @@ describe("ConversationStateMachine — comprovante/emissão", () => {
     expect(conv.state).toBe(ConversationState.Done);
   });
 
-  it("baixa confiança → handoff, não emite", async () => {
+  it("baixa confiança → NÃO emite; pede reenvio no 1º e chama humano ao esgotar o teto", async () => {
     const repos = new InMemoryRepositories();
     const deps = depsWith(repos);
     (deps.comprovante.analyze as any).mockResolvedValue({ amount: 300, payerName: "?", recipientDoc: "12345678000199", recipientMatches: true, confidence: 0.4, raw: "" });
     const conv = await readyConversation(repos);
     const sm = new ConversationStateMachine(deps);
+
+    // 1ª rejeição: mensagem honesta, segue aguardando (o cliente pode ter mandado a foto errada)
+    await sm.advance(conv, agentConfig, integration, imageInbound());
+    expect(conv.state).toBe(ConversationState.AwaitingComprovante);
+    expect(conv.humanHandoff).toBe(false);
+    const bolhas = (deps.messaging.sendText as any).mock.calls.map((c: any) => c[0].text as string).join(" ");
+    expect(bolhas).toContain("não conferem com a cobrança");
+
+    // 2ª rejeição: esgotou o teto → humano assume (nunca fica em loop eterno)
+    await sm.advance(conv, agentConfig, integration, imageInbound());
+    expect(conv.state).toBe(ConversationState.HumanHandoff);
+    expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
+  });
+
+  it("comprovante ruim seguido de comprovante bom → emite (o contador não pune quem corrigiu)", async () => {
+    const repos = new InMemoryRepositories();
+    const deps = depsWith(repos);
+    const conv = await readyConversation(repos);
+    const sm = new ConversationStateMachine(deps);
+
+    (deps.comprovante.analyze as any).mockResolvedValue({ amount: 300, payerName: "?", recipientDoc: "12345678000199", recipientMatches: true, confidence: 0.4, raw: "" });
+    await sm.advance(conv, agentConfig, integration, imageInbound());
+    expect(conv.state).toBe(ConversationState.AwaitingComprovante);
+
+    (deps.comprovante.analyze as any).mockResolvedValue({ amount: 300, payerName: "João da Silva", recipientDoc: "12345678000199", recipientMatches: true, confidence: 0.95, raw: "" });
     await sm.advance(conv, agentConfig, integration, imageInbound());
 
-    expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
-    expect(conv.state).toBe(ConversationState.HumanHandoff);
+    expect(deps.fiscal.emitNfse).toHaveBeenCalledOnce();
+    expect(conv.state).toBe(ConversationState.Done);
   });
 });

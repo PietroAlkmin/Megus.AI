@@ -67,7 +67,7 @@ describe("mídia que chega JUNTO do armamento fiscal não se perde", () => {
     expect(bubbles.join(" ")).not.toContain("Agora me envia o comprovante"); // NÃO pediu re-envio
   });
 
-  it("comprovante ERRADO junto do armamento → gate B analisa JÁ e rejeita (handoff), nada de loop de guarda", async () => {
+  it("comprovante ERRADO junto do armamento → gate B analisa JÁ e rejeita (pede reenvio; humano no teto), nada de loop de guarda", async () => {
     const repos = new InMemoryRepositories();
     seed(repos);
     const deps = depsWith(repos, { amount: 50, recipientMatches: false, confidence: 0.9 });
@@ -76,9 +76,17 @@ describe("mídia que chega JUNTO do armamento fiscal não se perde", () => {
 
     await sm.advance(conv, agentConfig, integration, mediaInbound());
 
+    // a imagem do MESMO turno foi analisada (nunca caiu na guarda "me envia foto ou PDF")
     expect(deps.comprovante.analyze).toHaveBeenCalledOnce();
     expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
-    expect(conv.humanHandoff).toBe(true); // rejeição → humano (comportamento do gate)
+    const bolhas = (deps.messaging.sendText as any).mock.calls.map((c: any) => c[0].text as string).join(" ");
+    expect(bolhas).not.toContain("me envia o comprovante"); // não é loop de guarda
+    expect(bolhas).toContain("não conferem com a cobrança"); // é rejeição honesta
+
+    // reenviar o mesmo comprovante errado esgota o teto → humano assume
+    await sm.advance(conv, agentConfig, integration, mediaInbound());
+    expect(conv.humanHandoff).toBe(true);
+    expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
   });
 
   it("analisador FALHA (erro de sistema, não rejeição) → mensagem honesta + permanece aguardando (nunca silêncio, nunca handoff)", async () => {

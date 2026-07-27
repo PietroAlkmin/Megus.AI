@@ -91,7 +91,12 @@ export interface StateMachineDeps {
   companyProfiles: ICompanyProfileRepository;
   /** Cobranças (Task 3, Plano 7) — handleChatting cria a "pendente" quando o evento de agenda é marcado. */
   charges: IChargeRepository;
-  config: { cpfMaxAttempts: number; comprovanteMinConfidence: number };
+  config: {
+    cpfMaxAttempts: number;
+    comprovanteMinConfidence: number;
+    /** Reenvios de comprovante que não confere antes de chamar um humano (default 2). */
+    comprovanteMaxAttempts?: number;
+  };
 }
 
 export class ConversationStateMachine {
@@ -523,12 +528,26 @@ export class ConversationStateMachine {
     // identificada no comprovante. Documento + valor sozinhos não bastam.
     const pixKeyOk = cfg.capabilities.fiscal ? true : expectedPixKey != null && analysis.pixKeyMatches === true;
     const ok = analysis.recipientMatches && amountOk && pixKeyOk && analysis.confidence >= this.d.config.comprovanteMinConfidence;
+    // Rejeição PEDE reenvio, mas com TETO: sem limite, um comprovante que nunca
+    // confere (erro do cliente ou tentativa de fraude) fica em loop eterno e
+    // NINGUÉM é avisado — dinheiro sem rede de segurança. Esgotado o teto, o
+    // humano assume, igual ao funil de CPF. Contador com chave própria para não
+    // se misturar com o de identidade da mesma conversa.
+    const tentativasKey = `comprovante:${conv.id}`;
     if (!ok) {
+      const n = (this.attempts.get(tentativasKey) ?? 0) + 1;
+      this.attempts.set(tentativasKey, n);
+      if (n >= (this.d.config.comprovanteMaxAttempts ?? 2)) {
+        this.attempts.delete(tentativasKey);
+        await this.handoff(conv, `comprovante não confere após ${n} tentativas (conf=${analysis.confidence})`, instance);
+        return;
+      }
       conv.state = ConversationState.AwaitingComprovante;
       await this.d.conversations.save(conv);
       await this.send(conv, ["Não consegui confirmar esse comprovante porque os dados não conferem com a cobrança. Confira o valor e a chave Pix e envie novamente, por favor."], instance);
       return;
     }
+    this.attempts.delete(tentativasKey);
 
     // Cobrança sem fiscal: confirmar e quitar é o ponto final. Não cria
     // EmissionIntent, não chama o provedor fiscal e não fala em nota.
