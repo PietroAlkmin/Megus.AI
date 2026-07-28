@@ -10,7 +10,7 @@ import type { Charge } from "../../src/domain/entities/Charge";
 const JWT_SECRET = "test-secret-cobrancas-charges";
 
 // Rotas de cobrança não usam o provisioner — stub só pra satisfazer o tipo de ApiDeps.
-const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
+const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn(), disconnect: vi.fn() };
 
 interface Envelope<T> {
   success: boolean;

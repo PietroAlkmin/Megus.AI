@@ -149,7 +149,7 @@ describe("ComposioAgentToolsProvider — ops de conexão (initiate/listActive, T
   it("initiate delega pro client de conexão injetado, com os mesmos argumentos e shape", async () => {
     const connect: ComposioConnectOps = {
       initiate: vi.fn(async () => ({ id: "conn_1", redirectUrl: "https://accounts.google.com/o/oauth2/auth?x=1" })),
-      listActive: vi.fn(async () => 0),
+      listActive: vi.fn(async () => 0), disconnect: vi.fn(async () => 0),
     };
     const provider = new ComposioAgentToolsProvider(fakeSessions({}), undefined, connect);
 
@@ -162,7 +162,7 @@ describe("ComposioAgentToolsProvider — ops de conexão (initiate/listActive, T
   it("listActive delega pro client de conexão injetado, com os mesmos argumentos", async () => {
     const connect: ComposioConnectOps = {
       initiate: vi.fn(),
-      listActive: vi.fn(async () => 3),
+      listActive: vi.fn(async () => 3), disconnect: vi.fn(async () => 0),
     };
     const provider = new ComposioAgentToolsProvider(fakeSessions({}), undefined, connect);
 

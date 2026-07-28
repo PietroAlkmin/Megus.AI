@@ -70,5 +70,26 @@ export function ferramentasRoutes(deps: FerramentasRoutesDeps): Router {
     }
   });
 
+  // DELETE /api/agente/ferramentas/agenda/conexao — remove a conta Google da
+  // empresa logada. Tenant do JWT (mesma sentinela ""), e ESCRITA: ao contrário
+  // do /status (informativo), falha aqui vira erro explícito — dizer "desconectado"
+  // sem ter desconectado deixaria a agenda de alguém ligada achando que saiu.
+  r.delete("/agenda/conexao", async (req: Request, res: Response) => {
+    const { companyId } = req.auth as AuthContext;
+
+    if (!deps.connectOps || companyId === "") {
+      fail(res, "Agenda indisponível no momento.", 503, "TOOLS_UNAVAILABLE");
+      return;
+    }
+
+    try {
+      const removidas = await deps.connectOps.disconnect(companyId, GOOGLECALENDAR_TOOLKIT_SLUG);
+      ok(res, { desconectado: true, removidas }, removidas > 0 ? "Agenda desconectada." : "Nenhuma agenda conectada.");
+    } catch (err) {
+      console.warn(`[ferramentas] desconectar agenda falhou p/ empresa ${companyId}:`, err instanceof Error ? err.message : err);
+      fail(res, "Não foi possível desconectar a agenda agora.", 502, "TOOLS_DISCONNECT_FAILED");
+    }
+  });
+
   return r;
 }

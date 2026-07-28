@@ -9,7 +9,7 @@ import type { ComposioConnectOps } from "../../src/infrastructure/tools/composio
 const JWT_SECRET = "test-secret-ferramentas";
 
 // Rotas de ferramentas não tocam repos/provisioner — stubs só pra satisfazer o tipo de ApiDeps.
-const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
+const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn(), disconnect: vi.fn() };
 
 interface Envelope<T> {
   success: boolean;
@@ -35,6 +35,7 @@ function fakeConnectOps(overrides: Partial<ComposioConnectOps> = {}): ComposioCo
   return {
     initiate: vi.fn(async () => ({ id: "conn_1", redirectUrl: "https://accounts.google.com/o/oauth2/auth?x=1" })),
     listActive: vi.fn(async () => 0),
+    disconnect: vi.fn(async () => 0),
     ...overrides,
   };
 }
@@ -192,5 +193,46 @@ describe("POST/GET /api/agente/ferramentas/agenda", () => {
 
     const res = await fetch(`${url}/api/agente/ferramentas/agenda/status`);
     expect(res.status).toBe(401);
+  });
+
+  it("DELETE /agenda/conexao remove as contas da empresa DO JWT (nunca de outra)", async () => {
+    const connectOps = fakeConnectOps({ disconnect: vi.fn(async () => 2) });
+    const url = await sobe({ connectOps, gcalAuthConfigId: "ac_123" });
+
+    const res = await fetch(`${url}/api/agente/ferramentas/agenda/conexao`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${makeToken("c1")}` },
+    });
+    const body = (await res.json()) as Envelope<{ desconectado: boolean; removidas: number }>;
+
+    expect(res.status).toBe(200);
+    expect(body.data.removidas).toBe(2);
+    expect(connectOps.disconnect).toHaveBeenCalledWith("c1", "googlecalendar");
+  });
+
+  it("DELETE /agenda/conexao: falha do Composio → 502 (ESCRITA não pode mentir que desconectou)", async () => {
+    const connectOps = fakeConnectOps({
+      disconnect: vi.fn(async () => { throw new Error("composio fora do ar"); }),
+    });
+    const url = await sobe({ connectOps, gcalAuthConfigId: "ac_123" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const res = await fetch(`${url}/api/agente/ferramentas/agenda/conexao`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${makeToken("c1")}` },
+    });
+
+    expect(res.status).toBe(502);
+    warn.mockRestore();
+  });
+
+  it("DELETE /agenda/conexao sem token → 401", async () => {
+    const connectOps = fakeConnectOps();
+    const url = await sobe({ connectOps, gcalAuthConfigId: "ac_123" });
+
+    const res = await fetch(`${url}/api/agente/ferramentas/agenda/conexao`, { method: "DELETE" });
+
+    expect(res.status).toBe(401);
+    expect(connectOps.disconnect).not.toHaveBeenCalled();
   });
 });

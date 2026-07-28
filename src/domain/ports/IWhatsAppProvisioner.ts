@@ -22,4 +22,10 @@ export interface IWhatsAppProvisioner {
   provision(instanceName: string): Promise<WhatsAppProvisionResult>;
   /** Estado atual da instância + número real (do ownerJid) quando conectada. */
   status(instanceName: string): Promise<WhatsAppConnectionStatus>;
+  /**
+   * Desfaz o pareamento: o número atual deixa de atender por esta instância.
+   * IDEMPOTENTE — instância inexistente/já desconectada não é erro (o objetivo
+   * é o estado final "desconectado", não a transição).
+   */
+  disconnect(instanceName: string): Promise<void>;
 }

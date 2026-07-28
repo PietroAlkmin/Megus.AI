@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarCheck, CalendarDays, Check, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, CalendarCheck, CalendarDays, Check, ExternalLink, Loader2, RefreshCw, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api";
@@ -41,6 +41,14 @@ export default function AgendaConnectCard() {
     onSuccess: ({ url }) => {
       window.open(url, "_blank", "noopener,noreferrer");
       setAguardando(true);
+      void queryClient.invalidateQueries({ queryKey: ["ferramentas", "agenda", "status"] });
+    },
+  });
+
+  const desconectarMutation = useMutation({
+    mutationFn: ferramentasService.agendaDesconectar,
+    onSuccess: () => {
+      setAguardando(false);
       void queryClient.invalidateQueries({ queryKey: ["ferramentas", "agenda", "status"] });
     },
   });
@@ -124,6 +132,39 @@ export default function AgendaConnectCard() {
                 "Conectar"
               )}
             </Button>
+          )}
+
+          {/* Desconectar só aparece com agenda conectada. Confirmação porque é
+              destrutivo: o agente deixa de ver a agenda na hora. */}
+          {conectado && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={desconectarMutation.isPending}
+              onClick={() => {
+                if (!window.confirm("Desconectar a agenda? O agente deixa de consultar e marcar compromissos até você conectar de novo.")) return;
+                desconectarMutation.mutate();
+              }}
+            >
+              {desconectarMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Desconectando…
+                </>
+              ) : (
+                <>
+                  <Unlink className="h-4 w-4" /> Desconectar agenda
+                </>
+              )}
+            </Button>
+          )}
+
+          {desconectarMutation.isError && (
+            <p className="text-center text-xs font-semibold text-destructive">
+              {desconectarMutation.error instanceof ApiError
+                ? desconectarMutation.error.message
+                : "Não foi possível desconectar."}
+            </p>
           )}
         </div>
 

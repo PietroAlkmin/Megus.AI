@@ -8,7 +8,7 @@ import type { IWhatsAppProvisioner } from "../../src/domain/ports/IWhatsAppProvi
 const JWT_SECRET = "test-secret-agente";
 
 // Rotas de agente não usam o provisioner — stub só pra satisfazer o tipo de ApiDeps.
-const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
+const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn(), disconnect: vi.fn() };
 
 interface Persona {
   integrationId: string | null;

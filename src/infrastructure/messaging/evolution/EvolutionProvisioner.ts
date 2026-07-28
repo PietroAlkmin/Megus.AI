@@ -80,6 +80,28 @@ export class EvolutionProvisioner implements IWhatsAppProvisioner {
     return { connected: true, number };
   }
 
+  /**
+   * Desparea o número: `logout` derruba a sessão e `delete` remove a instância —
+   * sem o delete, a casca fica no Postgres do Evolution e um connect seguinte
+   * reusa o pareamento velho (visto em jul/2026). 404/400/401 são tratados como
+   * sucesso: significam "já não existe/não estava conectada", que é o estado
+   * desejado (idempotência). Delete só depois do logout, e nunca aborta por
+   * causa dele.
+   */
+  async disconnect(instanceName: string): Promise<void> {
+    for (const [path, method] of [
+      [`/instance/logout/${instanceName}`, "DELETE"],
+      [`/instance/delete/${instanceName}`, "DELETE"],
+    ] as const) {
+      try {
+        await this.req(path, method);
+      } catch (err) {
+        const status = err instanceof EvolutionHttpError ? err.status : 0;
+        if (status !== 404 && status !== 400 && status !== 401) throw err;
+      }
+    }
+  }
+
   /** QR base64 — cobre tanto `{base64}` (connect) quanto `{qrcode:{base64}}` (create). */
   private extractBase64(res: unknown): string | null {
     const r = res as Record<string, unknown> | null;
@@ -113,7 +135,7 @@ export class EvolutionProvisioner implements IWhatsAppProvisioner {
     return null;
   }
 
-  private async req(path: string, method: "GET" | "POST", body?: unknown): Promise<unknown> {
+  private async req(path: string, method: "GET" | "POST" | "DELETE", body?: unknown): Promise<unknown> {
     const res = await fetch(`${this.cfg.baseUrl}${path}`, {
       method,
       headers: { "Content-Type": "application/json", apikey: this.cfg.apiKey },

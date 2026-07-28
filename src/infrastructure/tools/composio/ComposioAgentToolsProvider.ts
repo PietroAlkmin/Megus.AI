@@ -27,6 +27,12 @@ export interface ComposioConnectOps {
   initiate(userId: string, authConfigId: string): Promise<{ redirectUrl: string | null; id: string }>;
   /** Nº de contas ATIVAS da empresa (userId) no toolkit informado — usado pelo GET /status. */
   listActive(userId: string, toolkitSlug: string): Promise<number>;
+  /**
+   * Remove TODAS as contas da empresa (userId) no toolkit — a empresa deixa de
+   * ter a ferramenta. Devolve quantas foram removidas. Idempotente: nenhuma
+   * conexão = 0, sem erro.
+   */
+  disconnect(userId: string, toolkitSlug: string): Promise<number>;
 }
 
 
@@ -113,6 +119,18 @@ export class ComposioAgentToolsProvider implements IAgentToolsProvider, Composio
     return this.connect.listActive(userId, toolkitSlug);
   }
 
+  /**
+   * Desconecta a ferramenta da empresa e INVALIDA o cache dela na mesma operação:
+   * sem isso o cérebro seguiria com as tools da conta removida por até o TTL
+   * (5 min) — ou seja, agendando numa agenda que o usuário acabou de desligar.
+   */
+  async disconnect(userId: string, toolkitSlug: string): Promise<number> {
+    if (!this.connect) throw new Error("ComposioAgentToolsProvider: sem client de conexão (construído fora do fromEnv)");
+    const removed = await this.connect.disconnect(userId, toolkitSlug);
+    this.cache.delete(userId);
+    return removed;
+  }
+
   async listEvents(companyId: string, timeMin: string): Promise<unknown[]> {
     const tool = (await this.forCompany(companyId)).nativeTools.GOOGLECALENDAR_EVENTS_LIST as { execute?: (input: unknown) => Promise<unknown> } | undefined;
     if (!tool?.execute) throw new Error("Agenda não conectada.");
@@ -165,6 +183,16 @@ export class ComposioAgentToolsProvider implements IAgentToolsProvider, Composio
         // Filtro client-side redundante com o `statuses` do pedido acima — defensivo,
         // caso a API algum dia ignore esse filtro server-side.
         return items.filter((item) => item.status === "ACTIVE").length;
+      },
+      disconnect: async (userId, toolkitSlug) => {
+        // SEM filtro de status: uma conexão INITIATED/EXPIRED também precisa sair,
+        // senão sobra lixo que reaparece como "conectado" depois.
+        const { items } = await composio.connectedAccounts.list({
+          userIds: [userId],
+          toolkitSlugs: [toolkitSlug],
+        });
+        for (const item of items) await composio.connectedAccounts.delete(item.id);
+        return items.length;
       },
     };
     return new ComposioAgentToolsProvider(sessions, ttlMs, connect);

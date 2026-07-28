@@ -55,7 +55,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
     const repos = seedRepos();
     const provisioner: IWhatsAppProvisioner = {
       provision: vi.fn(async () => ({ qrBase64: "data:image/png;base64,ABC123" })),
-      status: vi.fn(),
+      status: vi.fn(), disconnect: vi.fn(),
     };
     const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
@@ -80,7 +80,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
 
   it("POST /connect sem token responde 401", async () => {
     const repos = seedRepos();
-    const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
+    const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn(), disconnect: vi.fn() };
     const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
@@ -91,7 +91,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
 
   it("GET /status sem evolutionInstance ainda → connected:false, sem chamar o provisioner", async () => {
     const repos = seedRepos();
-    const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn() };
+    const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn(), disconnect: vi.fn() };
     const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
     server = listening.server;
@@ -114,6 +114,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
     const provisioner: IWhatsAppProvisioner = {
       provision: vi.fn(),
       status: vi.fn(async () => ({ connected: true, number: "5511988887777" })),
+      disconnect: vi.fn(),
     };
     const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
@@ -140,6 +141,7 @@ describe("POST/GET /api/agente/whatsapp", () => {
     const provisioner: IWhatsAppProvisioner = {
       provision: vi.fn(),
       status: vi.fn(async () => ({ connected: false, number: null })),
+      disconnect: vi.fn(),
     };
     const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
     const listening = await listen(app);
@@ -154,5 +156,65 @@ describe("POST/GET /api/agente/whatsapp", () => {
     expect(body.data.connected).toBe(false);
     const saved = await repos.integrations.getById("int1");
     expect(saved?.whatsappNumber).toBe("5511988887777"); // preservado, não apagado
+  });
+
+  it("DELETE /conexao desparea a instância da empresa e LIMPA o número gravado", async () => {
+    const repos = seedRepos();
+    await repos.integrations.updateConnection("int1", "megus-int1", "5511988887777");
+    const provisioner: IWhatsAppProvisioner = {
+      provision: vi.fn(), status: vi.fn(), disconnect: vi.fn(async () => {}),
+    };
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
+    const listening = await listen(app);
+    server = listening.server;
+
+    const res = await fetch(`http://localhost:${listening.port}/api/agente/whatsapp/conexao`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${makeToken("company-x")}` },
+    });
+
+    expect(res.status).toBe(200);
+    expect(provisioner.disconnect).toHaveBeenCalledWith("megus-int1"); // instância da integração, nunca de input
+    const saved = await repos.integrations.getById("int1");
+    // número em branco é o ponto: um número que não atende mais NÃO pode continuar
+    // resolvendo inbound (dois tenants com o mesmo número roteavam pro errado).
+    expect(saved?.whatsappNumber).toBe("");
+    expect(saved?.evolutionInstance).toBe("");
+  });
+
+  it("DELETE /conexao com o provider falhando → 502 e o número NÃO é limpo (não mente que desconectou)", async () => {
+    const repos = seedRepos();
+    await repos.integrations.updateConnection("int1", "megus-int1", "5511988887777");
+    const provisioner: IWhatsAppProvisioner = {
+      provision: vi.fn(), status: vi.fn(),
+      disconnect: vi.fn(async () => { throw new Error("evolution fora do ar"); }),
+    };
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
+    const listening = await listen(app);
+    server = listening.server;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const res = await fetch(`http://localhost:${listening.port}/api/agente/whatsapp/conexao`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${makeToken("company-x")}` },
+    });
+
+    expect(res.status).toBe(502);
+    const saved = await repos.integrations.getById("int1");
+    expect(saved?.whatsappNumber).toBe("5511988887777"); // segue atendendo — nada foi perdido
+    warn.mockRestore();
+  });
+
+  it("DELETE /conexao sem token → 401 (ninguém desconecta o WhatsApp de ninguém)", async () => {
+    const repos = seedRepos();
+    const provisioner: IWhatsAppProvisioner = { provision: vi.fn(), status: vi.fn(), disconnect: vi.fn() };
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
+    const listening = await listen(app);
+    server = listening.server;
+
+    const res = await fetch(`http://localhost:${listening.port}/api/agente/whatsapp/conexao`, { method: "DELETE" });
+
+    expect(res.status).toBe(401);
+    expect(provisioner.disconnect).not.toHaveBeenCalled();
   });
 });

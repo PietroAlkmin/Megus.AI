@@ -18,3 +18,8 @@ export async function agendaStatus(): Promise<AgendaStatus> {
 export async function agendaConectar(): Promise<AgendaConexao> {
   return apiFetch<AgendaConexao>("POST", "/api/agente/ferramentas/agenda/conectar");
 }
+
+/** DELETE /api/agente/ferramentas/agenda/conexao — remove a conta Google da empresa logada. */
+export async function agendaDesconectar(): Promise<{ desconectado: boolean; removidas: number }> {
+  return apiFetch<{ desconectado: boolean; removidas: number }>("DELETE", "/api/agente/ferramentas/agenda/conexao");
+}

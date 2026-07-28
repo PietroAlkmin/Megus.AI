@@ -20,3 +20,8 @@ export async function connect(): Promise<WhatsAppConnection> {
 export async function status(): Promise<WhatsAppStatus> {
   return apiFetch<WhatsAppStatus>("GET", "/api/agente/whatsapp/status");
 }
+
+/** DELETE /api/agente/whatsapp/conexao — desfaz o pareamento do número da empresa logada. */
+export async function desconectar(): Promise<{ desconectado: boolean }> {
+  return apiFetch<{ desconectado: boolean }>("DELETE", "/api/agente/whatsapp/conexao");
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Loader2, Phone, QrCode, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Phone, QrCode, RefreshCw, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api";
@@ -47,6 +47,15 @@ export default function WhatsAppConnectPanel({ onConnected }: WhatsAppConnectPan
     mutationFn: whatsappService.connect,
     onSuccess: () => {
       setStarted(true);
+      void queryClient.invalidateQueries({ queryKey: ["whatsapp", "status"] });
+    },
+  });
+
+  const desconectarMutation = useMutation({
+    mutationFn: whatsappService.desconectar,
+    onSuccess: () => {
+      setStarted(false);
+      connectMutation.reset(); // some com o QR velho: ele não vale mais
       void queryClient.invalidateQueries({ queryKey: ["whatsapp", "status"] });
     },
   });
@@ -130,6 +139,40 @@ export default function WhatsAppConnectPanel({ onConnected }: WhatsAppConnectPan
             <Button type="button" onClick={() => connectMutation.mutate()} className="w-full">
               Conectar
             </Button>
+          )}
+
+          {/* Desconectar aparece com número pareado. Confirmação com o número à
+              vista: é o que evita desligar o WhatsApp errado. */}
+          {connected && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={desconectarMutation.isPending}
+              onClick={() => {
+                const alvo = number ? `o número ${number}` : "este número";
+                if (!window.confirm(`Desconectar ${alvo}? O agente para de atender por ele até você parear de novo.`)) return;
+                desconectarMutation.mutate();
+              }}
+            >
+              {desconectarMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Desconectando…
+                </>
+              ) : (
+                <>
+                  <Unlink className="h-4 w-4" /> Desconectar número
+                </>
+              )}
+            </Button>
+          )}
+
+          {desconectarMutation.isError && (
+            <p className="text-center text-xs font-semibold text-destructive">
+              {desconectarMutation.error instanceof ApiError
+                ? desconectarMutation.error.message
+                : "Não foi possível desconectar."}
+            </p>
           )}
         </div>
 
