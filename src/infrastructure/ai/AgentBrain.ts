@@ -66,7 +66,10 @@ export class AgentBrain implements IAgentBrain {
   ) {}
 
   async decide(context: AgentContext): Promise<AgentDecision> {
-    const dynamic = await this.resolveDynamicTools(context.companyId);
+    // Agenda desligada na configuração ⇒ nem busca as tools. A conta pode seguir
+    // conectada (o import de eventos usa outro caminho, fora do cérebro) — mas o
+    // agente não vê ferramenta de calendário e, portanto, não marca nada.
+    const dynamic = context.agendaEnabled === false ? EMPTY_TOOLSET : await this.resolveDynamicTools(context.companyId);
     // O gate foi aplicado? (não-verificado E a tool de marcar existe no toolset)
     // — guardado ANTES do run: se sim, o stub pode ter sido "chamado" pelo modelo
     // e o ai@7 lista essa chamada BLOQUEADA em toolResults com o mesmo nome de uma

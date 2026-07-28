@@ -161,6 +161,44 @@ describe("AgentBrain", () => {
     expect(seen?.messages[0]?.content as string).toContain("- GOOGLECALENDAR_CREATE_EVENT: Cria evento no Google Calendar");
   });
 
+  it("agendaEnabled:false → NEM consulta o provider: agenda conectada não dá ao agente o poder de marcar", async () => {
+    // Cliente que agenda por conta própria (a conta Google segue conectada, porque
+    // o import de eventos a usa fora do cérebro) — o agente atende, mas não marca.
+    let seen: AgentEngineOptions | undefined;
+    const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });
+    const toolsProvider: IAgentToolsProvider = {
+      forCompany: vi.fn(async () => ({
+        nativeTools: { GOOGLECALENDAR_CREATE_EVENT: { fake: "tool" } },
+        infos: [{ name: "GOOGLECALENDAR_CREATE_EVENT", description: "Cria evento no Google Calendar" }],
+      })),
+    };
+    const brain = new AgentBrain(engine, "gpt-4o", [], 4, toolsProvider);
+
+    await brain.decide({ ...EMPTY_CONTEXT, agendaEnabled: false });
+
+    expect(toolsProvider.forCompany).not.toHaveBeenCalled();
+    expect(seen?.nativeTools).toEqual({});
+    // e o prompt não anuncia a ferramenta (o modelo só chama o que conhece)
+    expect(seen?.messages[0]?.content as string).not.toContain("GOOGLECALENDAR_CREATE_EVENT");
+  });
+
+  it("agendaEnabled ausente = ligado (não regride quem já usava a agenda)", async () => {
+    let seen: AgentEngineOptions | undefined;
+    const engine = fakeEngine({ answer: { reply: [], action: { type: "reply" } } }, (o) => { seen = o; });
+    const toolsProvider: IAgentToolsProvider = {
+      forCompany: vi.fn(async () => ({
+        nativeTools: { GOOGLECALENDAR_EVENTS_LIST: { fake: "tool" } },
+        infos: [{ name: "GOOGLECALENDAR_EVENTS_LIST", description: "Lista eventos" }],
+      })),
+    };
+    const brain = new AgentBrain(engine, "gpt-4o", [], 4, toolsProvider);
+
+    await brain.decide({ ...EMPTY_CONTEXT, collected: { ...EMPTY_CONTEXT.collected, cpfNameVerified: true } });
+
+    expect(toolsProvider.forCompany).toHaveBeenCalledWith("c1");
+    expect(seen?.nativeTools).toHaveProperty("GOOGLECALENDAR_EVENTS_LIST");
+  });
+
   it("fail-safe: toolsProvider que rejeita NÃO quebra decide() — segue com toolset vazio", async () => {
     let seen: AgentEngineOptions | undefined;
     const engine = fakeEngine({ answer: { reply: ["oi"], action: { type: "reply" } } }, (o) => { seen = o; });

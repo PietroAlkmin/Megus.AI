@@ -64,6 +64,15 @@ export interface AgentContext {
    *  conclua a ação pendente"). Mecanismo genérico de sinal de FLUXO — nunca regra
    *  de cenário/segmento (princípio do prompt agnóstico). */
   notices?: string[];
+  /**
+   * A empresa habilitou a AGENDA para o agente (`capabilities.agenda`)?
+   * Desligado ⇒ as ferramentas de calendário NÃO chegam ao cérebro, mesmo com a
+   * conta Google conectada — quem decide o que o agente pode fazer é a capacidade
+   * PERSISTIDA, não o que por acaso está conectado. (Cliente que agenda por conta
+   * própria quer o agente lendo/atendendo, nunca marcando por iniciativa dele.)
+   * Ausente = ligado, preservando o comportamento de quem já usava.
+   */
+  agendaEnabled?: boolean;
 }
 
 export type AgentProposedAction =
