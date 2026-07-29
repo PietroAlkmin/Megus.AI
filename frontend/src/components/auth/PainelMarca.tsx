@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+
+/** Tempo de leitura de cada frase antes de virar. */
+const INTERVALO_MS = 6000;
 
 /**
  * Painel de marca das telas de autenticação.
@@ -31,16 +34,45 @@ const SLIDES = [
 
 export default function PainelMarca() {
   const [i, setI] = useState(0);
-  const s = SLIDES[i];
+  const s = SLIDES[i]!;
+  // Guardado em ref porque o clique nos marcadores REINICIA a contagem: sem
+  // isso, clicar 1s antes da virada trocava o slide de novo em seguida.
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    // Quem pediu menos movimento no sistema fica no slide escolhido — a troca
+    // automática é decoração, não conteúdo (os marcadores seguem clicáveis).
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    timer.current = setInterval(() => setI((n) => (n + 1) % SLIDES.length), INTERVALO_MS);
+    return () => {
+      if (timer.current) clearInterval(timer.current);
+    };
+  }, [i]); // re-agenda a cada troca (inclusive as manuais)
 
   return (
     <div className="relative hidden overflow-hidden bg-primary lg:block">
-      <img src={s.img} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      {/* Todas as fotos ficam montadas e sobrepostas: dá crossfade em vez de
+          troca seca, e o navegador já baixou a próxima quando ela entra. */}
+      {SLIDES.map((slide, n) => (
+        <img
+          key={slide.img}
+          src={slide.img}
+          alt=""
+          aria-hidden={n !== i}
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-out",
+            n === i ? "opacity-100" : "opacity-0",
+          )}
+        />
+      ))}
       <div className="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/45 to-primary/15" />
       <div className="absolute inset-0 bg-gradient-to-r from-primary/70 to-transparent" />
 
       <div className="relative flex h-full flex-col justify-end p-9">
-        <div className="max-w-[30ch]">
+        {/* `key` no índice remonta o bloco a cada troca, disparando o fade —
+            sem isso o texto trocava seco por cima da foto em transição. */}
+        <div key={i} className="max-w-[30ch] animate-in fade-in duration-700">
           <p className="font-brand text-[25px] font-bold leading-[1.22] tracking-[-0.025em] text-white">{s.frase}</p>
           <p className="mt-3.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.15em] text-white/75">{s.quem}</p>
         </div>
