@@ -44,6 +44,26 @@ function normalizarTelefone(raw: string | null | undefined): string | null {
   return d;
 }
 
+/**
+ * O Google Calendar guarda a descrição como HTML quando o texto é colado ou
+ * formatado: as linhas viram `<br>` e o conteúdo pode vir embrulhado em `<span>`.
+ * Sem desmontar isso, a descrição inteira vira UMA linha e nenhum campo é lido —
+ * o evento é reprovado por "valor obrigatório" com o valor logo ali (visto ao
+ * vivo no 1º dia). Digitado direto continua chegando em texto puro e passa igual.
+ */
+function textoPuro(descricao: string): string {
+  return descricao
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, "&"); // por último: senão "&amp;lt;" viraria "<"
+}
+
 function field(description: string, names: string[]): string | null {
   const lines = description.split(/\r?\n/);
   for (const line of lines) {
@@ -75,7 +95,7 @@ function extrairPaciente(summary: string): string {
 
 export function parseCalendarAppointment(event: CalendarEventInput): CalendarAppointmentCandidate {
   const summary = (event.summary ?? "").replace(/^\[[^\]]+\]\s*/u, "").trim();
-  const description = event.description ?? "";
+  const description = textoPuro(event.description ?? "");
   const rawAmount = field(description, ["valor"]);
   const rawPhone = field(description, ["telefone", "celular", "whatsapp"]);
   const rawCpf = field(description, ["cpf"]);

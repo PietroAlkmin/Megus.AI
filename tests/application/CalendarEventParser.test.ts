@@ -79,6 +79,32 @@ describe("parseCalendarAppointment", () => {
     expect(r.phone).toBe(esperado);
   });
 
+  // Caso REAL do 1º dia: descrição colada no Google Calendar vira HTML e as
+  // "linhas" viram <br> — sem desmontar, nenhum campo era lido e o evento
+  // reprovava por "valor obrigatório" com o valor logo ali.
+  it("descrição em HTML (texto colado no Google) é lida igual a texto puro", () => {
+    const r = parseCalendarAppointment({
+      id: "e", summary: "Consulta Pietro Alkmin",
+      description: "<span>Nome completo: Pietro Alkmin<br>Telefone: 12 99652-6854<br>Valor: 2<br>CPF: 546.252.558-30</span>",
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.fullName).toBe("Pietro Alkmin");
+    expect(r.phone).toBe("5512996526854");
+    expect(r.amount).toBe(2);
+    expect(r.cpf).toBe("54625255830");
+  });
+
+  it("HTML com <div>, entidades e espaço rígido também é lido", () => {
+    const r = parseCalendarAppointment({
+      id: "e", summary: "Consulta Ana",
+      description: "<div>Nome completo: Ana &amp; Cia</div><div>Telefone:&nbsp;11 98888-7777</div><div>Valor: R$&nbsp;180,00</div>",
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.fullName).toBe("Ana & Cia");
+    expect(r.phone).toBe("5511988887777");
+    expect(r.amount).toBe(180);
+  });
+
   it("evento sem nenhum nome → erro claro", () => {
     const r = parseCalendarAppointment({ id: "e", summary: "consulta", description: "Valor: 100\nTelefone: 11999990000" });
     expect(r.patientKey).toBe("");
