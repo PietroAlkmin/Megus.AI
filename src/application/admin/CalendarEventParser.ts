@@ -36,18 +36,19 @@ function field(description: string, names: string[]): string | null {
 }
 
 /**
- * Extrai o nome do paciente do título. A palavra "consulta" marca o evento como
- * atendimento e pode vir em QUALQUER posição: quem escreve a agenda usa a ordem
- * natural dela ("Bê consulta", "ANTONIO VIOLA-CONSULTA 60MIN") e não a nossa —
- * exigir "Consulta NOME" reprovava eventos corretos e obrigava a clínica a
- * reaprender o próprio jeito de trabalhar. Duração ("60MIN") e separadores saem
- * junto; o que sobra é o nome. Sem a palavra "consulta" → não é atendimento.
+ * Nome do paciente a partir do TÍTULO, seja como for que a clínica escreva:
+ * "Consulta Maria", "Bê consulta", "ANTONIO VIOLA-CONSULTA 60MIN" ou só o nome.
+ * A palavra "consulta" (opcional), a duração e os separadores são ruído —
+ * o que sobra é o nome.
+ *
+ * O que marca o evento como ATENDIMENTO COBRÁVEL não é o título e sim o `Valor:`
+ * preenchido na descrição (checado adiante): é ato deliberado de quem agenda,
+ * enquanto nomenclatura é convenção que o cliente não tem como adivinhar — e
+ * errou 3× seguidas tentando. Reunião/pessoal/spam não têm valor e seguem fora.
  */
 function extrairPaciente(summary: string): string {
-  const MARCADOR = /\bconsultas?\b/iu;
-  if (!MARCADOR.test(summary)) return "";
   return summary
-    .replace(MARCADOR, " ")
+    .replace(/\bconsultas?\b/giu, " ")
     .replace(/\b\d{1,3}\s*min(?:utos)?\b/giu, " ") // "60MIN", "45 minutos"
     .replace(/[-–—|/]+/g, " ")
     .replace(/\s+/g, " ")
@@ -56,15 +57,18 @@ function extrairPaciente(summary: string): string {
 
 export function parseCalendarAppointment(event: CalendarEventInput): CalendarAppointmentCandidate {
   const summary = (event.summary ?? "").replace(/^\[[^\]]+\]\s*/u, "").trim();
-  const title = extrairPaciente(summary);
-  const keyParts = title.match(/^(.*?)(?:\s+(\d{4,}))?$/u);
   const description = event.description ?? "";
   const rawAmount = field(description, ["valor"]);
   const rawPhone = field(description, ["telefone", "celular", "whatsapp"]);
   const rawCpf = field(description, ["cpf"]);
+  const fullName = field(description, ["nome completo", "nome"]);
+  // Quem o paciente é: o "Nome completo" da descrição manda (é o dado explícito);
+  // sem ele, o título limpo. Assim o título pode ser escrito de qualquer jeito.
+  const title = fullName?.trim() || extrairPaciente(summary);
+  const keyParts = title.match(/^(.*?)(?:\s+(\d{4,}))?$/u);
   const errors: string[] = [];
   const warnings: string[] = [];
-  if (!title) errors.push("Título precisa ter a palavra 'consulta' e o nome do paciente.");
+  if (!title) errors.push("Sem nome do paciente: preencha 'Nome completo' na descrição ou o nome no título.");
   // Dígito verificador é matemática pura (offline) — a única conferência de CPF
   // possível hoje, já que não há provedor oficial. Um typo da secretária NÃO
   // bloqueia a cobrança (o CPF nem é usado sem fiscal), mas também não entra no
@@ -79,7 +83,7 @@ export function parseCalendarAppointment(event: CalendarEventInput): CalendarApp
     calendarEventId: event.id,
     patientKey: keyParts?.[1]?.trim() ?? "",
     discriminator: keyParts?.[2] ?? null,
-    fullName: field(description, ["nome completo", "nome"]),
+    fullName,
     phone: rawPhone?.replace(/\D/g, "") ?? null,
     cpf: cpfValido,
     // A resposta real do Composio já devolveu "Endere?o" (perda do ç). Aceitamos
