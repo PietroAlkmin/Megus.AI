@@ -35,9 +35,28 @@ function field(description: string, names: string[]): string | null {
   return null;
 }
 
+/**
+ * Extrai o nome do paciente do título. A palavra "consulta" marca o evento como
+ * atendimento e pode vir em QUALQUER posição: quem escreve a agenda usa a ordem
+ * natural dela ("Bê consulta", "ANTONIO VIOLA-CONSULTA 60MIN") e não a nossa —
+ * exigir "Consulta NOME" reprovava eventos corretos e obrigava a clínica a
+ * reaprender o próprio jeito de trabalhar. Duração ("60MIN") e separadores saem
+ * junto; o que sobra é o nome. Sem a palavra "consulta" → não é atendimento.
+ */
+function extrairPaciente(summary: string): string {
+  const MARCADOR = /\bconsultas?\b/iu;
+  if (!MARCADOR.test(summary)) return "";
+  return summary
+    .replace(MARCADOR, " ")
+    .replace(/\b\d{1,3}\s*min(?:utos)?\b/giu, " ") // "60MIN", "45 minutos"
+    .replace(/[-–—|/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function parseCalendarAppointment(event: CalendarEventInput): CalendarAppointmentCandidate {
   const summary = (event.summary ?? "").replace(/^\[[^\]]+\]\s*/u, "").trim();
-  const title = /^consulta\s+(.+)$/iu.exec(summary)?.[1]?.trim() ?? "";
+  const title = extrairPaciente(summary);
   const keyParts = title.match(/^(.*?)(?:\s+(\d{4,}))?$/u);
   const description = event.description ?? "";
   const rawAmount = field(description, ["valor"]);
@@ -45,7 +64,7 @@ export function parseCalendarAppointment(event: CalendarEventInput): CalendarApp
   const rawCpf = field(description, ["cpf"]);
   const errors: string[] = [];
   const warnings: string[] = [];
-  if (!title) errors.push("Título deve começar com 'Consulta '.");
+  if (!title) errors.push("Título precisa ter a palavra 'consulta' e o nome do paciente.");
   // Dígito verificador é matemática pura (offline) — a única conferência de CPF
   // possível hoje, já que não há provedor oficial. Um typo da secretária NÃO
   // bloqueia a cobrança (o CPF nem é usado sem fiscal), mas também não entra no

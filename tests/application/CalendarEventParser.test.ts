@@ -15,6 +15,33 @@ describe("parseCalendarAppointment", () => {
     expect(parseCalendarAppointment({ id: "evt-3", summary: "Retorno", description: "Telefone: 5511999991111" }).errors).toHaveLength(2);
   });
 
+  // A clínica escreve na ordem dela. Casos REAIS da agenda da cliente (jul/2026 e
+  // o histórico de janeiro) — exigir "Consulta NOME" reprovava evento correto.
+  it.each([
+    ["Bê consulta", "Bê"],
+    ["Consulta Maria Silva", "Maria Silva"],
+    ["ANTONIO VIOLA-CONSULTA 60MIN", "ANTONIO VIOLA"],
+    ["DETE-CONSULTA 60MIN", "DETE"],
+    ["LARISSA VANNUCCI-CONSULTA", "LARISSA VANNUCCI"],
+    ["TATJANA IZABELLA RAMISCH STEINHART-CONSULTA", "TATJANA IZABELLA RAMISCH STEINHART"],
+    ["consulta joão 45 minutos", "joão"],
+  ])("aceita %j → paciente %j", (summary, esperado) => {
+    const r = parseCalendarAppointment({ id: "e", summary, description: "Telefone: 11999990000\nValor: 180" });
+    expect(r.patientKey).toBe(esperado);
+    expect(r.errors).toEqual([]);
+  });
+
+  it("discriminante numérico continua separado do nome, com a palavra em qualquer ordem", () => {
+    expect(parseCalendarAppointment({ id: "e", summary: "Maria consulta 2271", description: "Valor: 180\nTelefone: 11999990000" }))
+      .toMatchObject({ patientKey: "Maria", discriminator: "2271" });
+  });
+
+  it("título SEM a palavra consulta não é atendimento", () => {
+    const r = parseCalendarAppointment({ id: "e", summary: "Reunião equipe médica", description: "Valor: 180" });
+    expect(r.patientKey).toBe("");
+    expect(r.errors.join(" ")).toContain("consulta");
+  });
+
   it("CPF com dígito verificador errado é DESCARTADO e avisado — não entra no banco como válido", () => {
     // 529.982.247-24 (dígito final trocado): typo plausível da secretária.
     const r = parseCalendarAppointment({ id: "evt-4", summary: "Consulta Renato", description: "Telefone: 5511999991111\nCPF: 529.982.247-24\nValor: 180" });
