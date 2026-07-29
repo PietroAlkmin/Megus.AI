@@ -4,6 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Button do shadcn + a variante `quieto`.
+ *
+ * `quieto` é o link de ação da linguagem visual: texto sublinhado, sem caixa e
+ * sem borda — para ações secundárias que não devem competir com a primária
+ * ("Ver pipeline", "Criar conta", "Ver as 6 ações"). Antes disso essas ações
+ * apareciam como `ghost`, que no hover ganha superfície e vira quase um botão.
+ *
+ * O sublinhado fica no estado base (não só no hover) porque acessibilidade não
+ * pode depender de cor: `link` do shadcn sublinha só no hover.
+ */
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
@@ -15,6 +26,8 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        quieto:
+          "h-auto p-0 font-semibold text-secondary-foreground underline decoration-border-strong decoration-1 underline-offset-[3px] hover:text-foreground hover:decoration-foreground",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -39,7 +52,9 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    // `quieto` não tem caixa: qualquer `size` reintroduziria altura e padding.
+    const tamanho = variant === "quieto" ? undefined : size;
+    return <Comp className={cn(buttonVariants({ variant, size: tamanho, className }))} ref={ref} {...props} />;
   },
 );
 Button.displayName = "Button";

@@ -3,24 +3,23 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/context/AuthContext";
 import RequireAuth from "@/components/RequireAuth";
-import RequireOnboarding from "@/components/RequireOnboarding";
 import Shell from "@/components/Shell";
+import { useTema } from "@/hooks/useTema";
 import Login from "@/pages/Login";
 import Cadastro from "@/pages/Cadastro";
-import Home from "@/pages/Home";
-import Empresa from "@/pages/Empresa";
-import Agente from "@/pages/Agente";
-import ConectarWhatsApp from "@/pages/ConectarWhatsApp";
-import Onboarding from "@/pages/Onboarding";
-import Cobrancas from "@/pages/Cobrancas";
-import Atendimentos from "@/pages/Atendimentos";
+import BoasVindas from "@/pages/BoasVindas";
+import Hoje from "@/pages/Hoje";
 import Conversas from "@/pages/Conversas";
+import Financeiro from "@/pages/Financeiro";
+import Agentes from "@/pages/Agentes";
+import Clinica from "@/pages/Clinica";
 import Integracoes from "@/pages/Integracoes";
+import Conta from "@/pages/Conta";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 min — evita refetch supérfluo ao navegar
+      staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       retry: 1,
@@ -28,7 +27,22 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Rotas do Megus.
+ *
+ * Mudança em relação à versão anterior: **saiu o `RequireOnboarding`**.
+ *
+ * Aquele portão redirecionava para um wizard obrigatório e criou dois problemas —
+ * exigia um `sessionStorage` de escape ("pular") para o usuário não ficar preso,
+ * e trancava o produto antes de ele ter mostrado qualquer valor.
+ *
+ * O novo desenho inverte: `/boas-vindas` é uma porta que o usuário ATRAVESSA (só
+ * depois do cadastro, e sempre com saída), e a ativação continua dentro do
+ * produto, no cartão da Hoje. Ninguém fica preso, e o painel ensina configurando.
+ */
 export default function App() {
+  useTema(); // aplica data-theme (creme|salvia) no <html> antes de qualquer render
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -37,34 +51,42 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
-            {/* Onboarding em TELA CHEIA (fora do Shell) — primeiro login */}
+
+            {/* Porta de entrada da conta nova — tela cheia, fora do Shell */}
             <Route
-              path="/onboarding"
+              path="/boas-vindas"
               element={
                 <RequireAuth>
-                  <Onboarding />
+                  <BoasVindas />
                 </RequireAuth>
               }
             />
+
             <Route
               path="/"
               element={
                 <RequireAuth>
-                  <RequireOnboarding>
-                    <Shell />
-                  </RequireOnboarding>
+                  <Shell />
                 </RequireAuth>
               }
             >
-              <Route index element={<Home />} />
-              <Route path="empresa" element={<Empresa />} />
-              <Route path="atendimentos" element={<Atendimentos />} />
+              <Route index element={<Hoje />} />
               <Route path="conversas" element={<Conversas />} />
+              <Route path="financeiro" element={<Financeiro />} />
+              <Route path="agentes" element={<Agentes />} />
+              <Route path="clinica" element={<Clinica />} />
               <Route path="integracoes" element={<Integracoes />} />
-              <Route path="cobrancas" element={<Cobrancas />} />
-              <Route path="agente" element={<Agente />} />
-              <Route path="conectar" element={<ConectarWhatsApp />} />
+              <Route path="conta" element={<Conta />} />
             </Route>
+
+            {/* Redirects das rotas antigas — há cliente em produção e ela pode ter
+               bookmark. Sem isto, `/empresa` cairia no `*` e ia para a home. */}
+            <Route path="/empresa" element={<Navigate to="/clinica" replace />} />
+            <Route path="/agente" element={<Navigate to="/agentes" replace />} />
+            <Route path="/cobrancas" element={<Navigate to="/financeiro" replace />} />
+            <Route path="/atendimentos" element={<Navigate to="/conversas" replace />} />
+            <Route path="/onboarding" element={<Navigate to="/" replace />} />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>
