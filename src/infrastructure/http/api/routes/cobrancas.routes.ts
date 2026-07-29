@@ -45,6 +45,8 @@ interface TelaRow {
   cobradoEm: string | null;
   /** Presente e `true` só nas linhas vindas de Charge (Task 4); ausente no fluxo EmissionIntent de sempre. */
   charge?: true;
+  /** Só em Charge: o cliente pediu nota fiscal? null = não perguntado/sem resposta. */
+  notaSolicitada?: boolean | null;
 }
 
 // Converte a visão de cobrança do banco (EmissionIntent) para o formato da tela.
@@ -87,11 +89,15 @@ function paraTelaCharge(c: Charge, contact: Contact | null): TelaRow {
     agendamento: null,
     pago: c.status === "paga",
     pagoEm: c.paidAt ? c.paidAt.toISOString() : null,
-    notaEmitida: false,
+    // `notaEmitida` aqui é o QUE A CLÍNICA JÁ EMITIU no sistema dela (marcado no
+    // painel) — não emissão automática, que não existe neste fluxo.
+    notaEmitida: c.notaEmitidaEm != null,
     notaNum: null,
     cobrado: c.chargedAt != null,
     cobradoEm: c.chargedAt ? c.chargedAt.toISOString() : null,
     charge: true,
+    /** null = ainda não perguntado/sem resposta; true/false = o que o cliente respondeu. */
+    notaSolicitada: c.notaSolicitada,
   };
 }
 
@@ -273,6 +279,30 @@ export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
       console.warn(`[cobrancas] falha ao enviar cobranca ${id}:`, err instanceof Error ? err.message : err);
       fail(res, "Não foi possível enviar a cobrança.", 502, "CHARGE_SEND_FAILED");
     }
+  });
+
+  // POST /api/cobrancas/charges/:id/nota-emitida — a clínica riscou da lista:
+  // ela emitiu a nota no sistema fiscal DELA. Aqui é só registro (nada é emitido
+  // pelo Megus). `emitida:false` desfaz, para o caso de marcar por engano.
+  r.post("/charges/:id/nota-emitida", async (req: Request, res: Response) => {
+    const { companyId } = req.auth as AuthContext;
+    const id = String(req.params.id ?? "");
+    const emitida = (req.body as { emitida?: unknown } | undefined)?.emitida !== false;
+
+    const charge = await deps.charges.getById(id);
+    if (!charge) {
+      fail(res, "Cobrança não encontrada.", 404, "NOT_FOUND");
+      return;
+    }
+    const integration = await deps.integrations.getById(charge.integrationId);
+    if (!integration || integration.companyId !== companyId) {
+      fail(res, "Cobrança não encontrada.", 404, "NOT_FOUND"); // anti-enumeração
+      return;
+    }
+
+    const now = new Date();
+    await deps.charges.save({ ...charge, notaEmitidaEm: emitida ? now : null, updatedAt: now });
+    ok(res, { id: charge.id, notaEmitida: emitida }, emitida ? "Nota marcada como emitida." : "Marcação desfeita.");
   });
 
   return r;

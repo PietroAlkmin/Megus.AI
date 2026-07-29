@@ -55,7 +55,7 @@ function makeCharge(overrides: Partial<Charge> = {}): Charge {
   return {
     id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: "svc1",
     description: "Consulta médica", amount: 300, status: "cobrada",
-    calendarEventId: null, chargedAt: now, paidAt: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: now, paidAt: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
     ...overrides,
   };
 }

@@ -58,6 +58,21 @@ function isReceiptMedia(inbound: InboundMessage): inbound is InboundMessage & { 
 }
 
 /**
+ * Sim/não de uma pergunta fechada — NEGATIVA primeiro, senão "não quero" casaria
+ * com "quero". `null` = não deu pra saber (o chamador pergunta de novo, nunca
+ * chuta). Determinístico de propósito: registrar "quer nota" errado gera trabalho
+ * (ou falta dele) do lado da clínica.
+ */
+function interpretaSimNao(texto: string): boolean | null {
+  const t = texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  // "deixa" ficou DE FORA: "deixa pra lá" é não, mas "deixa eu ver" é indeciso —
+  // na dúvida devolvemos null e perguntamos de novo.
+  if (/\b(nao|nem|dispenso|desnecessario)\b/u.test(t)) return false;
+  if (/\b(sim|quero|queria|preciso|precisava|pode|claro|manda|favor|isso|obrigad[oa])\b/u.test(t)) return true;
+  return null;
+}
+
+/**
  * Read-back quando a mensagem veio de áudio transcrito: a transcrição pode errar
  * (ex.: um dígito), então o cérebro confirma dados que precisam ser exatos ANTES
  * de agir. GENÉRICO de propósito — sem exemplo de cenário, sem "if CPF" no código
@@ -147,6 +162,8 @@ export class ConversationStateMachine {
       case ConversationState.AwaitingComprovante:
       case ConversationState.VerifyingComprovante:
         return this.handleComprovante(conversation, agentConfig, integration, inbound);
+      case ConversationState.AwaitingNotaAnswer:
+        return this.handleNotaAnswer(conversation, integration, inbound);
       default:
         // Costura Cobrar→comprovante (review final Plano 7): depois de agendar/cobrar
         // a conversa fica LIVRE (New) — mas o comprovante prometido ("me envia aqui")
@@ -346,10 +363,49 @@ export class ConversationStateMachine {
         calendarEventId: extractEventId(booking.output),
         chargedAt: null,
         paidAt: null,
+        notaSolicitada: null, notaEmitidaEm: null,
         createdAt: now,
         updatedAt: now,
       });
     }
+  }
+
+  /**
+   * Resposta do "quer nota fiscal?" (só no fluxo SEM fiscal, após o pagamento
+   * confirmado). Registra na cobrança quitada e encerra. O dinheiro JÁ está
+   * resolvido aqui — nada nesta etapa pode desfazer isso, então qualquer falha
+   * de leitura só re-pergunta. Não passa pelo cérebro: é pergunta fechada, e um
+   * "quer nota" errado vira trabalho (ou falta dele) do lado da clínica.
+   */
+  private async handleNotaAnswer(conv: Conversation, integration: Integration, inbound: InboundMessage): Promise<void> {
+    const instance = integration.evolutionInstance || undefined;
+    const resposta = inbound.text ? interpretaSimNao(inbound.text) : null;
+
+    if (resposta === null) {
+      await this.send(conv, ["Só pra confirmar: você vai precisar de nota fiscal deste atendimento? (sim ou não)"], instance);
+      return; // segue em AwaitingNotaAnswer
+    }
+
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    if (contact) {
+      // A cobrança quitada mais recente é a deste atendimento (acabou de ser paga).
+      const pagas = (await this.d.charges.listByCompanyId(integration.companyId ?? ""))
+        .filter((c) => c.contactId === contact.id && c.status === "paga");
+      const alvo = pagas[0];
+      if (alvo) {
+        await this.d.charges.save({ ...alvo, notaSolicitada: resposta, updatedAt: new Date() });
+      }
+    }
+
+    conv.state = ConversationState.Done;
+    await this.d.conversations.save(conv);
+    await this.send(
+      conv,
+      resposta
+        ? ["Anotado! Vou avisar a clínica para emitir sua nota fiscal. 😊"]
+        : ["Certo, sem nota fiscal então. Qualquer coisa é só chamar!"],
+      instance,
+    );
   }
 
   /** Coleta nome+CPF: chama o cérebro e delega a validação (fluxo fiscal não replaneja). */
@@ -559,13 +615,20 @@ export class ConversationStateMachine {
     }
     this.attempts.delete(tentativasKey);
 
-    // Cobrança sem fiscal: confirmar e quitar é o ponto final. Não cria
-    // EmissionIntent, não chama o provedor fiscal e não fala em nota.
+    // Cobrança sem fiscal: confirmar e quitar é o ponto final do DINHEIRO. Não
+    // cria EmissionIntent nem chama provedor fiscal. Só resta perguntar se o
+    // cliente quer nota — a clínica é quem emite, no sistema dela; a resposta
+    // fica registrada pra ela não precisar reler a conversa.
     if (!cfg.capabilities.fiscal) {
       if (charge) {
         const quitadaEm = new Date();
         await this.d.charges.save({ ...charge, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+        conv.state = ConversationState.AwaitingNotaAnswer;
+        await this.d.conversations.save(conv);
+        await this.send(conv, ["✅ Pagamento confirmado, obrigada!", "Você vai precisar de nota fiscal deste atendimento?"], instance);
+        return;
       }
+      // Sem cobrança vinculada não há o que anotar — encerra como antes.
       conv.state = ConversationState.Done;
       await this.d.conversations.save(conv);
       await this.send(conv, ["✅ Pagamento confirmado. Obrigada!"], instance);

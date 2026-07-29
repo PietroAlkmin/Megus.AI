@@ -66,7 +66,7 @@ describe("transcrição de áudio no state machine", () => {
     const repos = new InMemoryRepositories(); seed(repos);
     const now = new Date();
     await repos.contacts.save({ id: "ct1", integrationId: "int1", whatsappNumber: FROM, fullName: "João da Silva", cpf: "52998224725", cpfNameVerified: true, createdAt: now, updatedAt: now });
-    await repos.charges.save({ id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 180, status: "pendente", calendarEventId: null, chargedAt: null, paidAt: null, createdAt: now, updatedAt: now });
+    await repos.charges.save({ id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 180, status: "pendente", calendarEventId: null, chargedAt: null, paidAt: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now });
     const d = deps(repos);
     const sm = new ConversationStateMachine(d);
     const conv = await repos.conversations.getOrCreate("int1", "ct1", FROM);

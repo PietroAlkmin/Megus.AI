@@ -35,6 +35,10 @@ model Charge {
   calendarEventId String?
   chargedAt       DateTime?
   paidAt          DateTime?
+  /** Cliente pediu nota fiscal? null = não perguntado/sem resposta. Recado p/ a clínica emitir. */
+  notaSolicitada  Boolean?
+  /** Quando a clínica marcou "já emiti" no painel. */
+  notaEmitidaEm   DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime
   Integration     Integration @relation(fields: [integrationId], references: [id])

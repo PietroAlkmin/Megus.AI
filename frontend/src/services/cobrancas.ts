@@ -15,6 +15,12 @@ export interface Cobranca {
   cobradoEm: string | null;
   /** true = linha vinda de Charge (Task 4, botão dispara o WhatsApp de verdade); ausente = fluxo EmissionIntent de sempre. */
   charge?: boolean;
+  /**
+   * O cliente pediu nota fiscal deste atendimento (perguntado após o pagamento)?
+   * `null`/ausente = não perguntado ou sem resposta. Quem emite é a clínica, no
+   * sistema fiscal dela — aqui é só o recado.
+   */
+  notaSolicitada?: boolean | null;
 }
 
 /** Métricas do topo da tela. Espelha `calcularMetricas` do backend. */
@@ -40,6 +46,15 @@ export async function getMetricas(): Promise<CobrancaMetricas> {
 /** POST /api/cobrancas/:id/cobrar — registra a cobrança (fluxo EmissionIntent de sempre). */
 export async function cobrar(id: string): Promise<{ id: string; cobrado: boolean }> {
   return apiFetch<{ id: string; cobrado: boolean }>("POST", `/api/cobrancas/${encodeURIComponent(id)}/cobrar`);
+}
+
+/** POST /api/cobrancas/charges/:id/nota-emitida — a clínica emitiu a nota no sistema dela e riscou da lista. */
+export async function marcarNotaEmitida(id: string, emitida = true): Promise<{ id: string; notaEmitida: boolean }> {
+  return apiFetch<{ id: string; notaEmitida: boolean }>(
+    "POST",
+    `/api/cobrancas/charges/${encodeURIComponent(id)}/nota-emitida`,
+    { emitida },
+  );
 }
 
 /** POST /api/cobrancas/charges/:id/cobrar — Charge (Task 4): o Kaua manda a cobrança de verdade no WhatsApp (valor + Pix). */

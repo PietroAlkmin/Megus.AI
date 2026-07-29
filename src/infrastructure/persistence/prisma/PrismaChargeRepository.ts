@@ -6,11 +6,13 @@ function toDomain(r: {
   id: string; integrationId: string; contactId: string; serviceId: string | null;
   description: string; amount: number; status: string; calendarEventId: string | null;
   chargedAt: Date | null; paidAt: Date | null; createdAt: Date; updatedAt: Date;
+  notaSolicitada?: boolean | null; notaEmitidaEm?: Date | null;
 }): Charge {
   return {
     id: r.id, integrationId: r.integrationId, contactId: r.contactId, serviceId: r.serviceId,
     description: r.description, amount: r.amount, status: r.status as ChargeStatus,
     calendarEventId: r.calendarEventId, chargedAt: r.chargedAt, paidAt: r.paidAt,
+    notaSolicitada: r.notaSolicitada ?? null, notaEmitidaEm: r.notaEmitidaEm ?? null,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
 }
@@ -22,13 +24,16 @@ export class PrismaChargeRepository implements IChargeRepository {
       update: {
         serviceId: charge.serviceId, description: charge.description, amount: charge.amount,
         status: charge.status, calendarEventId: charge.calendarEventId,
-        chargedAt: charge.chargedAt, paidAt: charge.paidAt, updatedAt: charge.updatedAt,
+        chargedAt: charge.chargedAt, paidAt: charge.paidAt,
+        notaSolicitada: charge.notaSolicitada, notaEmitidaEm: charge.notaEmitidaEm,
+        updatedAt: charge.updatedAt,
       },
       create: {
         id: charge.id, integrationId: charge.integrationId, contactId: charge.contactId,
         serviceId: charge.serviceId, description: charge.description, amount: charge.amount,
         status: charge.status, calendarEventId: charge.calendarEventId,
         chargedAt: charge.chargedAt, paidAt: charge.paidAt,
+        notaSolicitada: charge.notaSolicitada, notaEmitidaEm: charge.notaEmitidaEm,
         createdAt: charge.createdAt, updatedAt: charge.updatedAt,
       },
     });

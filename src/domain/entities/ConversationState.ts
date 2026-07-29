@@ -10,6 +10,7 @@ export enum ConversationState {
   ValidatingCpf = "validating_cpf", // confere dígito + CPF↔nome (ICpfProvider)
   AwaitingComprovante = "awaiting_comprovante",
   VerifyingComprovante = "verifying_comprovante", // IComprovanteAnalyzer
+  AwaitingNotaAnswer = "awaiting_nota_answer", // pagamento OK: quer nota fiscal? (recado p/ a clínica)
   ReadyToEmit = "ready_to_emit", // EmissionIntent montado e validado
   Emitting = "emitting", // IFiscalProvider (determinístico)
   Done = "done",

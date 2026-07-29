@@ -36,7 +36,7 @@ async function seedVerifiedWithCharge(repos: InMemoryRepositories, opts: { charg
   if (opts.charge) {
     await repos.charges.save({
       id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 180,
-      status: "cobrada", calendarEventId: "evt-1", chargedAt: new Date(), paidAt: null, createdAt: new Date(), updatedAt: new Date(),
+      status: "cobrada", calendarEventId: "evt-1", chargedAt: new Date(), paidAt: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: new Date(), updatedAt: new Date(),
     });
   }
   return conv;
@@ -64,7 +64,7 @@ describe("duas cobranças em aberto: o comprovante casa PELO VALOR", () => {
     const conv = await seedVerifiedWithCharge(repos); // ch1 = R$180 (mais antiga)
     await repos.charges.save({
       id: "ch2", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 250,
-      status: "pendente", calendarEventId: "evt-2", chargedAt: null, paidAt: null,
+      status: "pendente", calendarEventId: "evt-2", chargedAt: null, paidAt: null, notaSolicitada: null, notaEmitidaEm: null,
       createdAt: new Date(Date.now() + 60_000), updatedAt: new Date(), // mais RECENTE
     });
     return conv;
@@ -148,7 +148,11 @@ describe("costura Cobrar→comprovante: mídia em estado livre com cobrança em 
 
     expect(deps.fiscal.emitNfse).not.toHaveBeenCalled();
     expect(await repos.charges.getById("ch1")).toMatchObject({ status: "paga" });
-    expect(deps.messaging.sendText).toHaveBeenCalledWith(expect.objectContaining({ text: "✅ Pagamento confirmado. Obrigada!" }));
+    // Confirma o pagamento e, na sequência, pergunta sobre nota (recado p/ a
+    // clínica emitir no sistema dela) — detalhado em ConversationStateMachine.notaFiscal.test.ts
+    const ditas = (deps.messaging.sendText as any).mock.calls.map((c: any) => c[0].text as string).join(" ");
+    expect(ditas).toContain("Pagamento confirmado");
+    expect(ditas).toContain("nota fiscal");
   });
 
   it("mídia em New SEM cobrança em aberto → papo comum (nada de gate B)", async () => {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarClock, CheckCircle2, Clock, FileText, Loader2, Send, TriangleAlert,
+  CalendarClock, Check, CheckCircle2, Clock, FileText, Loader2, Send, TriangleAlert,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,18 @@ export default function CobrancasView() {
     },
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : "Não foi possível enviar a cobrança.");
+    },
+  });
+
+  // A clínica emitiu a nota no sistema fiscal DELA e risca da lista aqui.
+  const notaMutation = useMutation({
+    mutationFn: (id: string) => cobrancasService.marcarNotaEmitida(id),
+    onSuccess: () => {
+      toast.success("Nota marcada como emitida.");
+      queryClient.invalidateQueries({ queryKey: ["cobrancas"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : "Não foi possível marcar.");
     },
   });
 
@@ -147,7 +159,36 @@ export default function CobrancasView() {
                         <td className="px-4 py-3">
                           <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>{st.label}</span>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{c.notaNum ?? "—"}</td>
+                        {/* Nota: no fluxo Charge quem emite é a CLÍNICA (no sistema
+                            fiscal dela). A coluna mostra o que o cliente respondeu
+                            depois de pagar, e o botão serve pra ela riscar da lista. */}
+                        <td className="px-4 py-3">
+                          {c.charge ? (
+                            c.notaEmitida ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                                <Check className="size-3.5" /> Emitida
+                              </span>
+                            ) : c.notaSolicitada === true ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs text-amber-700 hover:bg-amber-50"
+                                disabled={notaMutation.isPending}
+                                onClick={() => notaMutation.mutate(c.id)}
+                                title="Marcar que você já emitiu a nota no seu sistema"
+                              >
+                                {notaMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : <FileText className="size-3" />}
+                                Pediu nota
+                              </Button>
+                            ) : c.notaSolicitada === false ? (
+                              <span className="text-xs text-muted-foreground">Não quis</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )
+                          ) : (
+                            <span className="text-muted-foreground">{c.notaNum ?? "—"}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           {podeCobrar ? (
                             <Button

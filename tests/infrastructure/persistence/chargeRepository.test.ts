@@ -20,6 +20,8 @@ function makeCharge(
     amount: 100,
     status: "pendente",
     calendarEventId: null,
+    notaSolicitada: null,
+    notaEmitidaEm: null,
     chargedAt: null,
     paidAt: null,
     updatedAt: overrides.createdAt,
