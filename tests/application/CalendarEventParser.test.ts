@@ -49,7 +49,7 @@ describe("parseCalendarAppointment", () => {
     });
     expect(r.errors).toEqual([]);
     expect(r.patientKey).toBe("Leandro Precaro Barankiewicz Filho");
-    expect(r.phone).toBe("11942842271");
+    expect(r.phone).toBe("5511942842271"); // DDI acrescentado — sem ele o envio falha
     expect(r.amount).toBe(200);
   });
 
@@ -64,6 +64,19 @@ describe("parseCalendarAppointment", () => {
   it("evento SEM valor não é atendimento cobrável (reunião/pessoal seguem fora)", () => {
     const r = parseCalendarAppointment({ id: "e", summary: "marta | reunião equipe médica", description: "" });
     expect(r.errors.join(" ")).toContain("Valor");
+  });
+
+  // Falha REAL do 1º dia: cobrança criada, botão Cobrar deu 502 porque o número
+  // ficou sem DDI (a clínica anota "11 94284-2271", como se fala).
+  it.each([
+    ["11 94284-2271", "5511942842271"],   // celular nacional escrito como se fala
+    ["(12) 99999-1111", "5512999991111"], // com parênteses
+    ["1142842271", "551142842271"],       // fixo, 10 dígitos
+    ["+55 11 99999-1111", "5511999991111"], // já tem DDI → não duplica
+    ["5511942842271", "5511942842271"],   // já normalizado
+  ])("telefone %j → %j (WhatsApp exige DDI)", (escrito, esperado) => {
+    const r = parseCalendarAppointment({ id: "e", summary: "Consulta X", description: `Telefone: ${escrito}\nValor: 100` });
+    expect(r.phone).toBe(esperado);
   });
 
   it("evento sem nenhum nome → erro claro", () => {

@@ -26,6 +26,24 @@ function normalized(value: string): string {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 }
 
+/**
+ * Telefone no formato que o WhatsApp usa (DDI+DDD+número, só dígitos).
+ *
+ * Quem escreve a agenda anota como fala — "11 94284-2271" — e sem o DDI o envio
+ * FALHA (visto ao vivo: cobrança criada, botão Cobrar deu 502). Os contatos que
+ * nascem de mensagem recebida já vêm com 55; os que nascem da agenda não vinham,
+ * então o mesmo paciente virava dois cadastros e a cobrança saía pro número
+ * impossível. 10/11 dígitos = número nacional → prefixa 55. Já com DDI (12/13
+ * começando em 55) fica como está. Tamanho fora disso não é mexido: preferimos
+ * falhar visível a inventar um número.
+ */
+function normalizarTelefone(raw: string | null | undefined): string | null {
+  const d = (raw ?? "").replace(/\D/g, "");
+  if (!d) return null;
+  if (d.length === 10 || d.length === 11) return `55${d}`;
+  return d;
+}
+
 function field(description: string, names: string[]): string | null {
   const lines = description.split(/\r?\n/);
   for (const line of lines) {
@@ -84,7 +102,7 @@ export function parseCalendarAppointment(event: CalendarEventInput): CalendarApp
     patientKey: keyParts?.[1]?.trim() ?? "",
     discriminator: keyParts?.[2] ?? null,
     fullName,
-    phone: rawPhone?.replace(/\D/g, "") ?? null,
+    phone: normalizarTelefone(rawPhone),
     cpf: cpfValido,
     // A resposta real do Composio já devolveu "Endere?o" (perda do ç). Aceitamos
     // essa variação degradada sem tornar o campo opcional para o parser.
