@@ -158,7 +158,7 @@ export default function Cadastro() {
 
             <p className="text-center text-sm text-muted-foreground">
               Já tem conta?{" "}
-              <Link to="/login" className="font-bold text-accent">
+              <Link to="/login" className="font-bold text-primary underline-offset-4 hover:underline">
                 Entrar
               </Link>
             </p>
