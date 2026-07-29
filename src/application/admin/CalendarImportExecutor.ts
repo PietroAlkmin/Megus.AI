@@ -26,6 +26,19 @@ export class CalendarImportExecutor {
         await this.d.contacts.save({ id: contactId, integrationId, whatsappNumber: item.phone, fullName: item.fullName ?? item.patientKey, cpf: item.cpf, cpfNameVerified: true, createdAt: new Date(), updatedAt: new Date() });
         resolved.set(item.patientKey, contactId);
       }
+      // Paciente que já tinha conversado existe apenas como telefone (o contato
+      // nasce da mensagem recebida, sem nome). Se a agenda trouxe nome/CPF,
+      // completamos o cadastro — sem sobrescrever o que já estava preenchido.
+      const existente = await this.d.contacts.getById(contactId);
+      if (existente && ((!existente.fullName && (item.fullName ?? item.patientKey)) || (!existente.cpf && item.cpf))) {
+        await this.d.contacts.save({
+          ...existente,
+          fullName: existente.fullName ?? item.fullName ?? item.patientKey,
+          cpf: existente.cpf ?? item.cpf,
+          updatedAt: new Date(),
+        });
+      }
+
       const now = new Date();
       await this.d.charges.save({ id: randomUUID(), integrationId, contactId, serviceId: null, description: "Consulta", amount: item.amount, status: "pendente", calendarEventId: item.eventId, chargedAt: null, paidAt: null, createdAt: now, updatedAt: now });
       created += 1;

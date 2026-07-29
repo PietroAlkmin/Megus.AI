@@ -11,7 +11,17 @@ function norm(value: string): string {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function matches(contact: Contact, key: string, discriminator: string | null): boolean {
+/**
+ * O TELEFONE é a identidade forte: é por ele que a conversa e a cobrança se
+ * encontram no WhatsApp. Casar só por nome duplicava o paciente que JÁ tinha
+ * conversado — esse contato nasce da mensagem recebida e vem **sem nome**, então
+ * nunca casava, e o import criava um segundo cadastro: a cobrança ia pro novo e
+ * o comprovante chegava no antigo (que não tinha cobrança) — o gate B nunca
+ * rodava e o cérebro respondia genérico. Visto ao vivo no 1º dia da cliente.
+ * O nome continua valendo como 2º critério, para o evento que não traz telefone.
+ */
+function matches(contact: Contact, key: string, discriminator: string | null, phone: string | null): boolean {
+  if (phone && contact.whatsappNumber === phone) return true;
   if (!contact.fullName || !norm(contact.fullName).startsWith(norm(key))) return false;
   return !discriminator || contact.whatsappNumber.endsWith(discriminator);
 }
@@ -33,7 +43,7 @@ export class CalendarImportPlanner {
         plan.push({ kind: "invalid", eventId: candidate.calendarEventId, patientKey: candidate.patientKey, reason: candidate.errors.join(" ") });
         continue;
       }
-      const found = known.filter((contact) => matches(contact, candidate.patientKey, candidate.discriminator));
+      const found = known.filter((contact) => matches(contact, candidate.patientKey, candidate.discriminator, candidate.phone));
       if (found.length > 1) {
         plan.push({ kind: "invalid", eventId: candidate.calendarEventId, patientKey: candidate.patientKey, reason: "Paciente ambíguo: use discriminante no título." });
         continue;
