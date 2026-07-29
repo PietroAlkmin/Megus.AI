@@ -1,131 +1,76 @@
 import { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import AuthBackdrop from "@/components/AuthBackdrop";
 import Brand from "@/components/Brand";
+import PainelMarca, { ErroForm } from "@/components/auth/PainelMarca";
+import { Campo } from "@/components/ui/megus";
 import { useAuth } from "@/hooks/useAuth";
 import { ApiError } from "@/lib/api";
 
-const loginSchema = z.object({
-  email: z.string().email("E-mail inválido."),
-  password: z.string().min(1, "Informe a senha."),
-});
-
-type LoginValues = z.infer<typeof loginSchema>;
-
+/**
+ * Login.
+ *
+ * Reescrito na linguagem visual atual: sem cartão de vidro, sem backdrop de
+ * formas, sem ícones dentro dos campos. O peso visual vai para a foto da
+ * clínica — a promessa da marca — e o formulário fica quieto.
+ *
+ * O erro aparece como fio na margem (`ErroForm`), não como toast: erro de
+ * credencial pertence ao formulário, não a um aviso que passa e some.
+ */
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
-  const form = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
-  });
-
-  async function onSubmit(values: LoginValues) {
+  async function onSubmit(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!email.trim() || senha.length < 6) {
+      setErro("Informe e-mail e uma senha de 6+ caracteres.");
+      return;
+    }
+    setErro("");
+    setEnviando(true);
     try {
-      await login(values);
-      toast.success("Login efetuado! Redirecionando…");
+      await login({ email, password: senha });
       navigate("/", { replace: true });
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Erro inesperado. Tente novamente.");
+      setErro(error instanceof ApiError ? error.message : "Não foi possível entrar. Tente novamente.");
+    } finally {
+      setEnviando(false);
     }
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-card">
-      <AuthBackdrop />
+    <div className="grid min-h-screen lg:grid-cols-2">
+      <div className="flex flex-col justify-center px-6 py-10 sm:px-14">
+        <div className="mx-auto w-full max-w-[380px]">
+          <Brand size="lg" variante="completa" className="mb-9" />
+          <h1 className="font-brand text-[30px] font-bold leading-none tracking-[-0.03em] text-foreground">Entrar</h1>
+          <p className="mb-7 mt-2 text-[13.5px] text-muted-foreground">
+            Gestão de clínica, do agendamento à nota fiscal.
+          </p>
 
-      <header className="relative z-10 px-8 py-6">
-        <Brand />
-      </header>
-
-      <main className="relative z-10 flex flex-1 items-center justify-center px-5 pb-6 pt-2">
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex w-full max-w-[432px] flex-col gap-[18px] rounded-xl border border-border bg-white/[0.82] p-9 shadow-lg backdrop-blur-xl"
-          >
-            <div className="text-center">
-              <h1 className="font-brand text-[27px] font-extrabold tracking-tight text-foreground">Bem-vindo de volta</h1>
-              <p className="mt-[7px] text-[14.5px] text-muted-foreground">Acesse o painel do seu atendente virtual.</p>
-            </div>
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[11px] font-bold uppercase tracking-wide text-foreground/80">E-mail</FormLabel>
-                  <FormControl>
-                    <div className="relative flex items-center">
-                      <Mail className="pointer-events-none absolute left-3.5 h-[17px] w-[17px] text-muted-foreground" />
-                      <Input type="email" placeholder="voce@clinica.com.br" className="h-[50px] pl-10" autoComplete="email" {...field} />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[11px] font-bold uppercase tracking-wide text-foreground/80">Senha</FormLabel>
-                  <FormControl>
-                    <div className="relative flex items-center">
-                      <Lock className="pointer-events-none absolute left-3.5 h-[17px] w-[17px] text-muted-foreground" />
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                        className="h-[50px] pl-10 pr-10"
-                        autoComplete="current-password"
-                        {...field}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        className="absolute right-2 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-                        title={showPassword ? "Ocultar" : "Mostrar"}
-                      >
-                        {showPassword ? <EyeOff className="h-[17px] w-[17px]" /> : <Eye className="h-[17px] w-[17px]" />}
-                      </button>
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" disabled={form.formState.isSubmitting} className="mt-0.5 h-[50px] rounded-md text-[15px] font-bold">
-              {form.formState.isSubmitting ? "Entrando…" : "Entrar"}
-              {!form.formState.isSubmitting && <ArrowRight className="h-[17px] w-[17px]" />}
+          <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
+            <Campo rot="E-mail" valor={email} onChange={setEmail} ph="voce@clinica.com.br" tipo="email" />
+            <Campo rot="Senha" valor={senha} onChange={setSenha} ph="••••••••" tipo="password" />
+            {erro && <ErroForm texto={erro} />}
+            <Button type="submit" size="lg" className="mt-1 w-full" disabled={enviando}>
+              {enviando ? "Entrando…" : "Entrar"}
             </Button>
-
-            <p className="text-center text-sm text-muted-foreground">
-              Ainda não tem conta?{" "}
-              <Link to="/cadastro" className="font-bold text-accent">
-                Criar conta
-              </Link>
-            </p>
           </form>
-        </Form>
-      </main>
 
-      <footer className="relative z-10 mx-auto max-w-[460px] px-5 pb-7 text-center text-[12.5px] leading-relaxed text-muted-foreground/80">
-        Ao continuar você aceita os <span className="underline underline-offset-2">Termos de uso</span> e a{" "}
-        <span className="underline underline-offset-2">Política de privacidade</span> da Megus AI.
-      </footer>
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-[12.5px] text-muted-foreground">
+            Não tem conta?
+            <Button asChild variant="quieto" size="sm">
+              <Link to="/cadastro">Criar conta</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+      <PainelMarca />
     </div>
   );
 }
