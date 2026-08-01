@@ -360,6 +360,8 @@ export class ConversationStateMachine {
         description: service.description,
         amount: service.price,
         status: "pendente",
+        // Cobrança nasce sem agendamento: a clínica decide se manda agora ou marca hora.
+        scheduledFor: null,
         calendarEventId: extractEventId(booking.output),
         chargedAt: null,
         paidAt: null,

@@ -47,6 +47,8 @@ import { CalendarImportPlanner } from "./application/admin/CalendarImportPlanner
 import { CalendarImportExecutor } from "./application/admin/CalendarImportExecutor";
 import { CalendarImportService } from "./application/admin/CalendarImportService";
 import { AdminChargeService } from "./application/admin/AdminChargeService";
+import { ChargeSender } from "./application/charges/ChargeSender";
+import { startChargeScheduler } from "./application/charges/ChargeScheduler";
 import { seedPilot } from "./infrastructure/persistence/seedPilot";
 import { seedPilotAdmin } from "./infrastructure/persistence/seedPilotAdmin";
 
@@ -211,6 +213,18 @@ async function bootstrap(): Promise<void> {
     },
   });
 
+  // Disparo da cobrança em UM lugar: painel, `/admin cobrar` e envio agendado
+  // mandam a mesma mensagem porque usam este mesmo objeto.
+  const chargeSender = new ChargeSender({
+    charges: repos.charges,
+    contacts: repos.contacts,
+    integrations: repos.integrations,
+    conversations: repos.conversations,
+    companyProfiles: repos.companyProfiles,
+    agentConfigs: repos.agentConfigs,
+    messaging,
+  });
+
   const handle = new HandleInboundMessage({
     integrations: repos.integrations,
     agentConfigs: repos.agentConfigs,
@@ -222,7 +236,7 @@ async function bootstrap(): Promise<void> {
     adminCommands: new AdminCommandHandler({
       access: repos.adminWhatsappAccess,
       messaging,
-      charges: new AdminChargeService({ charges: repos.charges, contacts: repos.contacts, integrations: repos.integrations, configs: repos.agentConfigs, profiles: repos.companyProfiles, conversations: repos.conversations, messaging }),
+      charges: new AdminChargeService({ charges: repos.charges, contacts: repos.contacts, integrations: repos.integrations, sender: chargeSender }),
       calendar: toolsProvider
         ? new CalendarImportService({ reader: toolsProvider, planner: new CalendarImportPlanner({ contacts: repos.contacts, charges: repos.charges }), executor: new CalendarImportExecutor({ contacts: repos.contacts, charges: repos.charges }) })
         : undefined,
@@ -232,6 +246,9 @@ async function bootstrap(): Promise<void> {
   // Registra o handler de inbound no provider e sobe
   messaging.onInboundMessage((m) => handle.execute(m));
   await messaging.start();
+
+  // Cobranças que a clínica marcou para uma data/hora saem sozinhas.
+  startChargeScheduler({ charges: repos.charges, sender: chargeSender });
 
   // App Express da API REST (/api). connectOps é o MESMO toolsProvider usado no
   // cérebro (Fase B) — undefined sem COMPOSIO_API_KEY, então /conectar responde 503

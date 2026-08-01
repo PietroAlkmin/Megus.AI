@@ -88,6 +88,32 @@ describe("ComprovanteAnalyzer", () => {
     expect(result.recipientMatches).toBe(true);
   });
 
+  it("tenta de novo quando a visão falha e usa o resultado da 2ª chamada", async () => {
+    // Falso positivo da moderação da OpenAI visto em prod: a MESMA imagem passa
+    // na tentativa seguinte. Sem retry, comprovante bom vira "não consegui ler".
+    const completeWithTool = vi
+      .fn<IAIProvider["completeWithTool"]>()
+      .mockRejectedValueOnce(new Error("400 Invalid prompt: flagged as potentially violating our usage policy"))
+      .mockResolvedValueOnce({ name: "extract_receipt", arguments: { amount: 200, recipientDoc: "12345678000199", confidence: 0.92 } });
+    const analyzer = new ComprovanteAnalyzer({ completeWithTool }, "gpt-4o");
+
+    const result = await analyzer.analyze(INPUT);
+
+    expect(completeWithTool).toHaveBeenCalledTimes(2);
+    expect(result.amount).toBe(200);
+    expect(result.recipientMatches).toBe(true);
+  });
+
+  it("propaga o erro quando as DUAS tentativas falham (chamador pede reenvio)", async () => {
+    const completeWithTool = vi
+      .fn<IAIProvider["completeWithTool"]>()
+      .mockRejectedValue(new Error("timeout"));
+    const analyzer = new ComprovanteAnalyzer({ completeWithTool }, "gpt-4o");
+
+    await expect(analyzer.analyze(INPUT)).rejects.toThrow("timeout");
+    expect(completeWithTool).toHaveBeenCalledTimes(2);
+  });
+
   it("passa a imagem como parte image na mensagem user", async () => {
     type SpyFn = (opts: import("../../../src/domain/ports/IAIProvider").AICompleteOptions) => Promise<import("../../../src/domain/ports/IAIProvider").AIToolCall>;
     const createSpy = vi.fn<SpyFn>(async () => ({

@@ -16,6 +16,12 @@ export interface Cobranca {
   /** true = linha vinda de Charge (Task 4, botão dispara o WhatsApp de verdade); ausente = fluxo EmissionIntent de sempre. */
   charge?: boolean;
   /**
+   * Envio marcado para esta data/hora (ISO) — a clínica agendou em vez de mandar
+   * na hora. `null`/ausente = sem agendamento. A cobrança segue "pendente" até
+   * sair de fato: agendado não é cobrado.
+   */
+  agendadaPara?: string | null;
+  /**
    * O cliente pediu nota fiscal deste atendimento (perguntado após o pagamento)?
    * `null`/ausente = não perguntado ou sem resposta. Quem emite é a clínica, no
    * sistema fiscal dela — aqui é só o recado.
@@ -57,7 +63,21 @@ export async function marcarNotaEmitida(id: string, emitida = true): Promise<{ i
   );
 }
 
-/** POST /api/cobrancas/charges/:id/cobrar — Charge (Task 4): o Kaua manda a cobrança de verdade no WhatsApp (valor + Pix). */
-export async function cobrarCharge(id: string): Promise<{ id: string; status: string }> {
-  return apiFetch<{ id: string; status: string }>("POST", `/api/cobrancas/charges/${encodeURIComponent(id)}/cobrar`);
+/**
+ * POST /api/cobrancas/charges/:id/cobrar — o Kaua manda a cobrança de verdade
+ * no WhatsApp (valor + Pix).
+ *
+ * `quando` decide o momento: omitido = agora; data futura = agenda o disparo
+ * (nada sai ainda); `null` = desmarca um agendamento. Data no passado o backend
+ * trata como "agora" — quem clicou quer cobrar.
+ */
+export async function cobrarCharge(
+  id: string,
+  quando?: Date | null,
+): Promise<{ id: string; status: string; agendadaPara?: string | null }> {
+  return apiFetch<{ id: string; status: string; agendadaPara?: string | null }>(
+    "POST",
+    `/api/cobrancas/charges/${encodeURIComponent(id)}/cobrar`,
+    quando === undefined ? undefined : { quando: quando ? quando.toISOString() : null },
+  );
 }

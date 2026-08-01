@@ -21,6 +21,9 @@ const EXTRACT_RECEIPT: AITool = {
   },
 };
 
+/** Pausa antes da segunda tentativa — retry instantâneo tende a repetir o veredito. */
+const RETRY_DELAY_MS = 600;
+
 /**
  * Conferência de comprovante via visão — AGNÓSTICA de provedor (usa IAIProvider).
  * Modelo injetado (env: AI_MODEL_VISION). O cruzamento recebedor==prestador é
@@ -30,17 +33,7 @@ export class ComprovanteAnalyzer implements IComprovanteAnalyzer {
   constructor(private readonly ai: IAIProvider, private readonly model: string) {}
 
   async analyze(input: ComprovanteInput): Promise<ComprovanteAnalysis> {
-    const call = await this.ai.completeWithTool({
-      model: this.model,
-      tool: EXTRACT_RECEIPT,
-      messages: [
-        { role: "system", content: "Você lê comprovantes de pagamento e extrai valor, pagador, documento do recebedor e chave Pix exibida. Se a chave Pix não estiver legível ou não aparecer, devolva null e seja conservador na confiança." },
-        { role: "user", content: [
-          { type: "text", text: `Recebedor esperado: ${input.expectedRecipientName} (${input.expectedRecipientDoc}). Chave Pix esperada: ${input.expectedPixKey ?? "não informada"}. Extraia os dados do comprovante.` },
-          { type: "image", mimetype: input.media.mimetype, base64: input.media.base64, url: input.media.url },
-        ] },
-      ],
-    });
+    const call = await this.completeComRetry(input);
     const a = call.arguments as { amount?: number; payerName?: string; recipientDoc?: string; recipientPixKey?: string; confidence?: number };
     const recipientMatches =
       onlyDigits(a.recipientDoc) === onlyDigits(input.expectedRecipientDoc) && onlyDigits(a.recipientDoc).length > 0;
@@ -57,5 +50,42 @@ export class ComprovanteAnalyzer implements IComprovanteAnalyzer {
       confidence: a.confidence ?? 0,
       raw: JSON.stringify(a),
     };
+  }
+
+  /**
+   * UMA segunda chance quando a chamada de visão falha.
+   *
+   * Motivo real (prod, 29/07): a moderação da OpenAI deu falso positivo num
+   * comprovante legítimo (`400 Invalid prompt: flagged as potentially violating
+   * our usage policy`) e a MESMA imagem passou nas tentativas seguintes — é
+   * transitório, não é a imagem nem o prompt. Sem retry o paciente lê "não
+   * consegui ler seu comprovante" por um erro que não é dele, e o teste com a
+   * clínica trava achando que o reconhecimento não funciona.
+   *
+   * Vale para qualquer falha (timeout, 5xx), não só moderação: a resposta a um
+   * erro de sistema é tentar de novo, e nenhum gate é afrouxado — o que a
+   * segunda chamada devolver passa pela mesma conferência. Falhou de novo, o
+   * erro SOBE: o chamador mantém a conversa aguardando e pede reenvio.
+   */
+  private async completeComRetry(input: ComprovanteInput) {
+    const opts = {
+      model: this.model,
+      tool: EXTRACT_RECEIPT,
+      messages: [
+        { role: "system" as const, content: "Você lê comprovantes de pagamento e extrai valor, pagador, documento do recebedor e chave Pix exibida. Se a chave Pix não estiver legível ou não aparecer, devolva null e seja conservador na confiança." },
+        { role: "user" as const, content: [
+          { type: "text" as const, text: `Recebedor esperado: ${input.expectedRecipientName} (${input.expectedRecipientDoc}). Chave Pix esperada: ${input.expectedPixKey ?? "não informada"}. Extraia os dados do comprovante.` },
+          { type: "image" as const, mimetype: input.media.mimetype, base64: input.media.base64, url: input.media.url },
+        ] },
+      ],
+    };
+
+    try {
+      return await this.ai.completeWithTool(opts);
+    } catch (err) {
+      console.warn("[fiscal] visão falhou, tentando mais uma vez:", err instanceof Error ? err.message : err);
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      return await this.ai.completeWithTool(opts);
+    }
   }
 }

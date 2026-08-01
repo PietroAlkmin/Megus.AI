@@ -40,7 +40,7 @@ export class CalendarImportExecutor {
       }
 
       const now = new Date();
-      await this.d.charges.save({ id: randomUUID(), integrationId, contactId, serviceId: null, description: "Consulta", amount: item.amount, status: "pendente", calendarEventId: item.eventId, chargedAt: null, paidAt: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now });
+      await this.d.charges.save({ id: randomUUID(), integrationId, contactId, serviceId: null, description: "Consulta", amount: item.amount, status: "pendente", calendarEventId: item.eventId, chargedAt: null, paidAt: null, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now });
       created += 1;
     }
     return created;

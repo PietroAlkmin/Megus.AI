@@ -35,6 +35,8 @@ model Charge {
   calendarEventId String?
   chargedAt       DateTime?
   paidAt          DateTime?
+  /** Hora marcada para o disparo automático. null = sem agendamento (sai no clique). */
+  scheduledFor    DateTime?
   /** Cliente pediu nota fiscal? null = não perguntado/sem resposta. Recado p/ a clínica emitir. */
   notaSolicitada  Boolean?
   /** Quando a clínica marcou "já emiti" no painel. */

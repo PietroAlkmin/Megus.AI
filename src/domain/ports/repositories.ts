@@ -125,6 +125,12 @@ export interface IChargeRepository {
   listChargeableByContact(integrationId: string, contactId: string): Promise<Charge[]>;
   /** Cobrança "cobrável" mais recente do contato (status != paga) — o gate B marca paga. */
   findLatestChargeableByContact(integrationId: string, contactId: string): Promise<Charge | null>;
+  /**
+   * Cobranças com envio agendado que já venceram (`scheduledFor <= now`) e ainda
+   * estão "pendente" — o laço do ChargeScheduler dispara estas. Varre TODAS as
+   * empresas de propósito: o laço é do processo, não de um tenant.
+   */
+  listDueScheduled(now: Date): Promise<Charge[]>;
 }
 
 /** Empresa a que um usuário tem acesso (seletor do painel). */

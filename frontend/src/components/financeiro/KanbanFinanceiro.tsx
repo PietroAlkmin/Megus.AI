@@ -1,10 +1,21 @@
 import { useState } from "react";
-import { Check, FileText, GripVertical } from "lucide-react";
+import { Check, Clock, FileText, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Rotulo } from "@/components/ui/megus";
 import { cn, formatarBRL } from "@/lib/utils";
 import type { Cobranca } from "@/services/cobrancas";
 import { ETAPAS, etapaDe, paradoDe, situacaoNota, temperatura, type EtapaId } from "@/services/pipeline";
+
+/** "hoje 09:00" / "04/08 09:00" — no card cabe pouco, então o dia some quando é hoje. */
+function formatarQuandoCurto(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "agendado";
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const hoje = new Date();
+  const mesmoDia = d.toDateString() === hoje.toDateString();
+  if (mesmoDia) return `hoje ${hora}`;
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${hora}`;
+}
 
 interface KanbanProps {
   cobrancas: Cobranca[];
@@ -177,6 +188,15 @@ function CardPaciente({
       {c.notaNum && (
         <div className="mt-2 flex items-center gap-1.5 font-mono text-[10.5px] text-menta-ink">
           <FileText size={11} /> {c.notaNum}
+        </div>
+      )}
+
+      {/* Agendado fica VISÍVEL no card: sem isso a cobrança aparece parada em "A
+          cobrar" como qualquer outra, e a clínica clica Cobrar — o paciente
+          receberia a mensagem duas vezes. */}
+      {c.agendadaPara && !c.cobrado && (
+        <div className="mt-2 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+          <Clock size={11} /> envio {formatarQuandoCurto(c.agendadaPara)}
         </div>
       )}
 

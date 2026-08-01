@@ -6,12 +6,13 @@ function toDomain(r: {
   id: string; integrationId: string; contactId: string; serviceId: string | null;
   description: string; amount: number; status: string; calendarEventId: string | null;
   chargedAt: Date | null; paidAt: Date | null; createdAt: Date; updatedAt: Date;
-  notaSolicitada?: boolean | null; notaEmitidaEm?: Date | null;
+  notaSolicitada?: boolean | null; notaEmitidaEm?: Date | null; scheduledFor?: Date | null;
 }): Charge {
   return {
     id: r.id, integrationId: r.integrationId, contactId: r.contactId, serviceId: r.serviceId,
     description: r.description, amount: r.amount, status: r.status as ChargeStatus,
     calendarEventId: r.calendarEventId, chargedAt: r.chargedAt, paidAt: r.paidAt,
+    scheduledFor: r.scheduledFor ?? null,
     notaSolicitada: r.notaSolicitada ?? null, notaEmitidaEm: r.notaEmitidaEm ?? null,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
@@ -24,7 +25,7 @@ export class PrismaChargeRepository implements IChargeRepository {
       update: {
         serviceId: charge.serviceId, description: charge.description, amount: charge.amount,
         status: charge.status, calendarEventId: charge.calendarEventId,
-        chargedAt: charge.chargedAt, paidAt: charge.paidAt,
+        chargedAt: charge.chargedAt, paidAt: charge.paidAt, scheduledFor: charge.scheduledFor,
         notaSolicitada: charge.notaSolicitada, notaEmitidaEm: charge.notaEmitidaEm,
         updatedAt: charge.updatedAt,
       },
@@ -32,7 +33,7 @@ export class PrismaChargeRepository implements IChargeRepository {
         id: charge.id, integrationId: charge.integrationId, contactId: charge.contactId,
         serviceId: charge.serviceId, description: charge.description, amount: charge.amount,
         status: charge.status, calendarEventId: charge.calendarEventId,
-        chargedAt: charge.chargedAt, paidAt: charge.paidAt,
+        chargedAt: charge.chargedAt, paidAt: charge.paidAt, scheduledFor: charge.scheduledFor,
         notaSolicitada: charge.notaSolicitada, notaEmitidaEm: charge.notaEmitidaEm,
         createdAt: charge.createdAt, updatedAt: charge.updatedAt,
       },
@@ -67,6 +68,16 @@ export class PrismaChargeRepository implements IChargeRepository {
     const rows = await prisma.charge.findMany({
       where: { integrationId, contactId, status: { not: "paga" } },
       orderBy: { createdAt: "desc" },
+    });
+    return rows.map(toDomain);
+  }
+
+  // Só "pendente": cobrança já disparada na mão (cobrada) ou paga não deve sair
+  // de novo pelo agendamento — o disparo manual vence o combinado.
+  async listDueScheduled(now: Date): Promise<Charge[]> {
+    const rows = await prisma.charge.findMany({
+      where: { status: "pendente", scheduledFor: { not: null, lte: now } },
+      orderBy: { scheduledFor: "asc" },
     });
     return rows.map(toDomain);
   }

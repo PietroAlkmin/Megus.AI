@@ -11,6 +11,7 @@ import { agenteRoutes } from "./routes/agente.routes";
 import { atendimentosRoutes } from "./routes/atendimentos.routes";
 import { createConversasRouters } from "./routes/conversas.routes";
 import { cobrancasRoutes } from "./routes/cobrancas.routes";
+import { ChargeSender } from "../../../application/charges/ChargeSender";
 import { whatsappRoutes } from "./routes/whatsapp.routes";
 import { ferramentasRoutes } from "./routes/ferramentas.routes";
 import type { IWhatsAppProvisioner } from "../../../domain/ports/IWhatsAppProvisioner";
@@ -108,6 +109,19 @@ export function createApiApp(deps: ApiDeps): Express {
     companyProfiles: deps.repos.companyProfiles,
     agentConfigs: deps.repos.agentConfigs,
     messaging: deps.messaging,
+    // Mesmo disparo do `/admin cobrar` e do envio agendado. Sem mensageria não
+    // há sender — a rota responde 503 em vez de fingir que enviou.
+    sender: deps.messaging
+      ? new ChargeSender({
+          charges: deps.repos.charges,
+          contacts: deps.repos.contacts,
+          integrations: deps.repos.integrations,
+          conversations: deps.repos.conversations,
+          companyProfiles: deps.repos.companyProfiles,
+          agentConfigs: deps.repos.agentConfigs,
+          messaging: deps.messaging,
+        })
+      : undefined,
     authMiddleware,
   }));
 

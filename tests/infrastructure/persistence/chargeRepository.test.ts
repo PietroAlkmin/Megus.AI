@@ -20,6 +20,7 @@ function makeCharge(
     amount: 100,
     status: "pendente",
     calendarEventId: null,
+    scheduledFor: null,
     notaSolicitada: null,
     notaEmitidaEm: null,
     chargedAt: null,
@@ -115,6 +116,35 @@ describe("InMemoryRepositories.charges — contrato", () => {
     const repos = new InMemoryRepositories();
     const found = await repos.charges.findLatestChargeableByContact("int1", "ct-sem-cobranca");
     expect(found).toBeNull();
+  });
+
+  it("listDueScheduled pega só o que já venceu, ordenado pela hora marcada", async () => {
+    const repos = new InMemoryRepositories();
+    repos.seed({ integrations: [makeIntegration("int1", "co1")] });
+    const agora = new Date(2026, 7, 1, 12, 0);
+
+    await repos.charges.save(makeCharge({ id: "ch-venceu-cedo", integrationId: "int1", contactId: "ct1", scheduledFor: new Date(2026, 7, 1, 9, 0), createdAt: agora }));
+    await repos.charges.save(makeCharge({ id: "ch-venceu-tarde", integrationId: "int1", contactId: "ct2", scheduledFor: new Date(2026, 7, 1, 11, 0), createdAt: agora }));
+    await repos.charges.save(makeCharge({ id: "ch-futura", integrationId: "int1", contactId: "ct3", scheduledFor: new Date(2026, 7, 2, 9, 0), createdAt: agora }));
+    await repos.charges.save(makeCharge({ id: "ch-sem-agendamento", integrationId: "int1", contactId: "ct4", createdAt: agora }));
+
+    const vencidas = await repos.charges.listDueScheduled(agora);
+    expect(vencidas.map((c) => c.id)).toEqual(["ch-venceu-cedo", "ch-venceu-tarde"]);
+  });
+
+  it("listDueScheduled ignora cobrada e paga — só 'pendente' sai pelo agendamento", async () => {
+    // Quem já disparou na mão não pode receber a mensagem de novo na hora marcada.
+    const repos = new InMemoryRepositories();
+    repos.seed({ integrations: [makeIntegration("int1", "co1")] });
+    const agora = new Date(2026, 7, 1, 12, 0);
+    const venceu = new Date(2026, 7, 1, 9, 0);
+
+    await repos.charges.save(makeCharge({ id: "ch-cobrada", integrationId: "int1", contactId: "ct1", status: "cobrada", scheduledFor: venceu, createdAt: agora }));
+    await repos.charges.save(makeCharge({ id: "ch-paga", integrationId: "int1", contactId: "ct2", status: "paga", scheduledFor: venceu, createdAt: agora }));
+    await repos.charges.save(makeCharge({ id: "ch-pendente", integrationId: "int1", contactId: "ct3", status: "pendente", scheduledFor: venceu, createdAt: agora }));
+
+    const vencidas = await repos.charges.listDueScheduled(agora);
+    expect(vencidas.map((c) => c.id)).toEqual(["ch-pendente"]);
   });
 
   it("findLatestChargeableByContact não mistura cobranças de outro contato ou outra integração", async () => {

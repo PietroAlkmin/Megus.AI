@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
-import { randomUUID } from "node:crypto";
 import { ok, fail } from "../result";
+import type { ChargeSender } from "../../../../application/charges/ChargeSender";
 import type { AuthContext } from "../authMiddleware";
 import type {
   IEmissionIntentRepository,
@@ -27,6 +27,8 @@ export interface CobrancasRoutesDeps {
   agentConfigs?: IAgentConfigRepository;
   /** Envio de WhatsApp da cobrança proativa (Task 4). Ausente = a rota de charge fica indisponível (503) — ex.: testes de outras rotas que não passam messaging. */
   messaging?: IMessagingProvider;
+  /** Disparo da cobrança — o MESMO usado pelo `/admin cobrar` e pelo envio agendado. */
+  sender?: ChargeSender;
   authMiddleware: (req: Request, res: Response, next: () => void) => void;
 }
 
@@ -45,6 +47,8 @@ interface TelaRow {
   cobradoEm: string | null;
   /** Presente e `true` só nas linhas vindas de Charge (Task 4); ausente no fluxo EmissionIntent de sempre. */
   charge?: true;
+  /** Só em Charge: envio marcado para esta data/hora (ISO). null = sem agendamento. */
+  agendadaPara?: string | null;
   /** Só em Charge: o cliente pediu nota fiscal? null = não perguntado/sem resposta. */
   notaSolicitada?: boolean | null;
 }
@@ -96,6 +100,7 @@ function paraTelaCharge(c: Charge, contact: Contact | null): TelaRow {
     cobrado: c.chargedAt != null,
     cobradoEm: c.chargedAt ? c.chargedAt.toISOString() : null,
     charge: true,
+    agendadaPara: c.scheduledFor ? c.scheduledFor.toISOString() : null,
     /** null = ainda não perguntado/sem resposta; true/false = o que o cliente respondeu. */
     notaSolicitada: c.notaSolicitada,
   };
@@ -125,44 +130,23 @@ async function listaCombinada(deps: CobrancasRoutesDeps, companyId: string): Pro
   return [...rows.map(paraTela), ...chargeRows];
 }
 
-/** Primeiro nome do contato pra saudação — nunca inventa nome (sem nome: "Olá!" liso). */
-function primeiroNome(fullName: string | null | undefined): string {
-  const nome = (fullName ?? "").trim();
-  return nome ? nome.split(/\s+/)[0]! : "";
-}
-
-/** Mesma convenção usada no resto da casa pra valores em mensagem/PDF ("R$ 180,00"). */
-function formatBRL(amount: number): string {
-  return "R$ " + amount.toFixed(2).replace(".", ",");
-}
-
 /**
- * Monta a mensagem de cobrança proativa do Kaua: valor do serviço + Pix da
- * empresa (se cadastrado) + instrução do comprovante. Sem `pixKey`, a linha de
- * Pix é OMITIDA por inteiro — nunca um placeholder tipo "Pix: a combinar".
+ * Data/hora do agendamento vinda do corpo (`quando`). Devolve:
+ *  - `undefined` — campo ausente: enviar AGORA (comportamento de sempre).
+ *  - `null` — `quando: null`: cancelar um agendamento existente.
+ *  - `Date` — agendar. Data no passado vira envio agora: quem clicou "cobrar"
+ *    numa data que já passou quer cobrar, não deixar preso num agendamento
+ *    que nunca vence.
+ *  - `"invalida"` — texto que não é data: erro, nunca um palpite.
  */
-function montarMensagemCobranca(params: {
-  fullName: string | null | undefined;
-  description: string;
-  amount: number;
-  pixType: string | null | undefined;
-  pixKey: string | null | undefined;
-  fiscalEnabled: boolean;
-}): string {
-  const nome = primeiroNome(params.fullName);
-  const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
-  const partes = [
-    `${saudacao} Passando para combinar o pagamento da sua ${params.description}: ${formatBRL(params.amount)}.`,
-  ];
-  if (params.pixKey) {
-    // "(tipo)" só quando existe — pixType vazio no cadastro renderizaria "Pix (): chave".
-    const tipo = params.pixType?.trim() ? ` (${params.pixType.trim()})` : "";
-    partes.push(`Pix${tipo}: ${params.pixKey}.`);
-  }
-  partes.push(params.fiscalEnabled
-    ? "Depois é só me enviar o comprovante por aqui que eu já emito sua nota fiscal. 😊"
-    : "Depois é só me enviar o comprovante por aqui para eu confirmar o pagamento. 😊");
-  return partes.join("\n\n");
+function lerQuando(body: unknown): Date | null | undefined | "invalida" {
+  const bruto = (body as { quando?: unknown } | undefined)?.quando;
+  if (bruto === undefined) return undefined;
+  if (bruto === null) return null;
+  if (typeof bruto !== "string") return "invalida";
+  const d = new Date(bruto);
+  if (Number.isNaN(d.getTime())) return "invalida";
+  return d.getTime() <= Date.now() ? undefined : d;
 }
 
 export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
@@ -209,11 +193,23 @@ export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
 
   // POST /api/cobrancas/charges/:id/cobrar — Task 4: o Kaua manda a cobrança
   // DE VERDADE no WhatsApp do paciente (valor + Pix da empresa) e marca "cobrada".
+  //
+  // Corpo opcional `{ quando }`: ausente = agora (é o que o botão sempre fez);
+  // data futura = agenda o disparo (quem envia é o laço do ChargeScheduler);
+  // `null` = desmarca. Cobrança agendada segue "pendente" até sair de fato — a
+  // clínica não pode ver como "cobrado" algo que o paciente não recebeu.
   r.post("/charges/:id/cobrar", async (req: Request, res: Response) => {
     const { companyId } = req.auth as AuthContext;
     const id = String(req.params.id ?? "");
 
-    if (!deps.messaging) {
+    const quando = lerQuando(req.body);
+    if (quando === "invalida") {
+      fail(res, "Data de agendamento inválida.", 400, "VALIDATION");
+      return;
+    }
+
+    // Agendar sem ter como enviar seria promessa vazia — mesma guarda dos dois casos.
+    if (!deps.messaging || !deps.sender) {
       fail(res, "Cobrança indisponível no momento.", 503, "CHARGE_UNAVAILABLE");
       return;
     }
@@ -236,44 +232,21 @@ export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
       return;
     }
 
+    // Agendar/desmarcar: só grava a data, nada sai agora.
+    if (quando !== undefined) {
+      await deps.charges.save({ ...charge, scheduledFor: quando, updatedAt: new Date() });
+      ok(
+        res,
+        { id: charge.id, status: charge.status, agendadaPara: quando ? quando.toISOString() : null },
+        quando ? "Envio agendado." : "Agendamento cancelado.",
+      );
+      return;
+    }
+
     try {
-      const contact = await deps.contacts.getById(charge.contactId);
-      if (!contact) throw new Error("contato da cobrança não encontrado");
-
-      const companyProfile = await deps.companyProfiles.getByCompanyId(companyId);
-      const agentConfig = deps.agentConfigs
-        ? await deps.agentConfigs.getByIntegrationId(integration.id)
-        : null;
-      const text = montarMensagemCobranca({
-        fullName: contact.fullName,
-        description: charge.description,
-        amount: charge.amount,
-        pixType: companyProfile?.pixType,
-        pixKey: companyProfile?.pixKey,
-        fiscalEnabled: agentConfig?.capabilities.fiscal === true,
-      });
-
-      await deps.messaging.sendText({
-        to: contact.whatsappNumber,
-        text,
-        instance: integration.evolutionInstance || undefined,
-      });
-
-      const conversation = await deps.conversations.getOrCreate(integration.id, charge.contactId, contact.whatsappNumber);
-      await deps.conversations.appendMessage({
-        id: randomUUID(),
-        conversationId: conversation.id,
-        direction: "outbound",
-        author: "agent",
-        kind: "text",
-        body: text,
-        mediaUrl: null,
-        createdAt: new Date(),
-      });
-
-      const now = new Date();
-      await deps.charges.save({ ...charge, status: "cobrada", chargedAt: now, updatedAt: now });
-
+      // Enviar na mão LIMPA o agendamento: o combinado foi cumprido antes da
+      // hora e o laço não pode mandar a mesma cobrança de novo.
+      await deps.sender.send({ ...charge, scheduledFor: null });
       ok(res, { id: charge.id, status: "cobrada" });
     } catch (err) {
       console.warn(`[cobrancas] falha ao enviar cobranca ${id}:`, err instanceof Error ? err.message : err);

@@ -17,6 +17,15 @@ export interface Charge {
   chargedAt: Date | null; // quando o botão "Cobrar" disparou a mensagem
   paidAt: Date | null; // quando o gate B confirmou o pagamento
   /**
+   * Hora marcada para o disparo automático da cobrança. `null` = sem
+   * agendamento (sai na hora do clique, comportamento de sempre).
+   *
+   * Quem envia é o laço do ChargeScheduler; depois disso a cobrança é idêntica
+   * a uma disparada na mão (status "cobrada" + chargedAt), porque é o MESMO
+   * caminho de envio. O campo permanece preenchido como registro do combinado.
+   */
+  scheduledFor: Date | null;
+  /**
    * O cliente quer nota fiscal deste atendimento? Perguntado DEPOIS do pagamento
    * confirmado. `null` = ainda não respondeu/não foi perguntado.
    *

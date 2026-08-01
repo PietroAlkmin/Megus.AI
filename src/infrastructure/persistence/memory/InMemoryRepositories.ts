@@ -254,6 +254,10 @@ export class InMemoryRepositories {
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       return cobraveis[0] ?? null;
     },
+    listDueScheduled: async (now) =>
+      this._charges
+        .filter((c) => c.status === "pendente" && c.scheduledFor != null && c.scheduledFor.getTime() <= now.getTime())
+        .sort((a, b) => a.scheduledFor!.getTime() - b.scheduledFor!.getTime()),
   };
 
   // A entidade de domínio EmissionIntent não carrega os campos de agenda/cobrança

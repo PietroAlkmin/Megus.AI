@@ -81,22 +81,22 @@ async function seedCenario() {
   const chargePendente: Charge = {
     id: "chA-pendente", integrationId: "intA", contactId: "ctA", serviceId: "svc1",
     description: "Massagem", amount: 180, status: "pendente",
-    calendarEventId: null, chargedAt: null, paidAt: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   const chargeCobrada: Charge = {
     id: "chA-cobrada", integrationId: "intA", contactId: "ctA", serviceId: "svc1",
     description: "Retorno", amount: 90, status: "cobrada",
-    calendarEventId: null, chargedAt: now, paidAt: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: now, paidAt: null, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   const chargePaga: Charge = {
     id: "chA-paga", integrationId: "intA", contactId: "ctA", serviceId: "svc1",
     description: "Consulta", amount: 300, status: "paga",
-    calendarEventId: null, chargedAt: now, paidAt: now, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: now, paidAt: now, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   const chargeBeta: Charge = {
     id: "chB-pendente", integrationId: "intB", contactId: "ctB", serviceId: null,
     description: "Sessão", amount: 250, status: "pendente",
-    calendarEventId: null, chargedAt: null, paidAt: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   await repos.charges.save(chargePendente);
   await repos.charges.save(chargeCobrada);
@@ -241,6 +241,100 @@ describe("cobrancas — charges (Task 4: botao Cobrar dispara o WhatsApp)", () =
     const sendTextMock = messaging.sendText as any;
     const args = sendTextMock.mock.calls[0][0];
     expect(args.text).not.toContain("Pix");
+  });
+
+  it("quando futuro -> AGENDA (nada é enviado) e a cobrança segue pendente", async () => {
+    const { repos, chargePendente } = await seedCenario();
+    const messaging = fakeMessaging();
+    const url = await sobe(repos, messaging);
+    const amanha = new Date(Date.now() + 24 * 3600_000);
+
+    const res = await fetch(`${url}/api/cobrancas/charges/${chargePendente.id}/cobrar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${makeToken("c1")}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quando: amanha.toISOString() }),
+    });
+    const body = (await res.json()) as Envelope<{ agendadaPara: string | null }>;
+
+    expect(res.status).toBe(200);
+    expect(body.data.agendadaPara).toBe(amanha.toISOString());
+    // Nada sai agora: quem envia é o laço, na hora marcada.
+    expect(messaging.sendText).not.toHaveBeenCalled();
+
+    const charge = await repos.charges.getById(chargePendente.id);
+    // Continua "pendente": a clínica não pode ver como cobrado o que o paciente não recebeu.
+    expect(charge?.status).toBe("pendente");
+    expect(charge?.chargedAt).toBeNull();
+    expect(charge?.scheduledFor?.toISOString()).toBe(amanha.toISOString());
+  });
+
+  it("quando null -> desmarca o agendamento, sem enviar", async () => {
+    const { repos, chargePendente } = await seedCenario();
+    await repos.charges.save({ ...chargePendente, scheduledFor: new Date(Date.now() + 3600_000) });
+    const messaging = fakeMessaging();
+    const url = await sobe(repos, messaging);
+
+    const res = await fetch(`${url}/api/cobrancas/charges/${chargePendente.id}/cobrar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${makeToken("c1")}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quando: null }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(messaging.sendText).not.toHaveBeenCalled();
+    expect((await repos.charges.getById(chargePendente.id))?.scheduledFor).toBeNull();
+  });
+
+  it("enviar na mão LIMPA o agendamento (senão o laço mandaria de novo)", async () => {
+    const { repos, chargePendente } = await seedCenario();
+    await repos.charges.save({ ...chargePendente, scheduledFor: new Date(Date.now() + 3600_000) });
+    const messaging = fakeMessaging();
+    const url = await sobe(repos, messaging);
+
+    const res = await fetch(`${url}/api/cobrancas/charges/${chargePendente.id}/cobrar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${makeToken("c1")}` },
+    });
+
+    expect(res.status).toBe(200);
+    expect(messaging.sendText).toHaveBeenCalledOnce();
+    const charge = await repos.charges.getById(chargePendente.id);
+    expect(charge?.status).toBe("cobrada");
+    expect(charge?.scheduledFor).toBeNull();
+  });
+
+  it("quando no PASSADO -> envia agora (quem clicou quer cobrar, não deixar preso)", async () => {
+    const { repos, chargePendente } = await seedCenario();
+    const messaging = fakeMessaging();
+    const url = await sobe(repos, messaging);
+
+    const res = await fetch(`${url}/api/cobrancas/charges/${chargePendente.id}/cobrar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${makeToken("c1")}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quando: new Date(Date.now() - 3600_000).toISOString() }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(messaging.sendText).toHaveBeenCalledOnce();
+    expect((await repos.charges.getById(chargePendente.id))?.status).toBe("cobrada");
+  });
+
+  it("quando não é data -> 400, sem enviar nem agendar", async () => {
+    const { repos, chargePendente } = await seedCenario();
+    const messaging = fakeMessaging();
+    const url = await sobe(repos, messaging);
+
+    const res = await fetch(`${url}/api/cobrancas/charges/${chargePendente.id}/cobrar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${makeToken("c1")}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ quando: "semana que vem" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(messaging.sendText).not.toHaveBeenCalled();
+    const charge = await repos.charges.getById(chargePendente.id);
+    expect(charge?.status).toBe("pendente");
+    expect(charge?.scheduledFor).toBeNull();
   });
 
   it("falha no envio (messaging lança) -> 502 e a cobrança continua pendente", async () => {
