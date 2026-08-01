@@ -154,8 +154,32 @@ describe("POST/GET /api/agente/whatsapp", () => {
     const body = await readJson<{ connected: boolean; number: string | null }>(res);
 
     expect(body.data.connected).toBe(false);
+    // Devolve o número que ESTAVA pareado: é o que distingue "caiu" de "nunca
+    // pareou" e permite o aviso de queda no painel.
+    expect(body.data.number).toBe("5511988887777");
     const saved = await repos.integrations.getById("int1");
     expect(saved?.whatsappNumber).toBe("5511988887777"); // preservado, não apagado
+  });
+
+  it("GET /status de quem NUNCA pareou → number null (nada de aviso de queda falso)", async () => {
+    const repos = seedRepos();
+    await repos.integrations.updateConnection("int1", "megus-int1", "");
+    const provisioner: IWhatsAppProvisioner = {
+      provision: vi.fn(),
+      status: vi.fn(async () => ({ connected: false, number: null })),
+      disconnect: vi.fn(),
+    };
+    const app = createApiApp({ repos, jwtSecret: JWT_SECRET, corsOrigins: "*", provisioner });
+    const listening = await listen(app);
+    server = listening.server;
+
+    const res = await fetch(`http://localhost:${listening.port}/api/agente/whatsapp/status`, {
+      headers: { Authorization: `Bearer ${makeToken("company-x")}` },
+    });
+    const body = await readJson<{ connected: boolean; number: string | null }>(res);
+
+    expect(body.data.connected).toBe(false);
+    expect(body.data.number).toBeNull();
   });
 
   it("DELETE /conexao desparea a instância da empresa e LIMPA o número gravado", async () => {

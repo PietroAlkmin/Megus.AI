@@ -10,6 +10,7 @@ import {
   Home,
   LogOut,
   MessagesSquare,
+  PlugZap,
   Settings,
   Zap,
   type LucideIcon,
@@ -22,6 +23,7 @@ import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import * as authService from "@/services/auth";
 import * as conversasService from "@/services/conversas";
+import * as whatsappService from "@/services/whatsapp";
 
 /**
  * Navegação em dois grupos — a divisão responde a "com que frequência eu abro isto?".
@@ -78,6 +80,22 @@ export default function Shell() {
     refetchInterval: 60_000,
   });
   const aguardando = conversasQuery.data ?? 0;
+
+  /**
+   * Aviso de queda do WhatsApp — em TODAS as telas, não só em Integrações.
+   *
+   * A clínica ficou 3 dias com o número desconectado sem ninguém perceber: o
+   * cartão de ativação some quando a ativação termina, e nada mais falava do
+   * assunto. `number` preenchido com `connected: false` é a assinatura exata de
+   * "estava pareado e caiu" — clínica que nunca pareou não vê aviso nenhum,
+   * senão o alerta viraria paisagem no primeiro dia.
+   */
+  const whatsappQuery = useQuery({
+    queryKey: ["whatsapp", "status"],
+    queryFn: whatsappService.status,
+    refetchInterval: 60_000,
+  });
+  const caiu = whatsappQuery.data?.connected === false && Boolean(whatsappQuery.data.number);
 
   useEffect(() => {
     if (!menuAberto) return;
@@ -255,6 +273,24 @@ export default function Shell() {
             {inicial}
           </NavLink>
         </header>
+
+        {caiu && (
+          <button
+            type="button"
+            onClick={() => navigate("/integracoes")}
+            className="flex shrink-0 items-center gap-2.5 border-b border-destructive/25 bg-destructive-soft px-4 py-2.5 text-left transition-colors hover:bg-destructive-soft/70 md:px-7"
+          >
+            <PlugZap size={15} className="shrink-0 text-destructive" />
+            <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-foreground">
+              <strong className="font-semibold">O WhatsApp caiu.</strong> O número{" "}
+              <span className="font-mono">{whatsappQuery.data?.number}</span> não está mais conectado — nenhuma mensagem
+              chega ao Kaua até religar.
+            </span>
+            <span className="shrink-0 text-[11.5px] font-semibold text-destructive underline underline-offset-2">
+              Religar
+            </span>
+          </button>
+        )}
 
         <main className="min-w-0 flex-1 overflow-auto pb-[64px] md:pb-0">
           <div key={location.pathname} className="entra-pagina">

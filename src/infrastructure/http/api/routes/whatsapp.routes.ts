@@ -50,7 +50,14 @@ export function whatsappRoutes(deps: WhatsAppRoutesDeps): Router {
       // devolveu um (edge case), preserva o já gravado em vez de apagar.
       await deps.integrations.updateConnection(integration.id, instanceName, number ?? integration.whatsappNumber);
     }
-    ok(res, { connected, number });
+    // Desconectado devolve o número que ESTAVA pareado (o gravado no banco).
+    // Antes vinha `null` e a tela não distinguia "nunca pareou" de "caiu" — as
+    // duas viravam "nenhum número pareado". Uma queda real passou 3 dias sem
+    // ninguém notar por causa disso; agora dá pra avisar dizendo qual número caiu.
+    //
+    // Integração provisionada mas nunca pareada grava `""` — normalizado pra
+    // null, senão "sem número" viraria um número vazio no aviso.
+    ok(res, { connected, number: number || integration.whatsappNumber || null });
   });
 
   // DELETE /api/agente/whatsapp/conexao — desfaz o pareamento da empresa logada.
