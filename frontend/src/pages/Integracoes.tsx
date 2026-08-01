@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import WhatsAppConnectPanel from "@/components/whatsapp/WhatsAppConnectPanel";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Marco, TituloPagina } from "@/components/ui/megus";
@@ -46,13 +48,18 @@ export default function Integracoes() {
     void queryClient.invalidateQueries({ queryKey: ["whatsapp", "status"] });
   }
 
+  /**
+   * O pareamento do WhatsApp acontece NESTA tela: `connect()` devolve um QR que
+   * precisa ser lido na hora. Mandar o usuário para outro lugar depois de gerar
+   * (era o comportamento anterior) descartava o QR — e não havia tela nenhuma
+   * exibindo-o, então não dava para conectar um número novo.
+   */
+  const [pareando, setPareando] = useState(false);
+
   /** Roteia para o fluxo real de cada conexão. */
   const conectar = useMutation({
     mutationFn: async (id: FerramentaId) => {
-      if (id === "whatsapp") {
-        await whatsappService.connect();
-        return { tipo: "qr" as const };
-      }
+      if (id === "whatsapp") return { tipo: "qr" as const };
       if (id === "agenda") {
         const { url } = await ferramentasService.agendaConectar();
         // OAuth do Google precisa de janela própria — não abre em iframe.
@@ -64,7 +71,7 @@ export default function Integracoes() {
     },
     onSuccess: (r, id) => {
       recarregar();
-      if (r.tipo === "qr") toast.info("Instância criada. Leia o QR em Agentes para parear o número.");
+      if (r.tipo === "qr") setPareando(true); // o painel abaixo gera e mostra o QR
       if (r.tipo === "oauth") toast.info("Autorize a conta Google na aba que abriu.");
       if (r.tipo === "navegar") navigate("/clinica");
       if (r.tipo === "indisponivel") toast.info(`${nomeDe(ferramentas, id)} ainda não tem integração disponível.`);
@@ -154,6 +161,21 @@ export default function Integracoes() {
           );
         })}
       </div>
+
+      {/* Pareamento do WhatsApp: o painel cuida de gerar o QR, fazer o polling
+          do status e sumir quando conectar. Fica aqui embaixo (e não em modal)
+          porque ler QR exige a tela parada e o celular na mão. */}
+      {pareando && (
+        <div className="mt-5">
+          <WhatsAppConnectPanel
+            onConnected={() => {
+              setPareando(false);
+              recarregar();
+              toast.success("Número conectado.");
+            }}
+          />
+        </div>
+      )}
 
       {!ativacao.completo && (
         <p className="mt-5 text-[12px] text-muted-foreground">

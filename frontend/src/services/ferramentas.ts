@@ -108,12 +108,7 @@ export async function listFerramentasFallback(): Promise<Ferramenta[]> {
   ];
 }
 
-/**
- * POST /api/integracoes/:id/conectar — inicia a conexão.
- *
- * Para o WhatsApp o backend devolve o pareamento (a Evolution API usa WhatsApp
- * Web); para a agenda, redirecione usando `agendaConectar()`.
- */
-export async function conectar(id: FerramentaId): Promise<Ferramenta> {
-  return apiFetch<Ferramenta>("POST", `/api/integracoes/${id}/conectar`);
-}
+/* Não existe `POST /api/integracoes/:id/conectar` e não deve existir tão cedo:
+   cada conexão tem fluxo próprio e incompatível — QR que precisa ser lido na
+   hora (WhatsApp), OAuth em janela separada (agenda), e "serviços" que nem é
+   conectar, é preencher cadastro. Quem roteia é a tela (`pages/Integracoes`). */
