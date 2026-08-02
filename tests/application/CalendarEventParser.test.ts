@@ -13,6 +13,29 @@ describe("parseCalendarAppointment", () => {
     expect(parseCalendarAppointment({ id: "evt-2", summary: "Consulta Renato 2222", description: "Valor: 150" })).toMatchObject({ patientKey: "Renato", discriminator: "2222", amount: 150, errors: [] });
   });
 
+  /**
+   * O valor vira DINHEIRO cobrado do paciente — escrita diferente não pode virar
+   * cobrança diferente. `150.00` chegava a apagar o ponto como separador de
+   * milhar e cobrar R$ 15.000,00 (100× a mais); nenhum teste pegava porque todos
+   * usavam inteiro.
+   */
+  it.each([
+    ["R$ 180,00", 180],
+    ["180", 180],
+    ["0,10", 0.1],
+    ["0.10", 0.1],
+    ["0.2", 0.2],
+    ["150.00", 150],       // ponto DECIMAL — não é milhar
+    ["1.500", 1500],       // ponto MILHAR — 3 dígitos no último grupo
+    ["1.500,50", 1500.5],
+    ["R$ 1.200", 1200],
+    ["12.000", 12000],
+  ])("valor %s → %s", (escrito, esperado) => {
+    const r = parseCalendarAppointment({ id: "v", summary: "Consulta Ana", description: `Valor: ${escrito}` });
+    expect(r.amount).toBe(esperado);
+    expect(r.errors).toEqual([]);
+  });
+
   it("sem valor → rejeitado (o valor é o que marca o evento como cobrável)", () => {
     const r = parseCalendarAppointment({ id: "evt-3", summary: "Retorno", description: "Telefone: 5511999991111" });
     expect(r.errors).toHaveLength(1);

@@ -93,6 +93,31 @@ function extrairPaciente(summary: string): string {
     .trim();
 }
 
+/**
+ * Valor do evento em reais, aceitando como a clínica escreve — inclusive com
+ * PONTO decimal.
+ *
+ * A versão anterior apagava todo ponto como separador de milhar: `150.00` virava
+ * `15000` e a cobrança saía **cem vezes maior**. Ninguém tinha esbarrado porque
+ * os testes usaram inteiros (`200`, `2`), mas "150.00" é escrita comum.
+ *
+ * Regra: com vírgula presente, convenção brasileira pura (ponto=milhar,
+ * vírgula=decimal). Só com ponto é ambíguo — `1.500` é mil e quinhentos e
+ * `150.00` é cento e cinquenta —, então decide pelo tamanho do último grupo:
+ * exatamente 3 dígitos é milhar, qualquer outra quantidade é decimal.
+ */
+export function parseValorBR(raw: string | null | undefined): number {
+  const limpo = (raw ?? "").replace(/[^0-9,.-]/g, "").trim();
+  if (!limpo) return NaN;
+  if (limpo.includes(",")) return Number(limpo.replace(/\./g, "").replace(",", "."));
+
+  const partes = limpo.split(".");
+  if (partes.length === 1) return Number(limpo);
+  const ultimo = partes[partes.length - 1]!;
+  if (ultimo.length === 3) return Number(partes.join("")); // 1.500 · 12.000
+  return Number(partes.slice(0, -1).join("") + "." + ultimo); // 150.00 · 0.10 · 1.500.00
+}
+
 export function parseCalendarAppointment(event: CalendarEventInput): CalendarAppointmentCandidate {
   const summary = (event.summary ?? "").replace(/^\[[^\]]+\]\s*/u, "").trim();
   const description = textoPuro(event.description ?? "");
@@ -114,8 +139,7 @@ export function parseCalendarAppointment(event: CalendarEventInput): CalendarApp
   const cpfDigits = rawCpf?.replace(/\D/g, "") ?? null;
   const cpfValido = cpfDigits && Cpf.isValid(cpfDigits) ? cpfDigits : null;
   if (cpfDigits && !cpfValido) warnings.push(`CPF inválido no evento (${cpfDigits}) — ignorado.`);
-  const amountDigits = rawAmount?.replace(/[^0-9,.-]/g, "").replace(/\./g, "").replace(",", ".");
-  const amount = amountDigits ? Number(amountDigits) : NaN;
+  const amount = parseValorBR(rawAmount);
   if (!Number.isFinite(amount) || amount <= 0) errors.push("Valor obrigatório e maior que zero.");
   return {
     calendarEventId: event.id,
