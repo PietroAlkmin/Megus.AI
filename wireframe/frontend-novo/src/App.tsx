@@ -1,0 +1,89 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/context/AuthContext";
+import RequireAuth from "@/components/RequireAuth";
+import Shell from "@/components/Shell";
+import { useTema } from "@/hooks/useTema";
+import Login from "@/pages/Login";
+import Cadastro from "@/pages/Cadastro";
+import Hoje from "@/pages/Hoje";
+import Conversas from "@/pages/Conversas";
+import Financeiro from "@/pages/Financeiro";
+import Agentes from "@/pages/Agentes";
+import Clinica from "@/pages/Clinica";
+import Integracoes from "@/pages/Integracoes";
+import Conta from "@/pages/Conta";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+/**
+ * Rotas do Megus.
+ *
+ * Mudança em relação à versão anterior: **saiu o `RequireOnboarding`**.
+ *
+ * Aquele portão redirecionava para um wizard obrigatório e criou dois problemas —
+ * exigia um `sessionStorage` de escape ("pular") para o usuário não ficar preso,
+ * e trancava o produto antes de ele ter mostrado qualquer valor.
+ *
+ * O novo desenho inverte: `/boas-vindas` é uma porta que o usuário ATRAVESSA (só
+ * depois do cadastro, e sempre com saída), e a ativação continua dentro do
+ * produto, no cartão da Hoje. Ninguém fica preso, e o painel ensina configurando.
+ */
+export default function App() {
+  useTema(); // aplica data-theme (creme|salvia) no <html> antes de qualquer render
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Toaster />
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/cadastro" element={<Cadastro />} />
+                </RequireAuth>
+              }
+            />
+
+            <Route
+              path="/"
+              element={
+                <RequireAuth>
+                  <Shell />
+                </RequireAuth>
+              }
+            >
+              <Route index element={<Hoje />} />
+              <Route path="conversas" element={<Conversas />} />
+              <Route path="financeiro" element={<Financeiro />} />
+              <Route path="agentes" element={<Agentes />} />
+              <Route path="clinica" element={<Clinica />} />
+              <Route path="integracoes" element={<Integracoes />} />
+              <Route path="conta" element={<Conta />} />
+            </Route>
+
+            {/* Redirects das rotas antigas — há cliente em produção e ela pode ter
+               bookmark. Sem isto, `/empresa` cairia no `*` e ia para a home. */}
+            <Route path="/empresa" element={<Navigate to="/clinica" replace />} />
+            <Route path="/agente" element={<Navigate to="/agentes" replace />} />
+            <Route path="/cobrancas" element={<Navigate to="/financeiro" replace />} />
+            <Route path="/atendimentos" element={<Navigate to="/conversas" replace />} />
+            <Route path="/onboarding" element={<Navigate to="/" replace />} />
+            <Route path="/boas-vindas" element={<Navigate to="/" replace />} />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}

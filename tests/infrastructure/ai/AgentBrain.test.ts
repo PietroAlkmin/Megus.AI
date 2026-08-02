@@ -10,7 +10,7 @@ const EMPTY_CONTEXT: AgentContext = {
   business: { companyName: "Clínica X", profile: null, services: [] },
   state: "new",
   history: [],
-  collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null },
+  openCharges: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null },
   today: "sábado, 5 de julho de 2026",
 };
 

@@ -44,6 +44,21 @@ export interface AgentBusiness {
   services: AgentBusinessService[]; // serviços da integração; emissivel = está em linkedServiceIds
 }
 
+/**
+ * Uma cobrança em aberto DESTE cliente (status != paga).
+ *
+ * O agente precisa disso para responder "quanto é?" sozinho. Sem o bloco, ele
+ * dizia *"vou pedir para a equipe confirmar o valor"* com a resposta no banco —
+ * visto em produção 02/08, exatamente o trabalho que ele existe para tirar da
+ * clínica.
+ */
+export interface AgentOpenCharge {
+  description: string;
+  amount: number;
+  /** A cobrança já foi disparada no WhatsApp? Evita "vou te enviar" para algo já enviado. */
+  enviada: boolean;
+}
+
 export interface AgentCollected {
   cpfNameVerified: boolean; // contato já validou CPF↔nome?
   fullNameMasked: string | null; // ex.: "João S." (nunca o nome cru completo)
@@ -59,6 +74,8 @@ export interface AgentContext {
   state: string; // ConversationState atual
   history: Message[];
   collected: AgentCollected;
+  /** Cobranças em aberto do cliente da conversa. Vazio = nada devendo (bloco omitido). */
+  openCharges: AgentOpenCharge[];
   today: string; // data corrente PT-BR (ex.: "sábado, 5 de julho de 2026")
   /** Avisos TRANSIENTES do sistema para ESTE turno (ex.: "cadastro validado agora —
    *  conclua a ação pendente"). Mecanismo genérico de sinal de FLUXO — nunca regra

@@ -89,6 +89,34 @@ function buildCatalogBlock(ctx: AgentContext): string | null {
 }
 
 /**
+ * Bloco das cobranças em aberto DO CLIENTE da conversa.
+ *
+ * Motivo real (prod, 02/08): o paciente escreveu *"gostaria de pagar uma consulta
+ * que está em aberto"* e o agente respondeu *"vou pedir para a equipe confirmar o
+ * valor certinho"* — com a cobrança de R$ 2,00 daquele contato no banco. O
+ * contexto não trazia cobrança nenhuma, então ele não tinha o que dizer.
+ *
+ * Não é regra de cenário (o prompt segue agnóstico): é DADO, igual ao catálogo
+ * de serviços. A diferença é que o catálogo é da empresa e isto é deste cliente.
+ *
+ * A última linha é o limite: informar o valor é leitura de registro, confirmar
+ * pagamento é ato do gate B sobre o comprovante. Sem ela, "já paguei" tende a
+ * virar "ok, obrigado!" e a cobrança fica aberta sem ninguém saber.
+ */
+function buildCobrancasBlock(ctx: AgentContext): string | null {
+  if (ctx.openCharges.length === 0) return null;
+  const linhas = ctx.openCharges.map(
+    (c) => `- ${c.description}: R$ ${c.amount.toFixed(2).replace(".", ",")}${c.enviada ? " (cobrança já enviada)" : ""}`,
+  );
+  return (
+    `Cobranças em ABERTO deste cliente (dados reais do sistema — informe o valor quando ele perguntar ` +
+    `o que deve, em vez de encaminhar para a equipe):\n${linhas.join("\n")}\n` +
+    `NUNCA dê o pagamento por confirmado por conta própria, mesmo que o cliente diga que pagou: ` +
+    `peça o comprovante (foto ou PDF): quem confere e baixa é o sistema.`
+  );
+}
+
+/**
  * Cadastro é GENÉRICO (des-overfit, bateria 3 de 12/07): a regra de identidade
  * morava dentro da regra da nota e o modelo aprendeu "nome+CPF = emissão de
  * nota" — recebia cadastro de um agendamento e derivava pra "vou seguir com a
@@ -145,6 +173,12 @@ export function composePrompt(ctx: AgentContext, tools: PromptToolInfo[] = []): 
 
   const catalog = buildCatalogBlock(ctx);
   if (catalog) blocks.push(catalog);
+
+  // Depois do catálogo de propósito: o preço de tabela é o geral, a cobrança em
+  // aberto é o caso concreto deste cliente — e é ela que vale quando divergem
+  // (cobrança vinda da agenda tem preço próprio do evento).
+  const cobrancas = buildCobrancasBlock(ctx);
+  if (cobrancas) blocks.push(cobrancas);
 
   blocks.push(buildCadastroRuleBlock());
   blocks.push(buildFiscalRuleBlock(ctx));

@@ -49,6 +49,27 @@ describe("ContextAssembler", () => {
     expect(ctx.companyId).toBe("c1");
   });
 
+  it("cobranças em aberto viram description/amount/enviada; `chargedAt` é quem define 'enviada'", () => {
+    const ctx = assembleContext({
+      conversation: { state: "new" } as any, agentConfig, integration, companyProfile: null, services,
+      contact: null,
+      openCharges: [
+        { description: "Consulta", amount: 200, chargedAt: new Date(), status: "cobrada" } as any,
+        { description: "Colete", amount: 180, chargedAt: null, status: "pendente" } as any,
+      ],
+      history: [], today: "hoje",
+    });
+    expect(ctx.openCharges).toEqual([
+      { description: "Consulta", amount: 200, enviada: true },
+      { description: "Colete", amount: 180, enviada: false },
+    ]);
+  });
+
+  it("sem cobranças (ou sem contato) → array vazio, nunca undefined", () => {
+    const ctx = assembleContext({ conversation: { state: "new" } as any, agentConfig, integration, companyProfile: null, services, contact: null, history: [], today: "hoje" });
+    expect(ctx.openCharges).toEqual([]);
+  });
+
   it("sem companyId na integration (fixture antiga) → \"\" (nunca undefined)", () => {
     const ctx = assembleContext({ conversation: { state: "new" } as any, agentConfig, integration, companyProfile: null, services, contact: null, history: [], today: "hoje" });
     expect(ctx.companyId).toBe("");

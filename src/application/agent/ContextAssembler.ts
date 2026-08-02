@@ -1,4 +1,5 @@
 import type { AgentConfig } from "../../domain/entities/AgentConfig";
+import type { Charge } from "../../domain/entities/Charge";
 import type { CompanyProfile } from "../../domain/entities/CompanyProfile";
 import type { Contact } from "../../domain/entities/Contact";
 import type { Conversation } from "../../domain/entities/Conversation";
@@ -20,6 +21,8 @@ export interface AssembleContextInput {
   companyProfile: CompanyProfile | null;
   services: Service[];
   contact: Contact | null;
+  /** Cobranças em aberto DESTE contato (status != paga), mais novas primeiro. */
+  openCharges?: Charge[];
   history: Message[];
   today: string; // já formatada pelo caller (determinístico)
   /** Avisos transientes do sistema pra ESTE turno (ver AgentContext.notices). */
@@ -72,7 +75,7 @@ function toBusinessProfile(p: CompanyProfile | null): AgentBusinessProfile | nul
 }
 
 export function assembleContext(input: AssembleContextInput): AgentContext {
-  const { conversation, agentConfig, integration, companyProfile, services, contact, history, today, notices } = input;
+  const { conversation, agentConfig, integration, companyProfile, services, contact, openCharges, history, today, notices } = input;
 
   return {
     // integration.companyId é opcional (fixtures antigas); o caminho Prisma SEMPRE
@@ -99,6 +102,13 @@ export function assembleContext(input: AssembleContextInput): AgentContext {
     },
     state: conversation.state,
     history,
+    // O valor vai para o prompt como está no banco — nunca arredondado nem
+    // reescrito aqui: é o mesmo número que o gate B usa para casar o comprovante.
+    openCharges: (openCharges ?? []).map((c) => ({
+      description: c.description,
+      amount: c.amount,
+      enviada: c.chargedAt != null,
+    })),
     collected: {
       cpfNameVerified: contact?.cpfNameVerified ?? false,
       fullNameMasked: maskName(contact?.fullName),

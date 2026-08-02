@@ -52,7 +52,7 @@ run("VercelAgentEngine (ao vivo)", () => {
       business: { companyName: "Clínica Sorriso Ltda", profile: null, services: [{ description: "Massagem", price: 180, emissivel: true }] },
       state: "new",
       history: [{ id: "m1", conversationId: "c1", direction: "inbound", author: "contact", kind: "text", body: "Que horas são agora aí?", mediaUrl: null, createdAt: new Date() }],
-      collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null },
+      openCharges: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null },
       today: "sábado, 11 de julho de 2026",
     };
     const messages = composePrompt(ctx, [{ name: currentDateTimeTool.name, description: currentDateTimeTool.description }]);

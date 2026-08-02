@@ -687,7 +687,13 @@ export class ConversationStateMachine {
     const companyProfile = integration.companyId
       ? await this.d.companyProfiles.getByCompanyId(integration.companyId)
       : null;
-    return assembleContext({ conversation: conv, agentConfig: cfg, integration, companyProfile, services, contact, history, today: formatToday(), notices });
+    // Cobranças em aberto DESTE contato: é o que permite o agente responder
+    // "quanto é?" sozinho. Sem contato ainda (primeira mensagem), não há o que
+    // buscar — e a consulta é escopada por integração+contato, nunca vaza tenant.
+    const openCharges = contact
+      ? await this.d.charges.listChargeableByContact(integration.id, contact.id)
+      : [];
+    return assembleContext({ conversation: conv, agentConfig: cfg, integration, companyProfile, services, contact, openCharges, history, today: formatToday(), notices });
   }
 
   private async send(conv: Conversation, bubbles: string[], instance?: string): Promise<void> {

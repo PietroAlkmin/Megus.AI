@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens da marca Megus — paleta nova (Manual de Identidade v2).
+ * HSL derivado 1:1 dos hex do manual; qualquer alteração de cor entra ali primeiro.
+ *
+ * A paleta tem TRÊS papéis, e a divisão importa:
+ *   grafite  — estrutura (sidebar, texto, superfícies escuras). Neutro quente, não navy.
+ *   menta    — o que deu certo (pago, nota emitida, agente no ar).
+ *   terracota— o que precisa de atenção humana (parado, divergente, meta).
+ *   areia    — a base quente que tira o ar de fintech genérica.
+ *
+ * Dois temas oficiais mudam SÓ a cor do gesto da marca (--gesto / --gesto-inv):
+ *   creme  (padrão) — gesto grafite no claro, creme no escuro
+ *   salvia          — gesto verde-sálvia no claro, menta clara no escuro
+ *
+ *   grafite   #252826 -> 140 4% 15%     menta      #12996E -> 161 79% 34%
+ *   grafite7  #3D4240 -> 156 4% 25%     mentaEsc   #0B7350 -> 160 83% 25%
+ *   grafite5  #5C625E -> 140 3% 37%     mentaSuave #E4F7EF -> 155 54% 93%
+ *   papel     #F6F4EF ->  43 28% 95%    mentaTinta #075740 -> 163 85% 18%
+ *   borda     #E5E2DA ->  44 17% 88%    terracota  #C97F4E ->  24 53% 55%
+ *   bordaF    #D5D1C6 ->  44 15% 81%    terraEsc   #A85F30 ->  23 56% 42%
+ *   divisor   #EFECE4 ->  44 26% 92%    terraTinta #7E4620 ->  24 59% 31%
+ *   texto     #1F2321 -> 150  6% 13%    areia      #E8D5BC ->  34 49% 82%
+ *   texto2    #4E534F -> 132  3% 32%    areiaSuave #F6E9D8 ->  34 63% 91%
+ *   texto3    #82877F ->  98  3% 51%    salvia     #3A6B51 -> 148 30% 32%
+ */
+@layer base {
+  :root {
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-brand: "Sora", "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+    /* ── shadcn semânticos ───────────────────────────── */
+    --background: 43 28% 95%;
+    --foreground: 150 6% 13%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 6% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 6% 13%;
+
+    /* primary = grafite: sidebar, botão principal, item ativo */
+    --primary: 140 4% 15%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 156 4% 25%;
+    --primary-muted: 140 3% 37%;
+
+    --secondary: 44 26% 92%;
+    --secondary-foreground: 132 3% 32%;
+
+    --muted: 44 26% 92%;
+    --muted-foreground: 120 4% 40%;
+
+    /* accent = superfície de hover (semântica shadcn de verdade, não cor de marca) */
+    --accent: 44 26% 92%;
+    --accent-foreground: 150 6% 13%;
+
+    --destructive: 11 65% 39%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 13 69% 95%;
+
+    --border: 44 17% 88%;
+    --border-strong: 44 15% 81%;
+    --input: 44 17% 88%;
+    --ring: 161 79% 34%;
+
+    /* ── marca Megus ─────────────────────────────────── */
+    /* menta — sucesso, o ciclo que fechou */
+    --menta: 161 79% 34%;
+    --menta-dark: 160 83% 25%;
+    --menta-soft: 155 54% 93%;
+    --menta-ink: 163 85% 18%;
+
+    /* terracota — atenção humana, o que travou */
+    --terra: 24 53% 55%;
+    --terra-dark: 23 56% 42%;
+    --terra-soft: 34 63% 91%;
+    --terra-ink: 24 59% 31%;
+
+    /* areia — base quente */
+    --areia: 34 49% 82%;
+    --areia-soft: 38 44% 89%;
+
+    /* status herdados (success = menta, warning = terracota) */
+    --success: 160 83% 25%;
+    --success-foreground: 0 0% 100%;
+    --warning: 24 59% 31%;
+    --warning-foreground: 0 0% 100%;
+    --info: 204 34% 33%;
+    --info-soft: 207 35% 94%;
+    --whatsapp: 145 63% 49%;
+
+    /* gesto da marca — o único token que o tema troca.
+       --gesto vale sobre fundo claro; --gesto-inv sobre fundo escuro. */
+    --gesto: 140 4% 15%;
+    --gesto-inv: 43 24% 95%;
+
+    /* raio "lg" da marca (12px) — sm/md/xl derivam dele no tailwind.config.ts */
+    --radius: 0.75rem;
+  }
+
+  /* Tema sálvia: só o gesto muda. Base terracota e resto da paleta são iguais. */
+  :root[data-theme="salvia"] {
+    --gesto: 148 30% 32%;
+    --gesto-inv: 143 27% 73%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Scrollbar fina — mesmo tratamento do WebStatic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border-strong)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-strong));
+  border-radius: 9999px;
+}
+
+/* Pulso do "no ar" — usado pelo chip do agente e pelo status do WhatsApp. */
+@keyframes megus-pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.animate-pulso {
+  animation: megus-pulso 1.8s ease-in-out infinite;
+}
+
+/* Transição de página. Só opacidade, de propósito: um `transform` no wrapper
+   que envolve todas as telas viraria containing block e quebraria todo
+   `position: fixed` de dentro delas (dica contextual, barra de ações em lote). */
+@keyframes megus-entra {
+  from { opacity: 0; }
+}
+
+.entra-pagina {
+  animation: megus-entra 0.3s ease both;
+}
+
+/* Nada de movimento para quem pediu para não ter. Cobre as animações da marca e
+   as utilidades de entrada do tailwindcss-animate. */
+@media (prefers-reduced-motion: reduce) {
+  .entra-pagina,
+  .animate-entra-item,
+  .animate-entra-bolha,
+  .animate-in,
+  [class*="slide-in-from"] {
+    animation: none !important;
+  }
+
+  .animate-pulso,
+  .animate-ponto {
+    animation: none !important;
+    opacity: 0.55;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

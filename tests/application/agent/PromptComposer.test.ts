@@ -7,7 +7,7 @@ function ctx(over: Partial<AgentContext> = {}): AgentContext {
     companyId: "c1",
     persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "Seja gentil.", fewShotDialogs: [] },
     business: { companyName: "Clínica X", profile: null, services: [{ description: "Massagem", price: 180, emissivel: true }, { description: "Consulta", price: 250, emissivel: false }] },
-    state: "new", history: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null }, today: "sábado, 5 de julho de 2026",
+    state: "new", history: [], openCharges: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null }, today: "sábado, 5 de julho de 2026",
     ...over,
   };
 }
@@ -97,6 +97,55 @@ describe("composePrompt", () => {
     const sem = composePrompt(ctx())[0]!.content as string;
     expect(sem).not.toContain("Avisos do sistema");
   });
+  /**
+   * Falha real em prod (02/08): o paciente pediu para pagar "uma consulta em
+   * aberto" e o agente mandou esperar a equipe confirmar o valor — que estava no
+   * banco. Sem este bloco ele não tem o dado para responder.
+   */
+  it("cobranças em aberto entram com valor e o agente é instruído a informar", () => {
+    const sys = composePrompt(
+      ctx({ openCharges: [{ description: "Consulta", amount: 2, enviada: true }] }),
+    )[0]!.content as string;
+
+    expect(sys).toContain("Cobranças em ABERTO deste cliente");
+    expect(sys).toContain("- Consulta: R$ 2,00 (cobrança já enviada)");
+    expect(sys).toContain("em vez de encaminhar para a equipe");
+  });
+
+  it("cobrança ainda não disparada não diz 'já enviada'", () => {
+    const sys = composePrompt(
+      ctx({ openCharges: [{ description: "Sessão", amount: 180.5, enviada: false }] }),
+    )[0]!.content as string;
+
+    expect(sys).toContain("- Sessão: R$ 180,50");
+    expect(sys).not.toContain("já enviada");
+  });
+
+  it("o bloco proíbe dar pagamento por confirmado — isso é do gate B, não do modelo", () => {
+    const sys = composePrompt(ctx({ openCharges: [{ description: "Consulta", amount: 90, enviada: true }] }))[0]!
+      .content as string;
+    expect(sys).toContain("NUNCA dê o pagamento por confirmado");
+    expect(sys).toContain("comprovante");
+  });
+
+  it("sem cobrança em aberto: nenhum bloco (cliente em dia não vê cobrança inventada)", () => {
+    const sys = composePrompt(ctx())[0]!.content as string;
+    expect(sys).not.toContain("Cobranças em ABERTO");
+  });
+
+  it("várias cobranças em aberto viram uma linha cada", () => {
+    const sys = composePrompt(
+      ctx({
+        openCharges: [
+          { description: "Consulta", amount: 200, enviada: true },
+          { description: "Colete", amount: 180, enviada: false },
+        ],
+      }),
+    )[0]!.content as string;
+    expect(sys).toContain("- Consulta: R$ 200,00 (cobrança já enviada)");
+    expect(sys).toContain("- Colete: R$ 180,00");
+  });
+
   it("campos ausentes do cadastro NÃO viram linha (sem placeholder no prompt)", () => {
     const sys = composePrompt(
       ctx({ business: { companyName: "Clínica X", profile: { ...PROFILE_CHEIO, email: null, paymentInstructions: null }, services: [] } }),
