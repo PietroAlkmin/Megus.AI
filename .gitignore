@@ -19,3 +19,6 @@ tokens/
 docs/superpowers/
 .superpowers/
 .claude/
+
+# Pacotes da IA de design — artefato de trabalho, nao codigo do produto
+wireframe/
