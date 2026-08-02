@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
-import { Campo, Secao, TituloPagina } from "@/components/ui/megus";
+import { Campo, TituloPagina } from "@/components/ui/megus";
 import { cn, formatarBRL } from "@/lib/utils";
 import * as empresaService from "@/services/empresa";
 
@@ -28,6 +28,7 @@ export default function Clinica() {
   const empresaQuery = useQuery({ queryKey: ["empresa"], queryFn: empresaService.getEmpresa });
   const servicosQuery = useQuery({ queryKey: ["servicos"], queryFn: empresaService.listServicos });
 
+  const [aba, setAba] = useState<AbaId>("dados");
   const [rascunho, setRascunho] = useState<empresaService.EmpresaProfile | null>(null);
   const [form, setForm] = useState<ServicoForm | null>(null);
   const [regua, setRegua] = useState(REGUA_PADRAO);
@@ -87,11 +88,36 @@ export default function Clinica() {
     <div className="mx-auto max-w-[880px] p-4 pb-16 md:p-6 lg:p-7">
       <TituloPagina
         titulo="Clínica"
-        sub="Dados da clínica, serviços e forma de cobrança. É daqui que o agente tira tudo."
+        sub="É daqui que o agente tira tudo: quem é a clínica, quanto cobrar e como receber."
       />
 
+      {/* Abas com fio contínuo: a aba ativa interrompe o fio, como uma pasta. */}
+      <div className="-mt-2 mb-5 flex gap-1 border-b border-border">
+        {ABAS.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => setAba(a.id)}
+            className={cn(
+              "relative -mb-px px-3 pb-2.5 pt-1 text-[13px] font-semibold transition-colors",
+              aba === a.id ? "text-foreground" : "text-muted-foreground hover:text-secondary-foreground",
+            )}
+          >
+            {a.label}
+            {a.id === "servicos" && servicos.length > 0 && (
+              <span className="ml-1.5 font-mono text-[10.5px] text-muted-foreground">{servicos.length}</span>
+            )}
+            {aba === a.id && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] rounded-[1px] bg-foreground" />}
+          </button>
+        ))}
+      </div>
+
+      <p className="mb-5 max-w-[76ch] text-[12.5px] leading-relaxed text-muted-foreground">
+        {ABAS.find((a) => a.id === aba)!.sub}
+      </p>
+
       <div className="flex flex-col gap-4">
-        <Secao titulo="Dados da clínica" sub="Aparecem como prestador na NFS-e.">
+        {aba === "dados" && (
           <div className="grid gap-3.5 sm:grid-cols-2">
             <Campo rot="Razão social" valor={e.fiscalName} onChange={set("fiscalName")} className="sm:col-span-2" />
             <Campo rot="Nome fantasia" valor={e.name} onChange={set("name")} />
@@ -102,21 +128,18 @@ export default function Clinica() {
             <Campo rot="Cidade" valor={e.city} onChange={set("city")} />
             <Campo rot="UF" valor={e.state} onChange={set("state")} />
           </div>
-        </Secao>
+        )}
 
-        <Secao
-          titulo="Serviços"
-          sub="O valor da cobrança vem daqui, e o código ISS vai para a nota."
-          acao={
-            <Button
-              size="sm"
-              onClick={() => setForm({ id: null, code: "", description: "", issCode: "", price: "" })}
-            >
-              <Plus size={13} strokeWidth={2.4} /> Adicionar
-            </Button>
-          }
-        >
+        {aba === "servicos" && (
           <div className="flex flex-col gap-2">
+            <div className="mb-1 flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => setForm({ id: null, code: "", description: "", issCode: "", price: "" })}
+              >
+                <Plus size={13} strokeWidth={2.4} /> Adicionar serviço
+              </Button>
+            </div>
             {servicos.map((s) => (
               <div
                 key={s.id}
@@ -207,9 +230,10 @@ export default function Clinica() {
               </div>
             )}
           </div>
-        </Secao>
+        )}
 
-        <Secao titulo="Cobrança" sub="A chave que recebe, a mensagem que o Kaua manda e quando ele insiste.">
+        {aba === "cobranca" && (
+          <div className="flex flex-col gap-6">
           <div className="grid gap-3.5 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
               <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-secondary-foreground">
@@ -270,7 +294,8 @@ export default function Clinica() {
               ⚠️ A régua ainda é local — depende de campos novos em <code>/api/empresa</code>.
             </p>
           </div>
-        </Secao>
+          </div>
+        )}
 
         {rascunho && (
           <div className="sticky bottom-0 flex items-center gap-3 bg-gradient-to-t from-background via-background pb-2 pt-4">
@@ -288,6 +313,26 @@ export default function Clinica() {
     </div>
   );
 }
+
+type AbaId = "dados" | "servicos" | "cobranca";
+
+/**
+ * As três abas, na ordem em que o AGENTE lê.
+ *
+ * Empilhadas numa coluna só, dados fiscais, catálogo e régua de cobrança
+ * competiam na mesma rolagem e nada tinha prioridade. Em abas, cada uma é uma
+ * tarefa: você vem "mexer nos serviços" ou "ajustar a cobrança", raramente nos
+ * três ao mesmo tempo.
+ *
+ * ⚠️ O rascunho é COMPARTILHADO entre as abas de propósito: trocar de aba não
+ * perde o que foi digitado, e o rodapé "Salvar" salva tudo junto. Serviços são a
+ * exceção — têm CRUD próprio e salvam na hora.
+ */
+const ABAS: { id: AbaId; label: string; sub: string }[] = [
+  { id: "dados", label: "Dados", sub: "Aparecem como prestador na NFS-e." },
+  { id: "servicos", label: "Serviços", sub: "O valor da cobrança vem daqui, e o código ISS vai para a nota." },
+  { id: "cobranca", label: "Cobrança", sub: "A chave que recebe, a mensagem que o Kaua manda e quando ele insiste." },
+];
 
 /** Formulário de serviço — espelha `ServicoPayload`, com `price` como texto. */
 type ServicoForm = {

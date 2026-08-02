@@ -108,7 +108,8 @@ export async function listFerramentasFallback(): Promise<Ferramenta[]> {
   ];
 }
 
-/* Não existe `POST /api/integracoes/:id/conectar` e não deve existir tão cedo:
-   cada conexão tem fluxo próprio e incompatível — QR que precisa ser lido na
-   hora (WhatsApp), OAuth em janela separada (agenda), e "serviços" que nem é
-   conectar, é preencher cadastro. Quem roteia é a tela (`pages/Integracoes`). */
+/* ⚠️ NÃO existe `POST /api/integracoes/:id/conectar`.
+   Havia um `conectar(id)` aqui apontando para essa rota — removido, porque
+   chamá-la dava 404 no botão principal da tela. Cada conexão tem fluxo próprio:
+   WhatsApp → `whatsapp.connect()` + QR · agenda → `agendaConectar()` (OAuth) ·
+   serviços → navegar para /clinica. Quem roteia é `pages/Integracoes.tsx`. */

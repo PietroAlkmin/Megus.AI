@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import KanbanFinanceiro from "@/components/financeiro/KanbanFinanceiro";
+import Agendador, { formatarQuando } from "@/components/financeiro/Agendador";
 import { BotaoAtualizar } from "@/components/hoje/SecoesHoje";
 import { cn, formatarBRL } from "@/lib/utils";
 import { Rotulo } from "@/components/ui/megus";
@@ -33,6 +34,10 @@ export default function Financeiro() {
   const cobrar = useMutation({
     // As duas rotas devolvem shapes diferentes (`{id,cobrado}` vs `{id,status}`).
     // Normalizamos para `{id}` — é tudo que a tela usa.
+    //
+    // ⚠️ Cobrar AGORA vence o agendamento: `cobrarCharge(id)` sem `quando` manda
+    // na hora e o backend limpa `agendadaPara`. Sem isso o card continuaria
+    // dizendo "envio 04/08" para algo que já foi enviado.
     mutationFn: async (c: Cobranca): Promise<{ id: string }> =>
       c.charge ? cobrancasService.cobrarCharge(c.id) : cobrancasService.cobrar(c.id),
     onSuccess: () => {
@@ -43,9 +48,11 @@ export default function Financeiro() {
   });
 
   /**
-   * Marca (ou desmarca) a hora do disparo. Só existe no fluxo Charge — o
-   * EmissionIntent antigo não tem envio automático nenhum, então oferecer
-   * agendamento nele seria promessa que a tela não cumpre.
+   * Agenda (ou desmarca) o envio da cobrança.
+   *
+   * Só existe no fluxo Charge: é ele que tem envio automático. O `EmissionIntent`
+   * antigo não dispara sozinho — oferecer agendamento nele seria promessa falsa.
+   * `quando: null` desmarca.
    */
   const agendar = useMutation({
     mutationFn: ({ c, quando }: { c: Cobranca; quando: Date | null }) =>
@@ -101,6 +108,11 @@ export default function Financeiro() {
   }
 
   const selecionadasObj = todas.filter((c) => selecionadas.includes(c.id));
+  // Quem o botão de lote vai REALMENTE cobrar agora. Cobrança já agendada fica
+  // de fora: incluí-la mandaria a mensagem duas vezes ao mesmo paciente — e a
+  // clínica só descobriria pela reclamação dele.
+  const aCobrarAgora = selecionadasObj.filter((c) => !c.cobrado && !c.agendadaPara);
+  const agendadasNaSelecao = selecionadasObj.filter((c) => c.agendadaPara && !c.cobrado).length;
   const metricas = metricasQuery.data;
 
   return (
@@ -181,13 +193,20 @@ export default function Financeiro() {
           <Button
             size="sm"
             className="bg-white text-primary hover:bg-white/90"
+            disabled={!aCobrarAgora.length}
             onClick={() => {
-              selecionadasObj.filter((c) => !c.cobrado).forEach((c) => cobrar.mutate(c));
+              aCobrarAgora.forEach((c) => cobrar.mutate(c));
               setSelecionadas([]);
             }}
           >
-            <MessageCircle size={13} /> Cobrar todos
+            <MessageCircle size={13} /> Cobrar {aCobrarAgora.length > 0 ? aCobrarAgora.length : "todos"}
           </Button>
+          {/* Diz por que o número do botão é menor que o da seleção. */}
+          {agendadasNaSelecao > 0 && (
+            <span className="text-[11.5px] text-white/60">
+              {agendadasNaSelecao} já agendada{agendadasNaSelecao > 1 ? "s" : ""}
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setSelecionadas([])}
@@ -211,19 +230,6 @@ export default function Financeiro() {
   );
 }
 
-/** ISO do servidor → "04/08 às 09:00" no fuso de quem lê. */
-function formatarQuando(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(", ", " às ");
-}
-
-/** Agora, no formato que o `datetime-local` aceita como mínimo (hora local, sem fuso). */
-function paraCampoLocal(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
 /** Detalhe do paciente — abre à direita, sem tirar o kanban de vista. */
 function Gaveta({
   c,
@@ -235,12 +241,10 @@ function Gaveta({
   c: Cobranca;
   onFechar: () => void;
   onCobrar: () => void;
-  /** `null` desmarca o agendamento. */
   onAgendar: (quando: Date | null) => void;
   onEmitir: () => void;
 }) {
   const [marcando, setMarcando] = useState(false);
-  const [quando, setQuando] = useState("");
   const dias = paradoDe(c);
   const temp = temperatura(dias);
   const nota = situacaoNota(c);
@@ -313,47 +317,40 @@ function Gaveta({
         {!c.pago ? (
           <footer className="flex flex-col gap-2.5 border-t border-border px-5 py-4">
             <Button className="w-full" onClick={onCobrar}>
-              <MessageCircle size={14} /> {c.cobrado ? "Cobrar de novo" : "Cobrar pelo WhatsApp"}
+              <MessageCircle size={14} />{" "}
+              {c.cobrado ? "Cobrar de novo" : c.agendadaPara ? "Cobrar agora" : "Cobrar pelo WhatsApp"}
             </Button>
 
             {/* Agendar só existe no fluxo Charge: é ele que tem envio automático. */}
-            {c.charge && (c.agendadaPara ? (
-              <div className="flex items-center gap-2 rounded-[7px] bg-muted px-3 py-2.5">
-                <span className="min-w-0 flex-1 text-[11.5px] leading-snug text-secondary-foreground">
-                  <Clock size={12} className="mr-1 inline align-[-1px]" />
-                  Envio marcado para <strong className="font-semibold">{formatarQuando(c.agendadaPara)}</strong>
-                </span>
-                <Button size="sm" variant="quieto" onClick={() => onAgendar(null)}>
-                  Desmarcar
-                </Button>
-              </div>
-            ) : marcando ? (
-              <div className="flex items-center gap-2">
-                {/* Campo nativo: calendário e relógio do próprio sistema, no fuso de quem digita. */}
-                <input
-                  type="datetime-local"
-                  value={quando}
-                  min={paraCampoLocal(new Date())}
-                  onChange={(e) => setQuando(e.target.value)}
-                  className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-[12.5px] outline-none focus:ring-2 focus:ring-ring"
-                />
-                <Button
-                  size="sm"
-                  disabled={!quando}
-                  onClick={() => {
-                    onAgendar(new Date(quando));
+            {c.charge &&
+              !c.cobrado &&
+              (marcando ? (
+                <Agendador
+                  atual={c.agendadaPara}
+                  onConfirmar={(quando) => {
+                    onAgendar(quando);
                     setMarcando(false);
-                    setQuando("");
                   }}
-                >
-                  Marcar
+                  onCancelar={() => setMarcando(false)}
+                />
+              ) : c.agendadaPara ? (
+                <div className="flex items-center gap-2 rounded-[7px] bg-muted px-3 py-2.5">
+                  <span className="min-w-0 flex-1 text-[11.5px] leading-snug text-secondary-foreground">
+                    <Clock size={12} className="mr-1 inline align-[-2px]" />
+                    Envio marcado para <strong className="font-semibold">{formatarQuando(c.agendadaPara)}</strong>
+                  </span>
+                  <Button size="sm" variant="quieto" onClick={() => setMarcando(true)}>
+                    Alterar
+                  </Button>
+                  <Button size="sm" variant="quieto" onClick={() => onAgendar(null)}>
+                    Desmarcar
+                  </Button>
+                </div>
+              ) : (
+                <Button className="w-full" variant="outline" onClick={() => setMarcando(true)}>
+                  <Clock size={14} /> Agendar envio
                 </Button>
-              </div>
-            ) : (
-              <Button className="w-full" variant="outline" onClick={() => setMarcando(true)}>
-                <Clock size={14} /> Agendar envio
-              </Button>
-            ))}
+              ))}
           </footer>
         ) : nota === "pedida" ? (
           <footer className="border-t border-border px-5 py-4">

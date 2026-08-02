@@ -1,21 +1,12 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
+import { useState } from "react";
 import { Check, Clock, FileText, GripVertical } from "lucide-react";
+import { quandoCurto } from "@/components/financeiro/Agendador";
 import { Button } from "@/components/ui/button";
 import { Rotulo } from "@/components/ui/megus";
 import { cn, formatarBRL } from "@/lib/utils";
 import type { Cobranca } from "@/services/cobrancas";
 import { ETAPAS, etapaDe, paradoDe, situacaoNota, temperatura, type EtapaId } from "@/services/pipeline";
-
-/** "hoje 09:00" / "04/08 09:00" — no card cabe pouco, então o dia some quando é hoje. */
-function formatarQuandoCurto(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "agendado";
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  const hoje = new Date();
-  const mesmoDia = d.toDateString() === hoje.toDateString();
-  if (mesmoDia) return `hoje ${hora}`;
-  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${hora}`;
-}
 
 interface KanbanProps {
   cobrancas: Cobranca[];
@@ -139,7 +130,6 @@ function CardPaciente({
   onDragEnd,
 }: {
   c: Cobranca;
-  /** Posição na coluna — atrasa a entrada de cada card (`--i`). */
   i: number;
   selecionada: boolean;
   onSelecionar: (comShift: boolean) => void;
@@ -196,15 +186,6 @@ function CardPaciente({
         </div>
       )}
 
-      {/* Agendado fica VISÍVEL no card: sem isso a cobrança aparece parada em "A
-          cobrar" como qualquer outra, e a clínica clica Cobrar — o paciente
-          receberia a mensagem duas vezes. */}
-      {c.agendadaPara && !c.cobrado && (
-        <div className="mt-2 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-          <Clock size={11} /> envio {formatarQuandoCurto(c.agendadaPara)}
-        </div>
-      )}
-
       {/* A fila da clínica: ação no próprio card, porque é aqui que ela trabalha.
          `stopPropagation` para o clique não abrir a gaveta. */}
       {nota === "pedida" && (
@@ -231,7 +212,15 @@ function CardPaciente({
         <div className="mt-2 text-[10.5px] text-muted-foreground">Perguntando sobre a nota…</div>
       )}
 
-      {temp === "frio" && !c.notaNum && nota !== "pedida" && (
+      {/* Envio marcado: sem isso o card entra em "a cobrar" como qualquer outro,
+         a clínica clica Cobrar, e o paciente recebe a mensagem duas vezes. */}
+      {c.agendadaPara && !c.cobrado && (
+        <div className="mt-2 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+          <Clock size={11} /> <span className="font-mono">envio {quandoCurto(c.agendadaPara)}</span>
+        </div>
+      )}
+
+      {temp === "frio" && !c.notaNum && !c.agendadaPara && nota !== "pedida" && (
         <div className="mt-2 inline-flex items-center gap-[7px] text-[11px] font-semibold text-terra-ink">
           <span className="h-[6px] w-[6px] shrink-0 rounded-[1.5px] bg-terra" /> Travado há {dias} dias
         </div>
