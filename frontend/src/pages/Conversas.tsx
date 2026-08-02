@@ -70,7 +70,9 @@ export default function Conversas() {
   const conversasQuery = useQuery({
     queryKey: ["conversas"],
     queryFn: () => conversasService.listConversas("todos"),
-    refetchInterval: 30_000,
+    // 15s: a lista é a fila de trabalho da recepção. Meio minuto era tempo
+    // demais para "chegou paciente novo" aparecer.
+    refetchInterval: 15_000,
   });
   const conversas = conversasQuery.data ?? [];
 
@@ -120,11 +122,18 @@ export default function Conversas() {
     queryKey: ["conversas", selId, "mensagens"],
     queryFn: () => conversasService.listMensagens(selId!),
     enabled: Boolean(selId),
+    // Isto é um CHAT: quem assumiu a conversa está esperando a resposta do
+    // paciente agora. Sem intervalo era preciso recarregar a página para ver a
+    // mensagem chegar — o que inviabiliza atender pelo painel.
+    refetchInterval: 5_000,
   });
   const racQuery = useQuery({
     queryKey: ["conversas", selId, "raciocinio"],
     queryFn: () => raciocinioService.getRaciocinio(selId!),
     enabled: Boolean(selId),
+    // Acompanha as mensagens: o raciocínio muda no mesmo turno em que o
+    // paciente responde.
+    refetchInterval: 5_000,
   });
 
   useEffect(() => {

@@ -27,8 +27,20 @@ export default function Financeiro() {
   const [aberta, setAberta] = useState<Cobranca | null>(null);
   const [filtro, setFiltro] = useState<"todas" | "travadas">("todas");
 
-  const cobrancasQuery = useQuery({ queryKey: ["cobrancas"], queryFn: cobrancasService.listCobrancas });
-  const metricasQuery = useQuery({ queryKey: ["cobrancas", "metricas"], queryFn: cobrancasService.getMetricas });
+  // O pagamento entra sem ninguém tocar na tela: o paciente manda o comprovante
+  // no WhatsApp e o gate B baixa a cobrança. Sem intervalo, o kanban ficava
+  // parado mostrando como pendente algo que já foi pago. A mesma chave alimenta
+  // a Hoje — quem estiver aberto recebe a atualização.
+  const cobrancasQuery = useQuery({
+    queryKey: ["cobrancas"],
+    queryFn: cobrancasService.listCobrancas,
+    refetchInterval: 60_000,
+  });
+  const metricasQuery = useQuery({
+    queryKey: ["cobrancas", "metricas"],
+    queryFn: cobrancasService.getMetricas,
+    refetchInterval: 60_000,
+  });
   const todas = cobrancasQuery.data ?? [];
 
   const cobrar = useMutation({

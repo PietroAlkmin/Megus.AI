@@ -27,7 +27,13 @@ import type { EtapaFunil, Pendencia, ResumoHoje } from "@/services/hoje";
  * Ambas aparecem como "nada por aqui" — honesto, e a seção se resolve sozinha.
  */
 export function useHoje() {
-  const cobrancasQuery = useQuery({ queryKey: ["cobrancas"], queryFn: cobrancasService.listCobrancas });
+  // A Hoje é a tela que fica aberta: o dia anda sozinho (paciente paga, agente
+  // trava, cobrança sai). Mesma chave do Financeiro — o cache é compartilhado.
+  const cobrancasQuery = useQuery({
+    queryKey: ["cobrancas"],
+    queryFn: cobrancasService.listCobrancas,
+    refetchInterval: 60_000,
+  });
   const metricasQuery = useQuery({ queryKey: ["cobrancas", "metricas"], queryFn: cobrancasService.getMetricas });
   const empresaQuery = useQuery({ queryKey: ["empresa"], queryFn: empresaService.getEmpresa });
   const agenteQuery = useQuery({ queryKey: ["agente"], queryFn: agenteService.getAgente });

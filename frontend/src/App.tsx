@@ -15,12 +15,25 @@ import Clinica from "@/pages/Clinica";
 import Integracoes from "@/pages/Integracoes";
 import Conta from "@/pages/Conta";
 
+/**
+ * Este painel mostra o que acontece FORA dele: paciente responde, comprovante
+ * chega, pagamento entra. Os padrões antigos (`staleTime` de 5 min e
+ * `refetchOnWindowFocus: false`) tratavam tudo como cadastro — quem assumia uma
+ * conversa precisava recarregar a página para ver a resposta do paciente, o que
+ * inviabiliza atender por aqui.
+ *
+ * `refetchOnWindowFocus` é o que mais importa no uso real: a recepção alterna
+ * entre o WhatsApp e o painel o tempo todo, e voltar para a aba já deve trazer
+ * o estado atual. O `staleTime` curto evita que a volta seja servida do cache.
+ * Onde o dado precisa andar SEM ninguém tocar na tela, cada consulta declara o
+ * próprio `refetchInterval` (conversas, mensagens, cobranças).
+ */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
+      staleTime: 30 * 1000,
       gcTime: 10 * 60 * 1000,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
       retry: 1,
     },
   },
