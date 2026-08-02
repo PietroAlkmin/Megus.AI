@@ -4,9 +4,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { ChipAgente } from "@/components/Shell";
-import CardAtivacao from "@/components/onboarding/CardAtivacao";
-import DicaContextual from "@/components/onboarding/DicaContextual";
-import SimulacaoKaua from "@/components/onboarding/SimulacaoKaua";
 import {
   BotaoAtualizar,
   BotaoTrilha,
@@ -22,7 +19,6 @@ import {
   TrilhaKaua,
   VazioOk,
 } from "@/components/hoje/SecoesHoje";
-import { useAtivacao } from "@/hooks/useAtivacao";
 import { useHoje } from "@/hooks/useHoje";
 import { formatarBRL } from "@/lib/utils";
 import * as hojeService from "@/services/hoje";
@@ -46,9 +42,7 @@ import * as hojeService from "@/services/hoje";
  * desmonta em blocos e o ciclo vira 2×2.
  */
 export default function Hoje() {
-  const ativacao = useAtivacao();
   const queryClient = useQueryClient();
-  const [simulando, setSimulando] = useState(false);
   const [resolvidas, setResolvidas] = useState<string[]>([]);
   const [verTrilha, setVerTrilha] = useState(false);
 
@@ -83,18 +77,14 @@ export default function Hoje() {
   // mais). Numa tela cuja tese é a resposta escrita, resposta errada é o pior
   // defeito possível.
   const pronto = Boolean(resumo);
-  // Enquanto as conexões não estão feitas, a clínica ainda não tem operação:
-  // mostrar pendências e faturamento aqui seria mentira. O painel fica
-  // honestamente vazio e o cartão de ativação assume o protagonismo.
-  const vazio = !ativacao.completo;
-  const pendencias = (vazio || !pronto ? [] : resumo!.pendencias).filter((p) => !resolvidas.includes(p.id));
+  const pendencias = (!pronto ? [] : resumo!.pendencias).filter((p) => !resolvidas.includes(p.id));
   const funil = resumo?.funil ?? [];
   const meta = resumo?.meta ?? { alvo: 0, atual: 0 };
-  const trilha = vazio || !pronto ? [] : resumo!.trilha;
+  const trilha = !pronto ? [] : resumo!.trilha;
 
   // O dinheiro que a resposta do topo precisa dizer.
   const travado = pendencias.reduce((s, p) => s + (p.valor ?? 0), 0);
-  const pago = vazio || !pronto ? 0 : funil.find((e) => e.id === "pago")?.valor ?? 0;
+  const pago = !pronto ? 0 : funil.find((e) => e.id === "pago")?.valor ?? 0;
 
   return (
     <div className="mx-auto max-w-[1120px] p-4 pb-12 md:p-6 lg:px-8 lg:py-7">
@@ -103,13 +93,11 @@ export default function Hoje() {
         <div className="max-w-[56ch]">
           <Rotulo>{pronto ? `${resumo!.data} · ${resumo!.clinica}` : "Carregando"}</Rotulo>
           <h1 className="mt-2.5 min-h-[2.3em] font-brand text-[23px] font-bold leading-[1.15] tracking-[-0.03em] text-foreground md:text-[27px]">
-            <Resposta pronto={pronto} vazio={vazio} n={pendencias.length} />
+            <Resposta pronto={pronto} n={pendencias.length} />
           </h1>
           <p className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[13px] text-muted-foreground md:text-[13.5px]">
             {!pronto ? (
               "Buscando as pendências e o caixa do dia."
-            ) : vazio ? (
-              "Nenhum atendimento até agora."
             ) : (
               <>
                 <span>
@@ -127,17 +115,11 @@ export default function Hoje() {
           <BotaoAtualizar onClick={() => refetch()} carregando={isLoading} />
           <ChipAgente
             nome={resumo?.agente.nome ?? "Kaua"}
-            noAr={Boolean(resumo?.agente.noAr) && ativacao.completo}
+            noAr={Boolean(resumo?.agente.noAr)}
             desde={resumo?.agente.desde}
           />
         </div>
       </header>
-
-      {!ativacao.oculto && !ativacao.isLoading && (
-        <div className="mb-7 md:mb-8">
-          <CardAtivacao status={ativacao} onSimular={() => setSimulando(true)} />
-        </div>
-      )}
 
       {/* ── 2 · O ciclo do dia — objeto herói ─────────────────── */}
       <section className="mb-7 rounded-[10px] border border-border bg-card p-4 md:mb-8 md:p-5">
@@ -145,18 +127,14 @@ export default function Hoje() {
           <div className="min-w-0">
             <h2 className="font-brand text-[15px] font-bold tracking-[-0.01em] text-foreground">O ciclo de hoje</h2>
             <p className="mt-0.5 text-[12px] text-muted-foreground">
-              {!pronto
-                ? "Lendo a agenda do dia…"
-                : vazio
-                  ? "Assim que a agenda estiver conectada, os pacientes do dia aparecem aqui."
-                  : "Da agenda até a nota. Onde cai, o dinheiro para."}
+              {!pronto ? "Lendo a agenda do dia…" : "Da agenda até a nota. Onde cai, o dinheiro para."}
             </p>
           </div>
           <Button variant="quieto" className="shrink-0" asChild>
             <Link to="/financeiro">Abrir pipeline</Link>
           </Button>
         </div>
-        <Ciclo etapas={funil} vazio={vazio} pronto={pronto} />
+        <Ciclo etapas={funil} pronto={pronto} />
       </section>
 
       {/* ── 3 · Pendências como tabela ────────────────────────── */}
@@ -171,19 +149,9 @@ export default function Hoje() {
               ? "Verificando…"
               : pendencias.length
                 ? "O agente parou e está esperando."
-                : vazio
-                  ? "Nada por aqui ainda."
-                  : "O Kaua resolveu tudo sozinho."}
+                : "O Kaua resolveu tudo sozinho."}
           </span>
         </div>
-
-        {/* Inline, acima da tabela que ela descreve. Flutuante à direita cobriria
-           as ações das linhas ("Resolver" / "Abrir"). */}
-        <DicaContextual
-          id="hoje"
-          titulo="Comece por aqui"
-          texto="Tudo que o Kaua não pôde resolver aparece nesta tabela. Se ela está vazia, seu dia está em ordem."
-        />
 
         {pendencias.length ? (
           <div className="overflow-hidden rounded-[10px] border border-border bg-card">
@@ -195,14 +163,14 @@ export default function Hoje() {
         ) : !pronto ? (
           <EsqueletoPendencias />
         ) : (
-          <VazioOk esperando={vazio} />
+          <VazioOk />
         )}
       </section>
 
       {/* ── 4 · Meta em faixa + trilha recolhida ──────────────── */}
       <div className="border-t border-border-strong pt-4">
         <div className="flex flex-col gap-4 md:min-h-[38px] md:flex-row md:items-center md:justify-between md:gap-8">
-          <FaixaMeta alvo={meta.alvo} atual={vazio || !pronto ? 0 : meta.atual} pronto={pronto} />
+          <FaixaMeta alvo={meta.alvo} atual={!pronto ? 0 : meta.atual} pronto={pronto} />
           {/* Só aparece quando há o que ver: "Ver as 0 ações" é um controle vivo
              que não oferece nada — e era exatamente o estado de conta nova. */}
           {trilha.length > 0 && (
@@ -215,23 +183,13 @@ export default function Hoje() {
             <p className="mb-2.5 text-[12px] text-muted-foreground">
               Registro de tudo que o agente executou — inclusive o que ele decidiu não fazer.
             </p>
-            <TrilhaKaua eventos={trilha} vazio={vazio} />
+            <TrilhaKaua eventos={trilha} />
           </div>
         )}
 
-        <StatusConexao numero={ativacao.numeroWhatsApp} />
+        <StatusConexao numero={resumo?.agente.numero} />
       </div>
 
-      {simulando && (
-        <SimulacaoKaua
-          onFechar={() => setSimulando(false)}
-          onConcluir={() => {
-            setSimulando(false);
-            ativacao.marcar("simulou");
-            toast.success("Kaua ativado. Ele já pode assumir os atendimentos.");
-          }}
-        />
-      )}
     </div>
   );
 }

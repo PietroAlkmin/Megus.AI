@@ -7,7 +7,6 @@ import Shell from "@/components/Shell";
 import { useTema } from "@/hooks/useTema";
 import Login from "@/pages/Login";
 import Cadastro from "@/pages/Cadastro";
-import BoasVindas from "@/pages/BoasVindas";
 import Hoje from "@/pages/Hoje";
 import Conversas from "@/pages/Conversas";
 import Financeiro from "@/pages/Financeiro";
@@ -52,16 +51,6 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
 
-            {/* Porta de entrada da conta nova — tela cheia, fora do Shell */}
-            <Route
-              path="/boas-vindas"
-              element={
-                <RequireAuth>
-                  <BoasVindas />
-                </RequireAuth>
-              }
-            />
-
             <Route
               path="/"
               element={
@@ -86,6 +75,7 @@ export default function App() {
             <Route path="/cobrancas" element={<Navigate to="/financeiro" replace />} />
             <Route path="/atendimentos" element={<Navigate to="/conversas" replace />} />
             <Route path="/onboarding" element={<Navigate to="/" replace />} />
+            <Route path="/boas-vindas" element={<Navigate to="/" replace />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

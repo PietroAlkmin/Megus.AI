@@ -194,7 +194,7 @@ export default function Shell() {
                 end={item.to === "/"}
                 className={({ isActive }) =>
                   cn(
-                    "relative flex h-[42px] items-center justify-center rounded-[9px] text-[13.5px] font-semibold transition-colors lg:h-[38px] lg:justify-start lg:gap-[11px] lg:px-[11px]",
+                    "relative flex h-[42px] items-center justify-center rounded-[9px] text-[13.5px] font-semibold transition-all duration-200 active:scale-[.97] lg:h-[38px] lg:justify-start lg:gap-[11px] lg:px-[11px]",
                     isActive ? "bg-white/[0.09] text-white" : "text-white/60 hover:bg-white/5 hover:text-white/85",
                   )
                 }
@@ -293,7 +293,12 @@ export default function Shell() {
         )}
 
         <main className="min-w-0 flex-1 overflow-auto pb-[64px] md:pb-0">
-          <div key={location.pathname} className="entra-pagina">
+          {/* `h-full` é obrigatório: telas mestre-detalhe (Conversas) usam `h-full`
+             na raiz, e porcentagem só resolve com altura definida no pai. Sem
+             isso a tela passa a ser dimensionada pelo conteúdo e retrai quando a
+             lista perde um item. O `main` tem `overflow-auto`, então telas
+             longas (Hoje) seguem rolando normalmente. */}
+          <div key={location.pathname} className="entra-pagina h-full">
             <Outlet />
           </div>
         </main>

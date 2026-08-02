@@ -1,13 +1,12 @@
-import { Bot, CalendarDays, CreditCard, FileText, MessageCircle, type LucideIcon } from "lucide-react";
+import { CalendarDays, CreditCard, FileText, MessageCircle, type LucideIcon } from "lucide-react";
 
 /**
  * Os cinco passos de ativação do Megus.
  *
- * O último passo NÃO é "convide sua equipe". É **ver o Kaua atender**.
+ * As conexões que o Kaua precisa para trabalhar. Não é um wizard: a lista mede
+ * o que falta, e Integrações é onde se resolve.
  *
- * A razão: o obstáculo real do onboarding aqui não é navegação — é confiança.
- * O dono da clínica está prestes a deixar uma IA falar com pacientes e emitir
- * nota com o CNPJ dele. Nenhum tooltip resolve isso; ver o agente trabalhar
+ * Contexto histórico: havia um 5º passo ("ver o Kaua atender") que abria uma
  * num ambiente seguro, sim. Por isso a simulação é o momento de valor e fecha
  * a checklist.
  *
@@ -15,7 +14,7 @@ import { Bot, CalendarDays, CreditCard, FileText, MessageCircle, type LucideIcon
  *   porque  — por que ISTO importa (o que quebra sem ele)
  *   detalhe — o que vai acontecer quando clicar (tira o medo do próximo passo)
  */
-export type PassoId = "whatsapp" | "agenda" | "servicos" | "fiscal" | "simulou";
+export type PassoId = "whatsapp" | "agenda" | "servicos" | "fiscal";
 
 export interface PassoAtivacao {
   id: PassoId;
@@ -89,19 +88,6 @@ export const PASSOS_ATIVACAO: PassoAtivacao[] = [
     cta: "Configurar emissão",
     to: "/integracoes",
     exigeCapacidade: "fiscal",
-  },
-  {
-    id: "simulou",
-    nome: "Ver o Kaua atender",
-    icon: Bot,
-    destaque: true,
-    curto: "Uma conversa de teste, do começo ao fim.",
-    porque:
-      "Antes de deixar o Kaua falar com um paciente de verdade, veja exatamente como ele trabalha — o que ele entende, o que decide e onde ele para.",
-    detalhe:
-      "É uma simulação: nenhuma mensagem é enviada e nenhuma nota é emitida. Você acompanha o raciocínio dele em tempo real.",
-    cta: "Assistir à simulação",
-    to: null,
   },
 ];
 

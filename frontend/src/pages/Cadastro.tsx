@@ -16,12 +16,11 @@ import { cn } from "@/lib/utils";
  * conversão — e porque a segunda metade (clínica, CNPJ) pode ser completada
  * depois, em Clínica. O CNPJ é opcional de propósito.
  *
- * Ao final, autentica e manda para `/boas-vindas` — a porta do onboarding, que
- * só a conta nova atravessa. O backend não autentica no register, então fazemos
- * login com as mesmas credenciais em seguida.
+ * Ao final, autentica e cai direto no produto. O backend não autentica no
+ * register, então fazemos login com as mesmas credenciais em seguida.
  *
- * Marcadores de passo são quadrados em mono, iguais aos do onboarding e dos
- * agentes — não círculos preenchidos.
+ * Marcadores de passo são quadrados em mono, iguais aos dos agentes — não
+ * círculos preenchidos.
  */
 export default function Cadastro() {
   const { register, login } = useAuth();
@@ -53,7 +52,7 @@ export default function Cadastro() {
     try {
       await register({ email: f.email, password: f.senha, displayName: f.nome });
       await login({ email: f.email, password: f.senha });
-      navigate("/boas-vindas", { replace: true });
+      navigate("/", { replace: true });
     } catch (error) {
       setErro(error instanceof ApiError ? error.message : "Não foi possível criar a conta. Tente novamente.");
     } finally {

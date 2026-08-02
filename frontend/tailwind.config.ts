@@ -108,10 +108,22 @@ export default {
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
         "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        // Entrada escalonada — dá vida a listas que aparecem de uma vez. O atraso
+        // de cada item vem inline, via `style={{ "--i": n }}`.
+        "entra-item": { from: { opacity: "0", transform: "translateY(8px)" } },
+        "entra-bolha": { from: { opacity: "0", transform: "translateY(10px) scale(.97)" } },
+        // Três pontinhos de "digitando" — movimento no lugar de "Carregando…".
+        ponto: {
+          "0%, 60%, 100%": { opacity: ".28", transform: "translateY(0)" },
+          "30%": { opacity: "1", transform: "translateY(-3px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "entra-item": "entra-item .34s cubic-bezier(.22,1,.36,1) both var(--atraso, calc(var(--i, 0) * 42ms))",
+        "entra-bolha": "entra-bolha .32s cubic-bezier(.22,1,.36,1) both var(--atraso, calc(var(--i, 0) * 48ms))",
+        ponto: "ponto 1.25s ease-in-out infinite",
       },
     },
   },

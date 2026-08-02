@@ -4,7 +4,6 @@ import { Check, Clock, MessageCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import DicaContextual from "@/components/onboarding/DicaContextual";
 import KanbanFinanceiro from "@/components/financeiro/KanbanFinanceiro";
 import { BotaoAtualizar } from "@/components/hoje/SecoesHoje";
 import { cn, formatarBRL } from "@/lib/utils";
@@ -162,12 +161,6 @@ export default function Financeiro() {
           {cobrancas.length} de {todas.length} · shift+clique para selecionar vários
         </span>
       </div>
-
-      <DicaContextual
-        id="financeiro"
-        titulo="O dinheiro anda da esquerda para a direita"
-        texto="Cada coluna é uma etapa entre a consulta e a nota. Se um paciente fica parado tempo demais numa delas, o card esfria e avisa — é aí que o dinheiro trava."
-      />
 
       <KanbanFinanceiro
         cobrancas={cobrancas}

@@ -103,15 +103,6 @@
 
     /* raio "lg" da marca (12px) — sm/md/xl derivam dele no tailwind.config.ts */
     --radius: 0.75rem;
-
-    /* ── PONTE (remover na fase que troca Login/Cadastro) ──────────────────
-       `AuthBackdrop.tsx` ainda pinta o SVG de fundo com estes tokens. Sem eles
-       o `fill` fica inválido e o fundo da tela de login some. Saem junto com o
-       AuthBackdrop, quando `auth/PainelMarca.tsx` entrar. Valores derivados do
-       grafite da paleta nova, não os do azul antigo. */
-    --primary-light: 140 4% 28%;
-    --primary-dark: 140 5% 12%;
-    --primary-darker: 140 6% 8%;
   }
 
   /* Tema sálvia: só o gesto muda. Base terracota e resto da paleta são iguais. */
@@ -170,4 +161,26 @@
 
 .entra-pagina {
   animation: megus-entra 0.3s ease both;
+}
+
+/* Nada de movimento para quem pediu para não ter. Cobre as animações da marca e
+   as utilidades de entrada do tailwindcss-animate. */
+@media (prefers-reduced-motion: reduce) {
+  .entra-pagina,
+  .animate-entra-item,
+  .animate-entra-bolha,
+  .animate-in,
+  [class*="slide-in-from"] {
+    animation: none !important;
+  }
+
+  .animate-pulso,
+  .animate-ponto {
+    animation: none !important;
+    opacity: 0.55;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

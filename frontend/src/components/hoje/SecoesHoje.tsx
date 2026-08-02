@@ -33,16 +33,8 @@ const COLUNAS = "md:grid md:grid-cols-[132px_minmax(0,1fr)_150px_92px_auto] md:i
  * a manchete afirma "Nada travado" com confiança durante todo o carregamento.
  * Numa tela cuja tese é a resposta escrita, resposta errada é o pior defeito.
  */
-export function Resposta({ pronto, vazio, n }: { pronto: boolean; vazio: boolean; n: number }) {
+export function Resposta({ pronto, n }: { pronto: boolean; n: number }) {
   if (!pronto) return <span className="text-muted-foreground">Verificando o dia…</span>;
-  if (vazio) {
-    return (
-      <>
-        Falta conectar o Kaua.
-        <span className="text-muted-foreground"> Depois disso, o dia roda sozinho.</span>
-      </>
-    );
-  }
   if (!n) {
     return (
       <>
@@ -68,8 +60,8 @@ export function Resposta({ pronto, vazio, n }: { pronto: boolean; vazio: boolean
  *
  * No celular vira 2×2 e a perda acompanha o número, porque não há vão.
  */
-export function Ciclo({ etapas, vazio, pronto = true }: { etapas: EtapaFunil[]; vazio?: boolean; pronto?: boolean }) {
-  const dados = vazio ? etapas.map((e) => ({ ...e, n: 0, valor: 0 })) : etapas;
+export function Ciclo({ etapas, pronto = true }: { etapas: EtapaFunil[]; pronto?: boolean }) {
+  const dados = etapas;
   // Sem dado ainda: régua fantasma com a altura final, para a página não pular.
   if (!pronto) {
     return (
@@ -175,7 +167,7 @@ export function LinhaPendencia({
   const estilo = ESTILO_PENDENCIA[p.tipo];
 
   return (
-    <div className={cn("px-4 py-3.5 md:py-3", !primeira && "border-t border-border", COLUNAS)}>
+    <div className={cn("px-4 py-3.5 transition-colors duration-150 hover:bg-accent/40 md:py-3", !primeira && "border-t border-border", COLUNAS)}>
       <div className={cn("border-l-2 pl-2.5", estilo.borda)}>
         <Rotulo className={estilo.cor}>{estilo.rot}</Rotulo>
         <Num className="mt-1 block text-[10.5px] text-muted-foreground">{p.quando}</Num>
@@ -239,15 +231,7 @@ const TAG_TRILHA = {
  *
  * Recolhida por padrão: é consulta, não decisão. Quem precisa auditar abre.
  */
-export function TrilhaKaua({ eventos, vazio }: { eventos: EventoTrilha[]; vazio?: boolean }) {
-  if (vazio) {
-    return (
-      <p className="px-0.5 py-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
-        Assim que o Kaua entrar no ar, cada ação dele aparece aqui — com hora, valor e o motivo de cada decisão.
-      </p>
-    );
-  }
-
+export function TrilhaKaua({ eventos }: { eventos: EventoTrilha[] }) {
   return (
     <ul className="flex flex-col">
       {eventos.map((e) => {
@@ -346,16 +330,12 @@ export function BotaoTrilha({ aberta, n, onClick }: { aberta: boolean; n: number
   );
 }
 
-/** Estado vazio positivo — "nada aqui" pode ser boa notícia ou espera. */
-export function VazioOk({ esperando }: { esperando: boolean }) {
+/** Estado vazio positivo — aqui "nada aqui" é boa notícia. */
+export function VazioOk() {
   return (
     <Vazio
-      titulo={esperando ? "Aguardando o primeiro atendimento" : "Tudo em dia"}
-      texto={
-        esperando
-          ? "CPF que não confere, comprovante divergente, paciente pedindo um humano — tudo isso para aqui, com o histórico junto."
-          : "Nenhuma emissão bloqueada, nenhum pagamento em dúvida, ninguém esperando."
-      }
+      titulo="Tudo em dia"
+      texto="Nenhuma emissão bloqueada, nenhum pagamento em dúvida, ninguém esperando."
     />
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { Check, Clock, FileText, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Rotulo } from "@/components/ui/megus";
@@ -99,10 +99,11 @@ export default function KanbanFinanceiro({
             </header>
 
             <div className="flex flex-col gap-2">
-              {daEtapa.map((c) => (
+              {daEtapa.map((c, n) => (
                 <CardPaciente
                   key={c.id}
                   c={c}
+                  i={n}
                   selecionada={selecionadas.includes(c.id)}
                   onSelecionar={(shift) => onSelecionar(c.id, shift)}
                   onAbrir={() => onAbrir(c)}
@@ -129,6 +130,7 @@ export default function KanbanFinanceiro({
 
 function CardPaciente({
   c,
+  i,
   selecionada,
   onSelecionar,
   onAbrir,
@@ -137,6 +139,8 @@ function CardPaciente({
   onDragEnd,
 }: {
   c: Cobranca;
+  /** Posição na coluna — atrasa a entrada de cada card (`--i`). */
+  i: number;
   selecionada: boolean;
   onSelecionar: (comShift: boolean) => void;
   onAbrir: () => void;
@@ -154,8 +158,9 @@ function CardPaciente({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={(e) => (e.shiftKey || e.metaKey ? onSelecionar(true) : onAbrir())}
+      style={{ "--i": i } as CSSProperties}
       className={cn(
-        "group cursor-pointer rounded-[10px] border bg-background p-2.5 transition-all hover:-translate-y-px hover:bg-card hover:shadow-media",
+        "group animate-entra-item cursor-pointer rounded-[10px] border bg-background p-2.5 transition-all hover:-translate-y-px hover:bg-card hover:shadow-media",
         selecionada ? "border-menta ring-1 ring-menta" : "border-border hover:border-border-strong",
         temp === "frio" && "border-l-[2.5px] border-l-terra",
       )}

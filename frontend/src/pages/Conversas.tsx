@@ -1,29 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Check, Eye, FileText, Headphones, Image as ImageIcon, Search, Send, Zap } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Eye, FileText, Headphones, Image as ImageIcon, MessageSquare, Search, Send, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
-import DicaContextual from "@/components/onboarding/DicaContextual";
 import { cn } from "@/lib/utils";
 import * as conversasService from "@/services/conversas";
 import type { Conversa, Mensagem } from "@/services/conversas";
+import type { LinhaRaciocinio } from "@/services/raciocinio";
 import * as raciocinioService from "@/services/raciocinio";
 
 /**
  * Conversas — inbox de atendimento.
  *
  * Três colunas, e a da direita é o diferencial: além de ler a conversa, o usuário
- * vê O QUE O AGENTE ENTENDEU em cada passo. É a mesma transparência da simulação
- * do onboarding, agora sobre conversas reais — e é o que permite confiar sem
- * reler tudo.
+ * vê O QUE O AGENTE ENTENDEU em cada passo — e é o que permite confiar sem reler
+ * tudo.
+ *
+ * Desenho: esta é a única tela do app que não é documento — é uma CAIXA DE
+ * ENTRADA. Por isso o cabeçalho é uma barra fina (não o bloco de título das
+ * outras telas), a lista não usa fio entre itens (a seleção e o hover bastam) e
+ * o vazio ocupa a área inteira em vez de deixar buraco.
  *
  * O filtro padrão é "Precisa de você", não "Todas": a fila humana é o que traz o
  * usuário a esta tela. Abrir em "Todas" o obrigaria a filtrar antes de trabalhar.
  */
 const FILTROS = [
-  { id: "precisa", label: "Precisa de você", status: "AGUARDANDO" as const },
-  { id: "kaua", label: "Kaua conduzindo", status: "BOT" as const },
-  { id: "humano", label: "Com humano", status: "HUMANO" as const },
+  // Rótulos curtos de propósito: quatro chips com frase inteira não cabem em
+  // 292px e quebravam em duas fileiras. "Travadas" é a palavra da casa — a Hoje
+  // diz "casos travados", o Financeiro diz "travado há 2 dias".
+  { id: "precisa", label: "Travadas", status: "AGUARDANDO" as const },
+  { id: "kaua", label: "Kaua", status: "BOT" as const },
+  { id: "humano", label: "Humano", status: "HUMANO" as const },
   { id: "todas", label: "Todas", status: null },
 ] as const;
 
@@ -60,17 +68,40 @@ export default function Conversas() {
   });
   const conversas = conversasQuery.data ?? [];
 
-  const lista = useMemo(() => {
-    const f = FILTROS.find((x) => x.id === filtro)!;
-    const q = busca.trim().toLowerCase();
-    return conversas.filter((c) => {
-      const passaF = !f.status || c.status === f.status;
-      const passaB = !q || [c.nome, c.telefone].some((x) => (x ?? "").toLowerCase().includes(q));
-      return passaF && passaB;
-    });
-  }, [conversas, filtro, busca]);
+  /** Casa com o texto digitado — avaliado à parte para a fixação abaixo. */
+  const passaBusca = useCallback(
+    (c: Conversa) => {
+      const q = busca.trim().toLowerCase();
+      return !q || [c.nome, c.telefone].some((x) => (x ?? "").toLowerCase().includes(q));
+    },
+    [busca],
+  );
 
-  // Mantém uma conversa válida aberta quando o filtro ou a busca muda.
+  const filtrada = useMemo(() => {
+    const f = FILTROS.find((x) => x.id === filtro)!;
+    return conversas.filter((c) => (!f.status || c.status === f.status) && passaBusca(c));
+  }, [conversas, filtro, passaBusca]);
+
+  /**
+   * A conversa ABERTA fica na lista mesmo quando deixa de casar com o FILTRO.
+   *
+   * Sem isso, assumir uma conversa a expulsa de "Travadas" — e o auto-select
+   * abaixo joga o usuário em OUTRO paciente, logo depois de ele agir. Ele nunca
+   * chega a responder (o compositor só existe na conversa assumida) e ainda
+   * corre o risco de responder a pessoa errada.
+   *
+   * A busca NÃO entra nessa exceção: filtro é "mostre esta categoria", busca é
+   * "ache esta pessoa". Fixar contra a busca devolveria um paciente que não casa
+   * com o que foi digitado — resultado mentiroso.
+   */
+  const fixada = useMemo(() => {
+    if (!selId || filtrada.some((c) => c.id === selId)) return null;
+    return conversas.find((c) => c.id === selId && passaBusca(c)) ?? null;
+  }, [conversas, filtrada, selId, passaBusca]);
+  const lista = useMemo(() => (fixada ? [fixada, ...filtrada] : filtrada), [fixada, filtrada]);
+
+  // Auto-seleciona quando o filtro ou a busca muda e nada válido está aberto.
+  // `lista` já inclui a fixada, então assumir/devolver não disparam isso.
   useEffect(() => {
     if (!lista.length) {
       setSelId(null);
@@ -129,57 +160,105 @@ export default function Conversas() {
   const sel = conversas.find((c) => c.id === selId);
   const conta = (status: string | null) => conversas.filter((c) => !status || c.status === status).length;
   const rac = racQuery.data ?? [];
+  const naFila = conta("AGUARDANDO");
+  const buscando = busca.trim().length > 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className={cn("shrink-0 border-b border-border bg-card px-4 py-4 md:block md:px-7 md:py-5", aberto ? "hidden md:block" : "block")}>
-        <h1 className="font-brand text-[24px] font-bold leading-none tracking-[-0.03em] text-foreground md:text-[30px]">Conversas</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          O que o Kaua está conversando agora — e o que ele entendeu de cada mensagem.
-        </p>
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      {/* Barra fina, não bloco de título: caixa de entrada se navega, não se lê.
+          O resumo à direita responde "por que estou aqui" sem parágrafo. */}
+      <header
+        className={cn(
+          "shrink-0 items-center justify-between gap-4 border-b border-border/70 bg-card px-4 py-3 md:flex md:px-6",
+          aberto ? "hidden md:flex" : "flex",
+        )}
+      >
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-brand text-[19px] font-bold leading-none tracking-[-0.025em] text-foreground">Conversas</h1>
+          <span className="hidden text-[12px] text-muted-foreground sm:inline">o que o Kaua entendeu de cada mensagem</span>
+        </div>
+        {naFila > 0 && (
+          <span className="flex shrink-0 items-center gap-2 rounded-full bg-terra-soft px-3 py-1 text-[11.5px] font-semibold text-terra-ink">
+            <span className="h-[6px] w-[6px] animate-pulso rounded-full bg-terra" />
+            {naFila} esperando você
+          </span>
+        )}
       </header>
 
-      <div className="grid min-h-0 flex-1 md:grid-cols-[290px_1fr] xl:grid-cols-[290px_1fr_296px]">
+      {/* Duas colunas, não três: o raciocínio virou um bloco DENTRO do chat.
+          Como coluna fixa ele custava 296px permanentes para exibir 4 linhas —
+          o resto era ar — e repetia o que a mensagem de sistema já dizia. */}
+      <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[292px_1fr]">
         {/* lista */}
-        <div className={cn("min-h-0 flex-col border-border bg-card md:flex md:border-r", aberto ? "hidden md:flex" : "flex")}>
-          <div className="flex flex-col gap-2.5 border-b border-border px-3.5 py-3">
+        <div className={cn("min-h-0 flex-col border-border/70 bg-card md:flex md:border-r", aberto ? "hidden md:flex" : "flex")}>
+          <div className="flex flex-col gap-2.5 px-3 py-3">
             <div className="relative">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Buscar paciente…"
-                className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-[12.5px] outline-none focus:ring-2 focus:ring-ring"
+                className="h-9 w-full rounded-full border border-border bg-background pl-9 pr-3 text-[12.5px] outline-none transition-shadow focus:ring-2 focus:ring-ring"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {FILTROS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFiltro(f.id)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors",
-                    filtro === f.id
-                      ? "border-primary bg-primary text-white"
-                      : "border-border bg-card text-muted-foreground hover:text-secondary-foreground",
-                  )}
-                >
-                  {f.label}
-                  <span className={cn("rounded-[3px] px-1.5 font-mono text-[9.5px]", filtro === f.id ? "bg-white/20" : "bg-muted")}>
-                    {conta(f.status)}
-                  </span>
-                </button>
-              ))}
+            {/* Barra segmentada, não chips soltos: quatro células iguais cabem
+               em 292px sem quebrar, e o número em cima vira um resumo da fila. */}
+            <div className="flex rounded-[9px] bg-muted p-0.5">
+              {FILTROS.map((f) => {
+                const on = filtro === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFiltro(f.id)}
+                    className={cn(
+                      "flex flex-1 flex-col items-center gap-0.5 rounded-[7px] py-1.5 transition-all duration-150",
+                      on ? "bg-card shadow-sutil" : "hover:bg-card/60",
+                    )}
+                  >
+                    <span className={cn("font-mono text-[12.5px] font-semibold leading-none tabular-nums", on ? "text-foreground" : "text-muted-foreground")}>
+                      {conta(f.status)}
+                    </span>
+                    <span className={cn("text-[10px] font-semibold leading-none", on ? "text-secondary-foreground" : "text-muted-foreground")}>
+                      {f.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto">
-            {lista.map((c) => (
-              <ItemConversa key={c.id} c={c} ativo={c.id === selId} onClick={() => { setSelId(c.id); setAberto(true); }} />
+          {/* Sem fio entre itens: a seleção e o hover já separam. Fio em toda
+             linha endurece uma tela que é, no fundo, uma pilha de pessoas. */}
+          <div className="min-h-0 flex-1 space-y-0.5 overflow-auto px-2 pb-3">
+            {lista.map((c, i) => (
+              <ItemConversa
+                key={c.id}
+                c={c}
+                i={i}
+                ativo={c.id === selId}
+                presa={Boolean(fixada && c.id === fixada.id)}
+                onClick={() => {
+                  setSelId(c.id);
+                  setAberto(true);
+                }}
+              />
             ))}
             {!lista.length && (
-              <p className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">Nenhuma conversa neste filtro.</p>
+              <div className="px-3 py-10 text-center">
+                <p className="text-[12.5px] text-muted-foreground">
+                  {buscando ? "Nenhum paciente com esse nome." : "Nada neste filtro."}
+                </p>
+                {!buscando && filtro !== "todas" && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltro("todas")}
+                    className="mt-2 text-[12px] font-semibold text-menta-ink underline-offset-2 hover:underline"
+                  >
+                    Ver todas as conversas
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -187,18 +266,16 @@ export default function Conversas() {
         {/* chat */}
         <div className={cn("min-h-0 flex-col bg-background md:flex", aberto ? "flex" : "hidden md:flex")}>
           {!sel ? (
-            <div className="grid flex-1 place-items-center px-8 text-center text-[13px] text-muted-foreground">
-              Selecione uma conversa à esquerda.
-            </div>
+            <VazioChat vazioTotal={!lista.length} buscando={buscando} />
           ) : (
             <>
-              <div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-card px-3 py-3 md:px-4">
+              <div className="flex shrink-0 items-center gap-2.5 border-b border-border/70 bg-card px-3 py-2.5 md:px-4">
                 {/* Celular: caminho de volta para a lista */}
                 <button
                   type="button"
                   onClick={() => setAberto(false)}
                   title="Voltar à lista"
-                  className="-ml-1 grid h-8 w-8 shrink-0 place-items-center rounded-[7px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+                  className="-ml-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
                 >
                   <ArrowLeft size={16} strokeWidth={1.9} />
                 </button>
@@ -209,23 +286,29 @@ export default function Conversas() {
                   <strong className="block truncate text-[13.5px] text-foreground">{sel.nome}</strong>
                   <span className="font-mono text-[11px] text-muted-foreground">{sel.telefone}</span>
                 </div>
-                <span className={cn("shrink-0 rounded-[4px] px-2 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.08em]", tagDe(sel.status).cls)}>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.08em]",
+                    tagDe(sel.status).cls,
+                  )}
+                >
                   {tagDe(sel.status).t}
                 </span>
               </div>
 
-              <div ref={rolagem} className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto px-5 py-5">
-                {mensagensQuery.isLoading && (
-                  <p className="text-center text-[12px] text-muted-foreground">Carregando…</p>
+              <div key={sel.id} ref={rolagem} className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto px-3.5 py-4 md:px-6 md:py-5">
+                {mensagensQuery.isLoading ? (
+                  <Digitando />
+                ) : (
+                  (mensagensQuery.data ?? []).map((m, i) => <Bolha key={m.id} m={m} i={i} />)
                 )}
-                {(mensagensQuery.data ?? []).map((m) => (
-                  <Bolha key={m.id} m={m} />
-                ))}
               </div>
 
-              <div className="shrink-0 border-t border-border bg-card px-4 py-3">
+              <Raciocinio itens={rac} bloqueado={sel.status === "AGUARDANDO"} chave={sel.id} />
+
+              <div className="shrink-0 border-t border-border/70 bg-card px-3 py-3 md:px-4">
                 {sel.status === "HUMANO" ? (
-                  <div className="flex items-end gap-2">
+                  <div className="flex animate-in flex-wrap items-end gap-2 fade-in slide-in-from-bottom-1">
                     <textarea
                       value={rascunho}
                       onChange={(e) => setRascunho(e.target.value)}
@@ -237,7 +320,7 @@ export default function Conversas() {
                       }}
                       rows={1}
                       placeholder="Escreva como a recepção…"
-                      className="max-h-28 min-h-[40px] flex-1 resize-y rounded-md border border-border bg-background px-3 py-2.5 text-[12.5px] leading-relaxed outline-none focus:ring-2 focus:ring-ring"
+                      className="max-h-28 min-h-[40px] flex-1 resize-y rounded-[14px] border border-border bg-background px-3.5 py-2.5 text-[12.5px] leading-relaxed outline-none transition-shadow focus:ring-2 focus:ring-ring"
                     />
                     <Button onClick={() => enviar.mutate(rascunho.trim())} disabled={!rascunho.trim() || enviar.isPending}>
                       <Send size={14} /> Enviar
@@ -261,70 +344,182 @@ export default function Conversas() {
           )}
         </div>
 
-        {/* raciocínio — a transparência que gera confiança */}
-        <aside className="hidden min-h-0 flex-col border-l border-border bg-card xl:flex">
-          <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3.5 text-secondary-foreground">
-            <Zap size={14} /> <strong className="text-[12.5px] text-foreground">O que o Kaua entendeu</strong>
-          </header>
-          <ul className="min-h-0 flex-1 overflow-auto">
-            {rac.map((r, n) => (
-              <li key={n} className="flex items-start gap-2.5 border-b border-border px-4 py-3">
-                <span
-                  className={cn(
-                    "mt-px grid h-4 w-4 shrink-0 place-items-center rounded-full",
-                    r.ok ? "bg-menta-soft text-menta-ink" : "bg-destructive-soft text-destructive",
-                  )}
-                >
-                  {r.ok ? <Check size={10} strokeWidth={3} /> : <AlertTriangle size={9} strokeWidth={2.6} />}
-                </span>
-                <div className="min-w-0">
-                  <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {r.chave}
-                  </span>
-                  <span className={cn("block text-[12.5px] font-semibold", r.ok ? "text-foreground" : "text-destructive")}>
-                    {r.valor}
-                  </span>
-                </div>
-              </li>
-            ))}
-            {!rac.length && (
-              <li className="px-4 py-4 text-[11.5px] italic text-muted-foreground">Sem raciocínio registrado.</li>
-            )}
-          </ul>
-          {sel?.status === "AGUARDANDO" && (
-            <footer className="shrink-0 border-t border-areia bg-terra-soft px-4 py-3.5 text-terra-ink">
-              <strong className="block text-[12.5px]">O Kaua parou aqui</strong>
-              <p className="mt-1 text-[11.5px] leading-relaxed opacity-85">
-                Ele não insiste nem adivinha quando um dado não confere. Assuma a conversa para resolver.
-              </p>
-            </footer>
-          )}
-        </aside>
       </div>
-
-      {/* a dica descreve o painel da direita — some junto com ele */}
-      <DicaContextual
-        id="conversas"
-        posicao="flutuante-dir"
-        className="hidden xl:grid"
-        titulo="Você vê o que o Kaua entendeu"
-        texto="A coluna da direita mostra o raciocínio dele em cada conversa — intenção, CPF, comprovante. Se algo não bater, aparece em vermelho e ele para sozinho."
-      />
     </div>
   );
 }
 
-function ItemConversa({ c, ativo, onClick }: { c: Conversa; ativo: boolean; onClick: () => void }) {
+/**
+ * O que o Kaua entendeu — acima do compositor, não numa coluna à parte.
+ *
+ * Era uma terceira coluna de 296px. O problema não foi o conteúdo, foi o
+ * formato: quatro linhas de leitura ocupando uma coluna inteira, com ~350px de
+ * ar embaixo, repetindo o que a mensagem de sistema da conversa já dizia.
+ *
+ * Aqui ele fica encostado na decisão que você vai tomar — e o chat recupera a
+ * largura. Recolhido quando o Kaua está conduzindo (nada a decidir); aberto
+ * quando ele travou, que é quando o motivo importa.
+ */
+function Raciocinio({ itens, bloqueado, chave }: { itens: LinhaRaciocinio[]; bloqueado: boolean; chave: string }) {
+  const [aberto, setAberto] = useState(bloqueado);
+  // Reabre ao trocar para uma conversa travada, recolhe nas demais.
+  useEffect(() => {
+    setAberto(bloqueado);
+  }, [chave, bloqueado]);
+
+  if (!itens.length) return null;
+  const falhou = itens.filter((r) => !r.ok).length;
+
+  return (
+    <div className={cn("shrink-0 border-t border-border/70 bg-card", bloqueado && "border-l-2 border-l-terra bg-terra-soft/25")}>
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent/40 md:px-4"
+      >
+        <Zap size={13} className={bloqueado ? "text-terra-ink" : "text-muted-foreground"} />
+        <strong className="shrink-0 text-[12px] text-foreground">{bloqueado ? "O Kaua parou aqui" : "O que o Kaua entendeu"}</strong>
+        {/* Recolhido, o resumo já entrega o essencial: quantas conferências e se
+           alguma falhou. Abrir vira opção, não obrigação. */}
+        {!aberto && (
+          <span className="truncate text-[11.5px] text-muted-foreground">
+            {falhou > 0 ? (
+              <>
+                · <span className="text-destructive">{falhou} não {falhou === 1 ? "bate" : "batem"}</span>
+              </>
+            ) : (
+              `· ${itens.length} conferências, tudo certo`
+            )}
+          </span>
+        )}
+        <ChevronDown size={13} className={cn("ml-auto shrink-0 text-muted-foreground transition-transform", aberto && "rotate-180")} />
+      </button>
+
+      {aberto && (
+        <div className="px-3 pb-3 md:px-4">
+          {/* Em duas colunas: quatro conferências cabem em duas fileiras e o
+             bloco não rouba altura do chat. */}
+          <div className="grid gap-x-5 gap-y-2 sm:grid-cols-2">
+            {itens.map((r, n) => (
+              <div key={n} style={{ "--i": n } as CSSProperties} className="flex animate-entra-item items-start gap-2">
+                <span className={cn("mt-[5px] h-[6px] w-[6px] shrink-0 rounded-full", r.ok ? "bg-menta-dark" : "bg-destructive")} />
+                <div className="min-w-0">
+                  {/* Span próprio em vez de <Rotulo>: o `leading-none` dele
+                     colapsa quando o rótulo quebra em duas linhas
+                     ("NOME INFORMADO") e o valor sobe por cima. */}
+                  <span className="block font-mono text-[9.5px] font-medium uppercase leading-[1.4] tracking-[0.14em] text-muted-foreground">
+                    {r.chave}
+                  </span>
+                  <span className={cn("mt-0.5 block text-[12px] font-semibold leading-snug", r.ok ? "text-foreground" : "text-destructive")}>
+                    {r.valor}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {bloqueado && (
+            <p className="mt-3 border-t border-border/70 pt-2.5 text-[11.5px] leading-relaxed text-muted-foreground">
+              Ele não insiste nem adivinha quando um dado não confere. Assuma a conversa para resolver.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * O vazio precisa dizer o que está acontecendo, não só que está vazio.
+ *
+ * Dois casos diferentes: não há conversa nenhuma no filtro (silêncio real — e
+ * silêncio aqui é boa notícia) ou há lista e nada aberto (só falta escolher).
+ */
+function VazioChat({ vazioTotal, buscando }: { vazioTotal: boolean; buscando: boolean }) {
+  return (
+    <div className="grid flex-1 place-items-center px-8 py-12 text-center">
+      <div className="max-w-[34ch] animate-in fade-in">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-muted text-muted-foreground">
+          {/* O ícone segue o TEXTO: busca sem resultado não é sucesso. Ramificar só
+             por `vazioTotal` punha um ✓ de tarefa cumprida sobre "Nada encontrado". */}
+          {buscando ? (
+            <Search size={22} strokeWidth={1.8} />
+          ) : vazioTotal ? (
+            <Check size={22} strokeWidth={2.4} />
+          ) : (
+            <MessageSquare size={22} strokeWidth={1.8} />
+          )}
+        </span>
+        {vazioTotal ? (
+          <>
+            <strong className="mt-4 block text-[14px] font-semibold text-foreground">
+              {buscando ? "Nada encontrado" : "Ninguém esperando"}
+            </strong>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
+              {buscando
+                ? "Nenhum paciente com esse nome nas conversas deste filtro."
+                : "O Kaua está conduzindo tudo sozinho. Quando ele travar em algo, a conversa aparece aqui."}
+            </p>
+          </>
+        ) : (
+          <>
+            <strong className="mt-4 block text-[14px] font-semibold text-foreground">Escolha uma conversa</strong>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
+              Além das mensagens, você vê o que o Kaua entendeu de cada uma — e onde ele parou.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Enquanto as mensagens carregam — movimento no lugar de "Carregando…". */
+function Digitando() {
+  return (
+    <div className="flex justify-start">
+      <div className="flex items-center gap-1.5 rounded-[14px] rounded-bl-[4px] border border-border bg-card px-3.5 py-3">
+        {[0, 1, 2].map((n) => (
+          <span key={n} className="h-[6px] w-[6px] animate-ponto rounded-full bg-border-strong" style={{ animationDelay: `${n * 0.16}s` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ItemConversa({
+  c,
+  i,
+  ativo,
+  presa,
+  onClick,
+}: {
+  c: Conversa;
+  i: number;
+  ativo: boolean;
+  presa: boolean;
+  onClick: () => void;
+}) {
   const tag = tagDe(c.status);
   return (
     <button
       type="button"
       onClick={onClick}
+      style={{ "--i": i } as CSSProperties}
       className={cn(
-        "flex w-full items-start gap-2.5 border-b border-border px-3.5 py-3 text-left transition-colors",
-        ativo ? "bg-background shadow-[inset_2.5px_0_0_hsl(var(--gesto))]" : "hover:bg-background",
+        "relative flex w-full animate-entra-item items-start gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-colors duration-150",
+        ativo ? "bg-background" : "hover:bg-background/70",
+        // Fora do filtro, mas mantida à vista por estar aberta.
+        presa && "ring-1 ring-inset ring-border",
       )}
     >
+      {/* Marca da seleção: cresce em vez de piscar. */}
+      <span
+        className={cn(
+          "absolute left-0 top-1/2 w-[3px] -translate-y-1/2 rounded-r-full bg-gesto transition-all duration-200",
+          ativo ? "h-7 opacity-100" : "h-0 opacity-0",
+        )}
+      />
       <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-primary text-[13px] font-bold text-white">
         {c.nome.charAt(0)}
       </span>
@@ -334,25 +529,25 @@ function ItemConversa({ c, ativo, onClick }: { c: Conversa; ativo: boolean; onCl
           <span className="shrink-0 text-[10px] text-muted-foreground">{c.hora}</span>
         </span>
         <span className="mt-0.5 block truncate text-[11.5px] text-muted-foreground">{c.ultima}</span>
-        <span className={cn("mt-1.5 inline-flex rounded-[4px] px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.08em]", tag.cls)}>{tag.t}</span>
+        <span className={cn("mt-1.5 inline-flex rounded-full px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.08em]", tag.cls)}>
+          {tag.t}
+        </span>
       </span>
     </button>
   );
 }
 
-function Bolha({ m }: { m: Mensagem }) {
-  // Mensagem de sistema não é fala: é o registro da decisão do agente. Fica
-  // centralizada e em terracota para não se confundir com o diálogo.
+function Bolha({ m, i }: { m: Mensagem; i: number }) {
   if (m.autor === "cliente" && !m.texto && !m.attach) return null;
 
   const humano = m.autor === "humano";
   const meu = humano || m.autor === "bot";
 
   return (
-    <div className={cn("flex", meu && "justify-end")}>
+    <div className={cn("flex animate-entra-bolha", meu && "justify-end")} style={{ "--i": i } as CSSProperties}>
       <div
         className={cn(
-          "max-w-[74%] rounded-[14px] px-3 py-2.5 text-[12.5px] leading-relaxed shadow-sutil",
+          "max-w-[74%] rounded-[14px] px-3.5 py-2.5 text-[12.5px] leading-relaxed shadow-sutil",
           humano
             ? "rounded-br-[4px] bg-info-soft text-foreground"
             : meu
@@ -362,7 +557,7 @@ function Bolha({ m }: { m: Mensagem }) {
       >
         {humano && <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-info">Recepção</div>}
         {m.attach && (
-          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-border bg-white/70 px-2.5 py-2">
+          <div className="mb-1.5 flex items-center gap-2 rounded-[9px] border border-border bg-white/70 px-2.5 py-2">
             <span
               className={cn(
                 "grid h-7 w-7 shrink-0 place-items-center rounded-md",

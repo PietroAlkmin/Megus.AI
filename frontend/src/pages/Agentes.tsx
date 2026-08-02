@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
-import DicaContextual from "@/components/onboarding/DicaContextual";
 import { cn } from "@/lib/utils";
 import * as agenteService from "@/services/agente";
 import type { AgentePersona, AgenteTone } from "@/services/agente";
@@ -91,12 +90,6 @@ export default function Agentes() {
           <Plus size={15} strokeWidth={2.4} /> Criar agente
         </Button>
       </header>
-
-      <DicaContextual
-        id="agentes"
-        titulo="Habilidade é permissão, não configuração"
-        texto="Ligar “Emitir nota” dá ao agente poder de gerar documento fiscal com o CNPJ da clínica. Ele só age depois que o código valida CPF e pagamento — mas a permissão é sua."
-      />
 
       <div className="flex flex-col gap-4">
         <section className="rounded-[10px] border border-border bg-card p-5 shadow-sutil">
