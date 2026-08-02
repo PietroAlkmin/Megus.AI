@@ -60,13 +60,28 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
     const { companyId } = req.auth as AuthContext;
     const agentId = String(req.params.agentId ?? "");
 
-    const integ = await deps.integrations.getById(agentId);
-    if (!pertenceAoTenant(integ, companyId)) {
+    // "todos" = a caixa de entrada da CLÍNICA, não de um agente. É o que a tela
+    // de Conversas sempre pediu; sem este caso ela batia em `getById("todos")`,
+    // levava 404 e ficava eternamente vazia — com as conversas gravadas no banco.
+    // Escopo continua o tenant do JWT: varre só as integrações da empresa.
+    const convs = agentId === "todos"
+      ? (
+          await Promise.all(
+            (await deps.integrations.listByCompanyId(companyId)).map((i) =>
+              deps.conversations.listByIntegrationId(i.id),
+            ),
+          )
+        ).flat()
+      : await (async () => {
+          const integ = await deps.integrations.getById(agentId);
+          if (!pertenceAoTenant(integ, companyId)) return null;
+          return deps.conversations.listByIntegrationId(agentId);
+        })();
+
+    if (convs === null) {
       fail(res, "Agente não encontrado.", 404, "NOT_FOUND");
       return;
     }
-
-    const convs = await deps.conversations.listByIntegrationId(agentId);
     const lista = [];
     for (const c of convs) {
       const contato = await deps.contacts.findByWhatsapp(c.integrationId, c.whatsappNumber);
@@ -82,6 +97,9 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
         humanHandoff: c.humanHandoff,
       });
     }
+    // Mais recentes primeiro: com várias integrações a concatenação vinha
+    // agrupada por agente, e a conversa de agora podia cair no fim da lista.
+    lista.sort((a, b) => (b.hora ?? "").localeCompare(a.hora ?? ""));
     ok(res, lista);
   });
 

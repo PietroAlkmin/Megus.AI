@@ -41,13 +41,13 @@ describe("CalendarImportPlanner", () => {
     const repos = new InMemoryRepositories();
     const agora = new Date();
     await repos.contacts.save({
-      id: "ct-1", integrationId: "int", whatsappNumber: "5511111111111",
+      id: "ct-1", integrationId: "int", whatsappNumber: "5511911111111",
       fullName: "Maria Silva", cpf: null, cpfNameVerified: false, createdAt: agora, updatedAt: agora,
     });
     const planner = new CalendarImportPlanner({ contacts: repos.contacts, charges: repos.charges });
 
     const result = await planner.plan("int", [
-      { id: "1", summary: "Consulta Maria Silva 2222", description: "Telefone: 5522222222222\nValor: 100", start: { dateTime: "2026-07-28T10:00:00-03:00" } },
+      { id: "1", summary: "Consulta Maria Silva 2222", description: "Telefone: 5522992222222\nValor: 100", start: { dateTime: "2026-07-28T10:00:00-03:00" } },
     ]);
 
     expect(result[0]).toMatchObject({ kind: "ready", createContact: true });

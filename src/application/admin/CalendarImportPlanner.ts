@@ -1,6 +1,7 @@
 import type { Contact } from "../../domain/entities/Contact";
 import type { IChargeRepository, IContactRepository } from "../../domain/ports/repositories";
 import { parseCalendarAppointment, type CalendarEventInput } from "./CalendarEventParser";
+import { variantes as variantesTelefone } from "../../domain/services/telefoneBR";
 
 export type CalendarImportPlanItem =
   | { kind: "ready"; eventId: string; patientKey: string; amount: number; existingContactId: string | null; createContact: boolean; phone: string | null; fullName: string | null; cpf: string | null; warnings: string[] }
@@ -21,7 +22,9 @@ function norm(value: string): string {
  * O nome continua valendo como 2º critério, para o evento que não traz telefone.
  */
 function matches(contact: Contact, key: string, discriminator: string | null, phone: string | null): boolean {
-  if (phone && contact.whatsappNumber === phone) return true;
+  // Tolerante ao nono dígito: "11 4284-2271" e "11 94284-2271" são o MESMO
+  // celular. Comparação exata criava um 2º cadastro e a cobrança ia parar nele.
+  if (phone && variantesTelefone(phone).includes(contact.whatsappNumber)) return true;
   if (!contact.fullName || !norm(contact.fullName).startsWith(norm(key))) return false;
   return !discriminator || contact.whatsappNumber.endsWith(discriminator);
 }

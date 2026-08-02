@@ -19,6 +19,7 @@ import type {
   IAdminWhatsappAccessRepository,
   IInboundMessageDeduplicator,
 } from "../../../domain/ports/repositories";
+import { variantes as variantesTelefone } from "../../../domain/services/telefoneBR";
 
 interface SeedData {
   integrations?: Integration[];
@@ -146,8 +147,12 @@ export class InMemoryRepositories {
   contacts: IContactRepository = {
     findByCpf: async (integrationId, cpf) =>
       this._contacts.find((c) => c.integrationId === integrationId && c.cpf === cpf) ?? null,
-    findByWhatsapp: async (integrationId, number) =>
-      this._contacts.find((c) => c.integrationId === integrationId && c.whatsappNumber === number) ?? null,
+    // Tolerante ao nono dígito, igual ao Prisma — o mesmo celular nas duas
+    // formas é a mesma pessoa (ver domain/services/telefoneBR).
+    findByWhatsapp: async (integrationId, number) => {
+      const formas = variantesTelefone(number);
+      return this._contacts.find((c) => c.integrationId === integrationId && formas.includes(c.whatsappNumber)) ?? null;
+    },
     getById: async (id) => this._contacts.find((c) => c.id === id) ?? null,
     listByIntegration: async (integrationId) => this._contacts.filter((c) => c.integrationId === integrationId),
     save: async (contact) => {
