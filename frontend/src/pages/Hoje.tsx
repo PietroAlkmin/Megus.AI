@@ -114,7 +114,7 @@ export default function Hoje() {
         <div className="flex shrink-0 items-center gap-2.5">
           <BotaoAtualizar onClick={() => refetch()} carregando={isLoading} />
           <ChipAgente
-            nome={resumo?.agente.nome ?? "Kaua"}
+            nome={resumo?.agente.nome ?? "o agente"}
             noAr={Boolean(resumo?.agente.noAr)}
             desde={resumo?.agente.desde}
           />
@@ -149,7 +149,7 @@ export default function Hoje() {
               ? "Verificando…"
               : pendencias.length
                 ? "O agente parou e está esperando."
-                : "O Kaua resolveu tudo sozinho."}
+                : `${resumo?.agente.nome ?? "O agente"} resolveu tudo sozinho.`}
           </span>
         </div>
 

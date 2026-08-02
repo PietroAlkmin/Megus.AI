@@ -43,7 +43,7 @@ export function useHoje() {
     : montar({
         cobrancas: cobrancasQuery.data ?? [],
         clinica: empresaQuery.data?.name || empresaQuery.data?.fiscalName || "sua clínica",
-        agenteNome: agenteQuery.data?.name || "Kaua",
+        agenteNome: agenteQuery.data?.name || "o agente",
         whatsapp: whatsappQuery.data ?? { connected: false, number: null },
       });
 

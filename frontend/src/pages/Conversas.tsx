@@ -9,6 +9,7 @@ import * as conversasService from "@/services/conversas";
 import type { Conversa, Mensagem } from "@/services/conversas";
 import type { LinhaRaciocinio } from "@/services/raciocinio";
 import * as raciocinioService from "@/services/raciocinio";
+import { useNomeAgente } from "@/hooks/useNomeAgente";
 
 /**
  * Conversas — inbox de atendimento.
@@ -30,14 +31,14 @@ const FILTROS = [
   // 292px e quebravam em duas fileiras. "Travadas" é a palavra da casa — a Hoje
   // diz "casos travados", o Financeiro diz "travado há 2 dias".
   { id: "precisa", label: "Travadas", status: "AGUARDANDO" as const },
-  { id: "kaua", label: "Kaua", status: "BOT" as const },
+  { id: "kaua", label: "agente", status: "BOT" as const }, // rótulo trocado pelo nome real em runtime
   { id: "humano", label: "Humano", status: "HUMANO" as const },
   { id: "todas", label: "Todas", status: null },
 ] as const;
 
 const TAG_STATUS: Record<string, { t: string; cls: string }> = {
   AGUARDANDO: { t: "Precisa de você", cls: "bg-terra-soft text-terra-ink" },
-  BOT: { t: "Kaua", cls: "bg-menta-soft text-menta-ink" },
+  BOT: { t: "agente", cls: "bg-menta-soft text-menta-ink" }, // `t` trocado pelo nome real em runtime
   HUMANO: { t: "Humano", cls: "bg-info-soft text-info" },
   // O agente perguntando "vai precisar de nota?" — está conduzindo, não travado.
   AGUARDANDO_NOTA: { t: "Perguntando da nota", cls: "bg-menta-soft text-menta-ink" },
@@ -48,9 +49,14 @@ const TAG_STATUS: Record<string, { t: string; cls: string }> = {
  * status desconhecido é questão de quando, não de se. Sem fallback,
  * `TAG_STATUS[x].cls` derruba a tela inteira por causa de um rótulo.
  */
-const tagDe = (status: string) => TAG_STATUS[status] ?? { t: "Em andamento", cls: "bg-muted text-secondary-foreground" };
+/** `nomeAgente` troca o rótulo do estado BOT: quem conduz tem nome, e é o da clínica. */
+const tagDe = (status: string, nomeAgente: string) => {
+  const base = TAG_STATUS[status] ?? { t: "Em andamento", cls: "bg-muted text-secondary-foreground" };
+  return status === "BOT" ? { ...base, t: nomeAgente } : base;
+};
 
 export default function Conversas() {
+  const { nome, Nome } = useNomeAgente();
   const queryClient = useQueryClient();
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["id"]>("precisa");
   const [selId, setSelId] = useState<string | null>(null);
@@ -133,7 +139,7 @@ export default function Conversas() {
     mutationFn: () => conversasService.assumir(selId!),
     onSuccess: () => {
       invalidar();
-      toast.success("Você assumiu a conversa. O Kaua está pausado aqui.");
+      toast.success(`Você assumiu a conversa. ${Nome} está pausado aqui.`);
     },
     onError: () => toast.error("Não foi possível assumir a conversa."),
   });
@@ -142,7 +148,7 @@ export default function Conversas() {
     mutationFn: () => conversasService.retomar(selId!),
     onSuccess: () => {
       invalidar();
-      toast.success("Conversa devolvida ao Kaua.");
+      toast.success(`Conversa devolvida para ${nome}.`);
     },
     onError: () => toast.error("Não foi possível devolver a conversa."),
   });
@@ -175,7 +181,7 @@ export default function Conversas() {
       >
         <div className="flex items-baseline gap-3">
           <h1 className="font-brand text-[19px] font-bold leading-none tracking-[-0.025em] text-foreground">Conversas</h1>
-          <span className="hidden text-[12px] text-muted-foreground sm:inline">o que o Kaua entendeu de cada mensagem</span>
+          <span className="hidden text-[12px] text-muted-foreground sm:inline">o que {nome} entendeu de cada mensagem</span>
         </div>
         {naFila > 0 && (
           <span className="flex shrink-0 items-center gap-2 rounded-full bg-terra-soft px-3 py-1 text-[11.5px] font-semibold text-terra-ink">
@@ -220,7 +226,7 @@ export default function Conversas() {
                       {conta(f.status)}
                     </span>
                     <span className={cn("text-[10px] font-semibold leading-none", on ? "text-secondary-foreground" : "text-muted-foreground")}>
-                      {f.label}
+                      {f.id === "kaua" ? nome : f.label}
                     </span>
                   </button>
                 );
@@ -289,10 +295,10 @@ export default function Conversas() {
                 <span
                   className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.08em]",
-                    tagDe(sel.status).cls,
+                    tagDe(sel.status, nome).cls,
                   )}
                 >
-                  {tagDe(sel.status).t}
+                  {tagDe(sel.status, nome).t}
                 </span>
               </div>
 
@@ -326,13 +332,13 @@ export default function Conversas() {
                       <Send size={14} /> Enviar
                     </Button>
                     <Button variant="outline" onClick={() => retomar.mutate()}>
-                      Devolver ao Kaua
+                      Devolver para {nome}
                     </Button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-                      <Eye size={14} /> Modo monitoramento — o Kaua está conduzindo
+                      <Eye size={14} /> Modo monitoramento — {nome} está conduzindo
                     </span>
                     <Button onClick={() => assumir.mutate()} disabled={assumir.isPending}>
                       <Headphones size={14} /> Assumir conversa
@@ -361,6 +367,7 @@ export default function Conversas() {
  * quando ele travou, que é quando o motivo importa.
  */
 function Raciocinio({ itens, bloqueado, chave }: { itens: LinhaRaciocinio[]; bloqueado: boolean; chave: string }) {
+  const { nome, Nome } = useNomeAgente();
   const [aberto, setAberto] = useState(bloqueado);
   // Reabre ao trocar para uma conversa travada, recolhe nas demais.
   useEffect(() => {
@@ -379,7 +386,7 @@ function Raciocinio({ itens, bloqueado, chave }: { itens: LinhaRaciocinio[]; blo
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent/40 md:px-4"
       >
         <Zap size={13} className={bloqueado ? "text-terra-ink" : "text-muted-foreground"} />
-        <strong className="shrink-0 text-[12px] text-foreground">{bloqueado ? "O Kaua parou aqui" : "O que o Kaua entendeu"}</strong>
+        <strong className="shrink-0 text-[12px] text-foreground">{bloqueado ? `${Nome} parou aqui` : `O que ${nome} entendeu`}</strong>
         {/* Recolhido, o resumo já entrega o essencial: quantas conferências e se
            alguma falhou. Abrir vira opção, não obrigação. */}
         {!aberto && (
@@ -436,6 +443,7 @@ function Raciocinio({ itens, bloqueado, chave }: { itens: LinhaRaciocinio[]; blo
  * silêncio aqui é boa notícia) ou há lista e nada aberto (só falta escolher).
  */
 function VazioChat({ vazioTotal, buscando }: { vazioTotal: boolean; buscando: boolean }) {
+  const { nome, Nome } = useNomeAgente();
   return (
     <div className="grid flex-1 place-items-center px-8 py-12 text-center">
       <div className="max-w-[34ch] animate-in fade-in">
@@ -458,14 +466,14 @@ function VazioChat({ vazioTotal, buscando }: { vazioTotal: boolean; buscando: bo
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
               {buscando
                 ? "Nenhum paciente com esse nome nas conversas deste filtro."
-                : "O Kaua está conduzindo tudo sozinho. Quando ele travar em algo, a conversa aparece aqui."}
+                : `${Nome} está conduzindo tudo sozinho. Quando travar em algo, a conversa aparece aqui.`}
             </p>
           </>
         ) : (
           <>
             <strong className="mt-4 block text-[14px] font-semibold text-foreground">Escolha uma conversa</strong>
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
-              Além das mensagens, você vê o que o Kaua entendeu de cada uma — e onde ele parou.
+              Além das mensagens, você vê o que {nome} entendeu de cada uma — e onde parou.
             </p>
           </>
         )}
@@ -500,7 +508,8 @@ function ItemConversa({
   presa: boolean;
   onClick: () => void;
 }) {
-  const tag = tagDe(c.status);
+  const { nome: nomeAgente } = useNomeAgente();
+  const tag = tagDe(c.status, nomeAgente);
   return (
     <button
       type="button"

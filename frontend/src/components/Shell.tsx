@@ -284,7 +284,7 @@ export default function Shell() {
             <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-foreground">
               <strong className="font-semibold">O WhatsApp caiu.</strong> O número{" "}
               <span className="font-mono">{whatsappQuery.data?.number}</span> não está mais conectado — nenhuma mensagem
-              chega ao Kaua até religar.
+              chega ao agente até religar.
             </span>
             <span className="shrink-0 text-[11.5px] font-semibold text-destructive underline underline-offset-2">
               Religar

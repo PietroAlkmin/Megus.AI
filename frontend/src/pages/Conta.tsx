@@ -21,7 +21,7 @@ const TEMAS: { id: Tema; nome: string; desc: string; cor: string }[] = [
 ];
 
 const AVISOS = [
-  ["pendencia", "Quando o Kaua precisa de mim", "Assim que ele bloqueia uma emissão ou pede um humano."],
+  ["pendencia", "Quando o agente precisa de mim", "Assim que ele bloqueia uma emissão ou pede um humano."],
   ["resumo", "Resumo do dia", "Um e-mail às 19h com o que foi cobrado, pago e emitido."],
   ["nota", "Cada nota emitida", "Um aviso por NFS-e. Costuma ser demais."],
 ] as const;

@@ -18,7 +18,7 @@ const SLIDES = [
   {
     img: "/img/recepcao.jpg",
     quem: "Recepção · Clínica Sorriso",
-    frase: "A secretária deixou de perseguir comprovante no WhatsApp. O Kaua cobra, confere e emite.",
+    frase: "A secretária deixou de perseguir comprovante no WhatsApp. O agente cobra, confere e emite.",
   },
   {
     img: "/img/consultorio.jpg",

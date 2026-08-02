@@ -13,6 +13,7 @@ import * as agenteService from "@/services/agente";
 import * as ferramentasService from "@/services/ferramentas";
 import type { Ferramenta, FerramentaId } from "@/services/ferramentas";
 import * as whatsappService from "@/services/whatsapp";
+import { useNomeAgente } from "@/hooks/useNomeAgente";
 
 /**
  * Integrações — diretório de conexões.
@@ -39,6 +40,7 @@ import * as whatsappService from "@/services/whatsapp";
  * mostra o alvo.
  */
 export default function Integracoes() {
+  const { nome: nomeAgente } = useNomeAgente();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [busca, setBusca] = useState("");
@@ -108,7 +110,7 @@ export default function Integracoes() {
   function pedirDesconexao(f: Ferramenta) {
     // A confirmação mostra o ALVO — desconectar o número errado custa caro.
     const alvo = f.detalhe ? ` (${f.detalhe})` : "";
-    if (window.confirm(`Desconectar ${f.nome}${alvo}? O Kaua para de usar esta conexão até você religar.`)) {
+    if (window.confirm(`Desconectar ${f.nome}${alvo}? ${nomeAgente} para de usar esta conexão até você religar.`)) {
       desconectar.mutate(f.id);
     }
   }
@@ -127,7 +129,7 @@ export default function Integracoes() {
 
   return (
     <div className="mx-auto max-w-[880px] p-4 pb-12 md:p-6 lg:p-7">
-      <TituloPagina titulo="Integrações" sub="O que o Kaua precisa para trabalhar. Cada conexão liga uma parte do ciclo.">
+      <TituloPagina titulo="Integrações" sub={`O que ${nomeAgente} precisa para trabalhar. Cada conexão liga uma parte do ciclo.`}>
         {!ativacao.isLoading && (
           <Marco
             t={`${ativacao.concluidos} de ${ativacao.total} conectadas`}

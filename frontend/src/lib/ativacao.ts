@@ -45,9 +45,9 @@ export const PASSOS_ATIVACAO: PassoAtivacao[] = [
     id: "whatsapp",
     nome: "Conectar o WhatsApp",
     icon: MessageCircle,
-    curto: "O número que o Kaua usa para atender.",
+    curto: "O número que o agente usa para atender.",
     porque:
-      "É por aqui que tudo acontece. O Kaua lê e responde as mensagens dos seus pacientes neste número — o mesmo que eles já conhecem.",
+      "É por aqui que tudo acontece. O agente lê e responde as mensagens dos seus pacientes neste número — o mesmo que eles já conhecem.",
     detalhe:
       "Você lê um QR code, como no WhatsApp Web. Leva menos de um minuto e o número continua funcionando normalmente no seu celular.",
     cta: "Conectar número",
@@ -59,7 +59,7 @@ export const PASSOS_ATIVACAO: PassoAtivacao[] = [
     icon: CalendarDays,
     curto: "De onde vêm as consultas do dia.",
     porque:
-      "Sem a agenda o Kaua não sabe quem atender nem quanto cobrar. Ele lê as consultas do dia e monta a fila de cobrança sozinho.",
+      "Sem a agenda o agente não sabe quem atender nem quanto cobrar. Ele lê as consultas do dia e monta a fila de cobrança sozinho.",
     detalhe: "Funciona com Google Calendar. Nada é alterado na sua agenda — o Megus apenas lê os compromissos.",
     cta: "Conectar agenda",
     to: "/integracoes",
@@ -70,7 +70,7 @@ export const PASSOS_ATIVACAO: PassoAtivacao[] = [
     icon: CreditCard,
     curto: "O que cobrar e para onde o dinheiro vai.",
     porque:
-      "O valor da cobrança vem do serviço, e a conferência do comprovante compara o recebedor com a sua chave. Sem isso o Kaua não confirma pagamento nenhum.",
+      "O valor da cobrança vem do serviço, e a conferência do comprovante compara o recebedor com a sua chave. Sem isso o agente não confirma pagamento nenhum.",
     detalhe:
       "Cadastre os serviços com valor e código ISS, e a chave Pix da clínica. Você pode ajustar depois a qualquer momento.",
     cta: "Cadastrar serviços",
@@ -82,7 +82,7 @@ export const PASSOS_ATIVACAO: PassoAtivacao[] = [
     icon: FileText,
     curto: "Quem emite a NFS-e de verdade.",
     porque:
-      "Enquanto isso não estiver ligado, o Kaua faz todo o resto mas para antes de emitir — e avisa você. Nenhuma nota é emitida em modo simulado.",
+      "Enquanto isso não estiver ligado, o agente faz todo o resto mas para antes de emitir — e avisa você. Nenhuma nota é emitida em modo simulado.",
     detalhe:
       "Conectamos ao provedor da sua prefeitura ou ao seu ERP. É o único passo que costuma precisar do seu contador por perto.",
     cta: "Configurar emissão",

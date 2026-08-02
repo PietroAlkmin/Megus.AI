@@ -324,7 +324,7 @@ export function EsqueletoPendencias() {
 export function BotaoTrilha({ aberta, n, onClick }: { aberta: boolean; n: number; onClick: () => void }) {
   return (
     <Button variant="quieto" className="shrink-0 self-start md:self-auto" onClick={onClick} aria-expanded={aberta}>
-      {aberta ? "Ocultar o que o Kaua fez" : `Ver as ${n} ações do Kaua`}
+      {aberta ? "Ocultar o que o agente fez" : `Ver as ${n} ações do agente`}
       <ChevronDown size={13} className={cn("transition-transform", aberta && "rotate-180")} />
     </Button>
   );

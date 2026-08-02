@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/sonner";
 import { Campo, TituloPagina } from "@/components/ui/megus";
 import { cn, formatarBRL } from "@/lib/utils";
 import * as empresaService from "@/services/empresa";
+import { useNomeAgente } from "@/hooks/useNomeAgente";
 
 /**
  * Clínica — dados, serviços e cobrança.
@@ -24,6 +25,7 @@ import * as empresaService from "@/services/empresa";
  * os campos cadastrais acumulam num rascunho e salvam juntos no rodapé.
  */
 export default function Clinica() {
+  const { nome: nomeAgente } = useNomeAgente();
   const queryClient = useQueryClient();
   const empresaQuery = useQuery({ queryKey: ["empresa"], queryFn: empresaService.getEmpresa });
   const servicosQuery = useQuery({ queryKey: ["servicos"], queryFn: empresaService.listServicos });
@@ -183,7 +185,7 @@ export default function Clinica() {
 
             {!servicos.length && !form && (
               <p className="py-2 text-[12.5px] text-muted-foreground">
-                Nenhum serviço cadastrado. Sem isso o Kaua não sabe quanto cobrar.
+                Nenhum serviço cadastrado. Sem isso {nomeAgente} não sabe quanto cobrar.
               </p>
             )}
 
@@ -259,7 +261,7 @@ export default function Clinica() {
               onChange={set("paymentInstructions")}
               area
               className="sm:col-span-2"
-              dica="{valor} e {pix} são trocados automaticamente. O Kaua adapta ao tom do agente."
+              dica="{valor} e {pix} são trocados automaticamente. O agente adapta ao próprio tom."
             />
           </div>
 
@@ -331,7 +333,7 @@ type AbaId = "dados" | "servicos" | "cobranca";
 const ABAS: { id: AbaId; label: string; sub: string }[] = [
   { id: "dados", label: "Dados", sub: "Aparecem como prestador na NFS-e." },
   { id: "servicos", label: "Serviços", sub: "O valor da cobrança vem daqui, e o código ISS vai para a nota." },
-  { id: "cobranca", label: "Cobrança", sub: "A chave que recebe, a mensagem que o Kaua manda e quando ele insiste." },
+  { id: "cobranca", label: "Cobrança", sub: "A chave que recebe, a mensagem que o agente manda e quando ele insiste." },
 ];
 
 /** Formulário de serviço — espelha `ServicoPayload`, com `price` como texto. */

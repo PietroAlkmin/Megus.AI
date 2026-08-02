@@ -80,7 +80,7 @@ export async function listFerramentasFallback(): Promise<Ferramenta[]> {
     {
       id: "whatsapp",
       nome: "WhatsApp",
-      desc: "O número que o Kaua usa para atender os pacientes.",
+      desc: "O número que o agente usa para atender os pacientes.",
       detalhe: whats.number ?? "nenhum número pareado",
       connected: whats.connected,
     },
