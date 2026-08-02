@@ -535,7 +535,7 @@ function ItemConversa({
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline justify-between gap-2">
           <span className="truncate text-[12.5px] font-bold text-foreground">{c.nome}</span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">{c.hora}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">{horaCurta(c.hora)}</span>
         </span>
         <span className="mt-0.5 block truncate text-[11.5px] text-muted-foreground">{c.ultima}</span>
         <span className={cn("mt-1.5 inline-flex rounded-full px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.08em]", tag.cls)}>
@@ -544,6 +544,24 @@ function ItemConversa({
       </span>
     </button>
   );
+}
+
+/** ISO → "21:48"; de outro dia, "29/07 21:48". Sem data válida, string vazia. */
+function horaCurta(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === new Date().toDateString()) return hora;
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${hora}`;
+}
+
+/**
+ * "[image]" / "[document]" é o corpo que o provedor grava para mídia — rótulo
+ * técnico, não fala do paciente. Renderizado embaixo do anexo virava ruído.
+ */
+function ehPlaceholderDeMidia(texto: string | null | undefined): boolean {
+  return !texto || /^\[(image|audio|document|video|sticker)\]$/i.test(texto.trim());
 }
 
 function Bolha({ m, i }: { m: Mensagem; i: number }) {
@@ -556,7 +574,7 @@ function Bolha({ m, i }: { m: Mensagem; i: number }) {
     <div className={cn("flex animate-entra-bolha", meu && "justify-end")} style={{ "--i": i } as CSSProperties}>
       <div
         className={cn(
-          "max-w-[74%] rounded-[14px] px-3.5 py-2.5 text-[12.5px] leading-relaxed shadow-sutil",
+          "max-w-[74%] min-w-0 overflow-hidden break-words rounded-[14px] px-3.5 py-2.5 text-[12.5px] leading-relaxed shadow-sutil",
           humano
             ? "rounded-br-[4px] bg-info-soft text-foreground"
             : meu
@@ -575,11 +593,11 @@ function Bolha({ m, i }: { m: Mensagem; i: number }) {
             >
               {m.attach.type === "pdf" ? <FileText size={14} /> : <ImageIcon size={14} />}
             </span>
-            <span className="truncate text-[11.5px] font-semibold">{m.attach.name}</span>
+            <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold">{m.attach.name}</span>
           </div>
         )}
-        {m.texto}
-        <div className="mt-1 text-right text-[9.5px] opacity-55">{m.hora}</div>
+        {!ehPlaceholderDeMidia(m.texto) && m.texto}
+        <div className="mt-1 text-right text-[9.5px] opacity-55">{horaCurta(m.hora)}</div>
       </div>
     </div>
   );

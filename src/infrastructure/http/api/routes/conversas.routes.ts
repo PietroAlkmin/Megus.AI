@@ -35,8 +35,24 @@ function pertenceAoTenant(integ: Integration | null, companyId: string): integ i
   return integ !== null && integ.companyId === companyId;
 }
 
-function nomeAnexo(mediaUrl: string): string {
-  return mediaUrl.split("/").pop() || mediaUrl;
+/**
+ * Nome exibível do anexo.
+ *
+ * URL de mídia do WhatsApp NÃO tem nome de arquivo: o último trecho é um blob
+ * opaco de ~100 caracteres com query string (`AQOWMTteW2TMGIw...?ccb=9-4&oh=…`).
+ * Mandar isso como "nome" estourava a largura da conversa no painel e empurrava
+ * as mensagens para fora da tela. Só devolve o trecho final quando ele parece
+ * mesmo um arquivo (nome curto + extensão); caso contrário, o tipo.
+ */
+/** Corpo que o provedor grava para mídia ("[image]", "[document]") — rótulo, não fala. */
+function ehPlaceholderDeMidia(texto: string | null | undefined): boolean {
+  return !texto || /^\[(image|audio|document|video|sticker)\]$/i.test(texto.trim());
+}
+
+function nomeAnexo(mediaUrl: string, kind: string): string {
+  const ultimo = (mediaUrl.split("?")[0] ?? "").split("/").pop() ?? "";
+  if (/^[\w .()-]{1,60}\.[a-z0-9]{2,5}$/i.test(ultimo)) return ultimo;
+  return kind === "document" || kind === "pdf" ? "Documento" : "Imagem";
 }
 
 /**
@@ -90,7 +106,9 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
         id: c.id,
         nome: contato?.fullName || c.whatsappNumber,
         telefone: c.whatsappNumber,
-        ultima: ultimaMsg ? ultimaMsg.body || (ultimaMsg.mediaUrl ? "📎 anexo" : "") : "",
+        // "[image]" é rótulo técnico do provedor, não fala do paciente: na
+        // prévia da lista vira "📎 anexo", igual a mensagem de mídia sem corpo.
+        ultima: ultimaMsg ? (ehPlaceholderDeMidia(ultimaMsg.body) ? (ultimaMsg.mediaUrl ? "📎 anexo" : "") : ultimaMsg.body) : "",
         hora: c.lastInboundAt ? new Date(c.lastInboundAt).toISOString() : null,
         status: statusDe(c.state, c.humanHandoff),
         // O front do assumir/retomar (feat/integracao) decide o botão por este flag.
@@ -131,7 +149,7 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
       autor: m.author === "agent" ? "bot" : m.author === "human" ? "humano" : "cliente",
       texto: m.body,
       hora: m.createdAt ? new Date(m.createdAt).toISOString() : null,
-      attach: m.mediaUrl ? { type: m.kind, name: nomeAnexo(m.mediaUrl) } : undefined,
+      attach: m.mediaUrl ? { type: m.kind, name: nomeAnexo(m.mediaUrl, m.kind) } : undefined,
     })));
   });
 
