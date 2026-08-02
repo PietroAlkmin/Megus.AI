@@ -5,6 +5,18 @@ const onlyDigits = (s: string | null | undefined): string => (s ?? "").replace(/
 const normalizePixKey = (s: string | null | undefined): string => (s ?? "")
   .normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
+/**
+ * ID da transação como CHAVE de comparação: só alfanumérico, maiúsculo.
+ *
+ * Curto demais não é identificador (banco que mostra "12" em algum campo não
+ * pode virar chave que barra outro pagamento) — abaixo de 8 caracteres vira
+ * null e o comprovante segue sem dedup, que é o comportamento de sempre.
+ */
+const normalizeTxId = (s: string | null | undefined): string | null => {
+  const limpo = (s ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  return limpo.length >= 8 ? limpo : null;
+};
+
 const EXTRACT_RECEIPT: AITool = {
   name: "extract_receipt",
   description: "Extrai dados do comprovante de pagamento (PIX/transferência).",
@@ -15,6 +27,11 @@ const EXTRACT_RECEIPT: AITool = {
       payerName: { type: "string", description: "Nome de quem pagou" },
       recipientDoc: { type: "string", description: "CNPJ/CPF do recebedor (só dígitos)" },
       recipientPixKey: { type: "string", description: "Chave Pix do recebedor exibida no comprovante, exatamente como lida" },
+      transactionId: {
+        type: "string",
+        description:
+          "Identificador ÚNICO da transação exibido no comprovante — aparece como 'ID da transação', 'Identificador', 'Autenticação', 'Código de autenticação' ou E2E (formato E seguido de números/letras). Devolva exatamente como está, sem espaços. Se não aparecer no comprovante, não preencha.",
+      },
       confidence: { type: "number", description: "0 a 1 — sua confiança na leitura" },
     },
     required: ["confidence"],
@@ -34,7 +51,7 @@ export class ComprovanteAnalyzer implements IComprovanteAnalyzer {
 
   async analyze(input: ComprovanteInput): Promise<ComprovanteAnalysis> {
     const call = await this.completeComRetry(input);
-    const a = call.arguments as { amount?: number; payerName?: string; recipientDoc?: string; recipientPixKey?: string; confidence?: number };
+    const a = call.arguments as { amount?: number; payerName?: string; recipientDoc?: string; recipientPixKey?: string; transactionId?: string; confidence?: number };
     const recipientMatches =
       onlyDigits(a.recipientDoc) === onlyDigits(input.expectedRecipientDoc) && onlyDigits(a.recipientDoc).length > 0;
     const pixKeyMatches = input.expectedPixKey
@@ -47,6 +64,10 @@ export class ComprovanteAnalyzer implements IComprovanteAnalyzer {
       recipientMatches,
       recipientPixKey: a.recipientPixKey ?? null,
       pixKeyMatches,
+      // Normalizado (sem espaço/pontuação, maiúsculo) porque é CHAVE de
+      // comparação: o mesmo E2E lido de dois prints pode vir com espaçamento
+      // diferente, e aí a dedup passaria batido.
+      transactionId: normalizeTxId(a.transactionId),
       confidence: a.confidence ?? 0,
       raw: JSON.stringify(a),
     };

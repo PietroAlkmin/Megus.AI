@@ -81,22 +81,22 @@ async function seedCenario() {
   const chargePendente: Charge = {
     id: "chA-pendente", integrationId: "intA", contactId: "ctA", serviceId: "svc1",
     description: "Massagem", amount: 180, status: "pendente",
-    calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   const chargeCobrada: Charge = {
     id: "chA-cobrada", integrationId: "intA", contactId: "ctA", serviceId: "svc1",
     description: "Retorno", amount: 90, status: "cobrada",
-    calendarEventId: null, chargedAt: now, paidAt: null, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: now, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   const chargePaga: Charge = {
     id: "chA-paga", integrationId: "intA", contactId: "ctA", serviceId: "svc1",
     description: "Consulta", amount: 300, status: "paga",
-    calendarEventId: null, chargedAt: now, paidAt: now, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: now, paidAt: now, scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   const chargeBeta: Charge = {
     id: "chB-pendente", integrationId: "intB", contactId: "ctB", serviceId: null,
     description: "Sessão", amount: 250, status: "pendente",
-    calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
+    calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now,
   };
   await repos.charges.save(chargePendente);
   await repos.charges.save(chargeCobrada);

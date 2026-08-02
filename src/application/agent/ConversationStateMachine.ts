@@ -362,6 +362,8 @@ export class ConversationStateMachine {
         status: "pendente",
         // Cobrança nasce sem agendamento: a clínica decide se manda agora ou marca hora.
         scheduledFor: null,
+        paymentRef: null,
+        paidBy: null,
         calendarEventId: extractEventId(booking.output),
         chargedAt: null,
         paidAt: null,
@@ -615,7 +617,36 @@ export class ConversationStateMachine {
       await this.send(conv, ["Não consegui confirmar esse comprovante porque os dados não conferem com a cobrança. Confira o valor e a chave Pix e envie novamente, por favor."], instance);
       return;
     }
+    // TRAVA DE REUSO: o comprovante confere, mas este pagamento JÁ quitou outra
+    // cobrança? Valor, recebedor e chave Pix são idênticos entre duas cobranças
+    // de mesmo preço — só o ID da transação distingue um pagamento do outro.
+    // Sem isto, o mesmo print reenviado quitava as duas e a clínica via R$ 400
+    // recebidos tendo recebido R$ 200. Conta como tentativa: insistir chama humano.
+    const txId = analysis.transactionId ?? null;
+    if (txId) {
+      const jaUsado = await this.d.charges.findByPaymentRef(integration.id, txId);
+      if (jaUsado && jaUsado.id !== charge?.id) {
+        const n = (this.attempts.get(tentativasKey) ?? 0) + 1;
+        this.attempts.set(tentativasKey, n);
+        if (n >= (this.d.config.comprovanteMaxAttempts ?? 2)) {
+          this.attempts.delete(tentativasKey);
+          await this.handoff(conv, `comprovante reenviado (pagamento ${txId} já quitou a cobrança ${jaUsado.id})`, instance);
+          return;
+        }
+        conv.state = ConversationState.AwaitingComprovante;
+        await this.d.conversations.save(conv);
+        await this.send(
+          conv,
+          ["Esse comprovante já foi usado para confirmar outro pagamento. Se você fez um pagamento novo, me envie o comprovante dele, por favor."],
+          instance,
+        );
+        return;
+      }
+    }
     this.attempts.delete(tentativasKey);
+
+    /** Dados do pagamento que quitou — trava de reuso e "quem pagou" pra clínica. */
+    const pagamento = { paymentRef: txId, paidBy: analysis.payerName ?? null };
 
     // Cobrança sem fiscal: confirmar e quitar é o ponto final do DINHEIRO. Não
     // cria EmissionIntent nem chama provedor fiscal. Só resta perguntar se o
@@ -624,7 +655,7 @@ export class ConversationStateMachine {
     if (!cfg.capabilities.fiscal) {
       if (charge) {
         const quitadaEm = new Date();
-        await this.d.charges.save({ ...charge, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+        await this.d.charges.save({ ...charge, ...pagamento, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
         conv.state = ConversationState.AwaitingNotaAnswer;
         await this.d.conversations.save(conv);
         await this.send(conv, ["✅ Pagamento confirmado, obrigada!", "Você vai precisar de nota fiscal deste atendimento?"], instance);
@@ -666,7 +697,7 @@ export class ConversationStateMachine {
     try {
       if (charge) {
         const quitadaEm = new Date();
-        await this.d.charges.save({ ...charge, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+        await this.d.charges.save({ ...charge, ...pagamento, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
       }
     } catch (err) {
       console.warn(`[cobranca] falha ao marcar cobranca como paga (conv=${conv.id}):`, err instanceof Error ? err.message : err);

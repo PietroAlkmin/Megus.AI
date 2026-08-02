@@ -254,6 +254,8 @@ export class InMemoryRepositories {
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       return cobraveis[0] ?? null;
     },
+    findByPaymentRef: async (integrationId, paymentRef) =>
+      this._charges.find((c) => c.integrationId === integrationId && c.paymentRef === paymentRef) ?? null,
     listDueScheduled: async (now) =>
       this._charges
         .filter((c) => c.status === "pendente" && c.scheduledFor != null && c.scheduledFor.getTime() <= now.getTime())

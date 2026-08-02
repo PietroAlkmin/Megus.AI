@@ -126,6 +126,12 @@ export interface IChargeRepository {
   /** Cobrança "cobrável" mais recente do contato (status != paga) — o gate B marca paga. */
   findLatestChargeableByContact(integrationId: string, contactId: string): Promise<Charge | null>;
   /**
+   * A cobrança já quitada por ESTE pagamento (ID da transação do comprovante),
+   * se existir. É a trava contra o mesmo comprovante confirmar duas cobranças
+   * de igual valor. Escopo é a integração — não o contato.
+   */
+  findByPaymentRef(integrationId: string, paymentRef: string): Promise<Charge | null>;
+  /**
    * Cobranças com envio agendado que já venceram (`scheduledFor <= now`) e ainda
    * estão "pendente" — o laço do ChargeScheduler dispara estas. Varre TODAS as
    * empresas de propósito: o laço é do processo, não de um tenant.

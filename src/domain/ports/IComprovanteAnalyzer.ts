@@ -20,6 +20,16 @@ export interface ComprovanteAnalysis {
   recipientMatches: boolean;
   recipientPixKey?: string | null;
   pixKeyMatches?: boolean;
+  /**
+   * Identificador único da transação (E2E do Pix / "ID da transação" /
+   * "Autenticação"), normalizado. `null` = não veio legível no comprovante.
+   *
+   * É o que impede o MESMO comprovante quitar duas cobranças de igual valor —
+   * valor e recebedor são idênticos nesse caso, só o ID distingue. Quando vem
+   * null, a conferência segue como antes (sem dedup): recusar todo comprovante
+   * sem ID legível criaria atrito com paciente honesto cujo banco esconde o campo.
+   */
+  transactionId?: string | null;
   confidence: number; // 0..1
   raw: string; // texto extraído, para auditoria
 }

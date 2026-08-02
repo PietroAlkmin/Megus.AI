@@ -37,6 +37,10 @@ model Charge {
   paidAt          DateTime?
   /** Hora marcada para o disparo automático. null = sem agendamento (sai no clique). */
   scheduledFor    DateTime?
+  /** ID único da transação que quitou (E2E do Pix) — trava contra comprovante reusado. */
+  paymentRef      String?   @db.NVarChar(120)
+  /** Quem pagou, como está no comprovante. */
+  paidBy          String?   @db.NVarChar(200)
   /** Cliente pediu nota fiscal? null = não perguntado/sem resposta. Recado p/ a clínica emitir. */
   notaSolicitada  Boolean?
   /** Quando a clínica marcou "já emiti" no painel. */

@@ -17,6 +17,17 @@ export interface Charge {
   chargedAt: Date | null; // quando o botão "Cobrar" disparou a mensagem
   paidAt: Date | null; // quando o gate B confirmou o pagamento
   /**
+   * ID único da transação que quitou esta cobrança (E2E do Pix, lido do
+   * comprovante). `null` = ainda não paga, ou o comprovante não mostrava o ID.
+   *
+   * Serve de trava: comprovante cujo ID já quitou outra cobrança da mesma
+   * clínica é recusado. Sem ele, duas cobranças de igual valor podiam ser
+   * quitadas pelo MESMO print — valor e recebedor não distinguem uma da outra.
+   */
+  paymentRef: string | null;
+  /** Nome de quem pagou, como está no comprovante (terceiro pagando é rotina). */
+  paidBy: string | null;
+  /**
    * Hora marcada para o disparo automático da cobrança. `null` = sem
    * agendamento (sai na hora do clique, comportamento de sempre).
    *
