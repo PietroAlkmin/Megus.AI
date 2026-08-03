@@ -48,7 +48,7 @@ async function conversaEmpacada(repos: InMemoryRepositories) {
 }
 
 describe("ConversationStateMachine — /reset (comando de teste)", () => {
-  it("destrava conversa presa em AwaitingComprovante: zera histórico, estado, identidade e rascunhos — preserva a nota emitida", async () => {
+  it("destrava conversa presa em AwaitingComprovante: zera histórico, estado e rascunhos — preserva o cadastro e a nota emitida", async () => {
     const repos = new InMemoryRepositories();
     const deps = depsWith(repos);
     const conv = await conversaEmpacada(repos);
@@ -65,10 +65,13 @@ describe("ConversationStateMachine — /reset (comando de teste)", () => {
     expect(hist[0]!.author).toBe("agent");
     expect(hist[0]!.body).toContain("resetada");
 
-    // identidade esquecida — o fluxo volta a coletar nome+CPF
+    // O CADASTRO fica: nome e CPF podem ter vindo da AGENDA (o import preenche o
+    // contato pelo evento) e apagá-los deixava o paciente como um bloco de 13
+    // dígitos no painel, sem como recuperar. Zerar a verificação já obriga o
+    // funil a revalidar, que é o objetivo do comando.
     const contato = await repos.contacts.findByWhatsapp("int1", "5511988887777");
-    expect(contato?.fullName).toBeNull();
-    expect(contato?.cpf).toBeNull();
+    expect(contato?.fullName).toBe("João da Silva");
+    expect(contato?.cpf).toBe("52998224725");
     expect(contato?.cpfNameVerified).toBe(false);
 
     // rascunho descartado; registro fiscal intacto

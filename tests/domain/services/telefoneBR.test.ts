@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ehValido, normalizar, variantes } from "../../../src/domain/services/telefoneBR";
+import { ehValido, formatar, normalizar, variantes } from "../../../src/domain/services/telefoneBR";
 
 /**
  * O número é o ÚNICO elo entre a cobrança e o paciente: a Charge aponta para um
@@ -69,5 +69,22 @@ describe("telefoneBR.variantes", () => {
   it("número que não reconhecemos passa inteiro, sem palpite", () => {
     expect(variantes("447911123456")).toEqual(["447911123456"]);
     expect(variantes("")).toEqual([]);
+  });
+});
+
+describe("telefoneBR.formatar", () => {
+  it.each([
+    ["5512996526854", "(12) 99652-6854"],
+    ["5511942842271", "(11) 94284-2271"],
+    ["551132224444", "(11) 3222-4444"], // fixo: 4 dígitos no fim, igual
+  ])("%s → %s", (bruto, esperado) => expect(formatar(bruto)).toBe(esperado));
+
+  it("número que não é brasileiro sai como está — melhor cru do que fatiado errado", () => {
+    expect(formatar("447911123456")).toBe("447911123456");
+  });
+
+  it("vazio não vira parênteses soltos", () => {
+    expect(formatar(null)).toBe("");
+    expect(formatar("")).toBe("");
   });
 });

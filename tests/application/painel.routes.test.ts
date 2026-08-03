@@ -180,7 +180,9 @@ describe("painel com dados reais (sem mock)", () => {
     expect(daMarina.status).toBe("AGUARDANDO");
 
     const semNome = body.data.find((c) => c.telefone === "5511960000002")!;
-    expect(semNome.nome).toBe("5511960000002"); // sem contato resolvido → número (dado real)
+    // Sem contato resolvido, cai no telefone FORMATADO: 13 dígitos colados não
+    // identificam ninguém para quem atende. O número cru segue em `telefone`.
+    expect(semNome.nome).toBe("(11) 96000-0002");
 
     // integração da empresa Beta com token da Alfa → 404
     const cruzado = await fetch(`${url}/api/agentes/intB/conversas`, { headers: { Authorization: `Bearer ${token}` } });

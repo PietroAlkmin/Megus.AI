@@ -201,15 +201,16 @@ export class ConversationStateMachine {
     await this.d.emissions.deleteUnemittedByConversationId(conv.id);
     this.attempts.delete(conv.id);
 
+    // O funil de identidade recomeça, mas o CADASTRO fica.
+    //
+    // Apagar nome e CPF junto destruía dado que veio da AGENDA (o import
+    // preenche o contato a partir do evento) e do atendimento anterior — e o
+    // paciente passava a aparecer no painel como um bloco de 13 dígitos, sem
+    // jeito de recuperar: o evento continua lá, o cadastro não. Zerar
+    // `cpfNameVerified` já obriga a revalidação, que é o ponto do comando.
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
     if (contact) {
-      await this.d.contacts.save({
-        ...contact,
-        fullName: null,
-        cpf: null,
-        cpfNameVerified: false,
-        updatedAt: new Date(),
-      });
+      await this.d.contacts.save({ ...contact, cpfNameVerified: false, updatedAt: new Date() });
     }
 
     conv.state = ConversationState.New;

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { ok, fail } from "../result";
 import type { ChargeSender } from "../../../../application/charges/ChargeSender";
+import { formatar as formatarTelefone } from "../../../../domain/services/telefoneBR";
 import type { AuthContext } from "../authMiddleware";
 import type {
   IEmissionIntentRepository,
@@ -87,7 +88,9 @@ function paraTela(r: CobrancaView): TelaRow {
 function paraTelaCharge(c: Charge, contact: Contact | null): TelaRow {
   return {
     id: c.id,
-    nome: contact?.fullName ?? contact?.whatsappNumber ?? "",
+    // Sem nome cadastrado, o telefone FORMATADO identifica quem é; o bloco de
+    // 13 dígitos cru não diz nada para quem atende.
+    nome: contact?.fullName ?? formatarTelefone(contact?.whatsappNumber) ?? "",
     servico: c.description,
     valor: c.amount,
     agendamento: null,

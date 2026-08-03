@@ -10,6 +10,7 @@ import type {
   IContactRepository,
   IIntegrationRepository,
 } from "../../../../domain/ports/repositories";
+import { formatar as formatarTelefone } from "../../../../domain/services/telefoneBR";
 
 export interface ConversasRoutesDeps {
   conversations: IConversationRepository;
@@ -104,7 +105,7 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
       const ultimaMsg = await deps.conversations.getLastMessage(c.id);
       lista.push({
         id: c.id,
-        nome: contato?.fullName || c.whatsappNumber,
+        nome: contato?.fullName || formatarTelefone(c.whatsappNumber),
         telefone: c.whatsappNumber,
         // "[image]" é rótulo técnico do provedor, não fala do paciente: na
         // prévia da lista vira "📎 anexo", igual a mensagem de mídia sem corpo.

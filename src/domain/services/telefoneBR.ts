@@ -51,6 +51,23 @@ export function ehValido(numero: string | null | undefined): boolean {
 }
 
 /**
+ * Para LER na tela: "(12) 99652-6854".
+ *
+ * O painel cai no telefone quando o paciente não tem nome cadastrado. Um bloco
+ * de 13 dígitos colado (`5512996526854`) não é reconhecível nem pesquisável por
+ * quem atende — formatado, pelo menos identifica a pessoa. Número que não é
+ * brasileiro sai como está: melhor cru do que fatiado errado.
+ */
+export function formatar(numero: string | null | undefined): string {
+  const d = (numero ?? "").replace(/\D/g, "");
+  if (!ehValido(d)) return numero ?? "";
+  const ddd = d.slice(2, 4);
+  const local = d.slice(4);
+  const corte = local.length - 4;
+  return `(${ddd}) ${local.slice(0, corte)}-${local.slice(corte)}`;
+}
+
+/**
  * As formas equivalentes do MESMO celular, para busca tolerante.
  *
  * Devolve o número como veio primeiro (a forma gravada vence em empate) e,
