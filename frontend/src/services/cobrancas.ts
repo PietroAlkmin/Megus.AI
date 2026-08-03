@@ -16,6 +16,11 @@ export interface Cobranca {
   /** true = linha vinda de Charge (Task 4, botão dispara o WhatsApp de verdade); ausente = fluxo EmissionIntent de sempre. */
   charge?: boolean;
   /**
+   * CPF do tomador, quando o cadastro tem — é o campo que a clínica redigita no
+   * emissor da prefeitura. `null` = não informado (a gaveta pede na conversa).
+   */
+  cpf?: string | null;
+  /**
    * Envio marcado para esta data/hora (ISO) — a clínica agendou em vez de mandar
    * na hora. `null`/ausente = sem agendamento. A cobrança segue "pendente" até
    * sair de fato: agendado não é cobrado.

@@ -48,6 +48,14 @@ interface TelaRow {
   cobradoEm: string | null;
   /** Presente e `true` só nas linhas vindas de Charge (Task 4); ausente no fluxo EmissionIntent de sempre. */
   charge?: true;
+  /**
+   * CPF do tomador, quando o cadastro tem. É o campo que a clínica REDIGITA no
+   * emissor da prefeitura — e CPF redigitado à mão é a origem do erro que
+   * motivou o produto. `null` = não informado; a tela pede na conversa em vez
+   * de esconder a falta (descobrir dentro do portal, com a nota meio preenchida,
+   * é pior).
+   */
+  cpf?: string | null;
   /** Só em Charge: envio marcado para esta data/hora (ISO). null = sem agendamento. */
   agendadaPara?: string | null;
   /** Só em Charge: o cliente pediu nota fiscal? null = não perguntado/sem resposta. */
@@ -91,6 +99,7 @@ function paraTelaCharge(c: Charge, contact: Contact | null): TelaRow {
     // Sem nome cadastrado, o telefone FORMATADO identifica quem é; o bloco de
     // 13 dígitos cru não diz nada para quem atende.
     nome: contact?.fullName ?? formatarTelefone(contact?.whatsappNumber) ?? "",
+    cpf: contact?.cpf ?? null,
     servico: c.description,
     valor: c.amount,
     agendamento: null,
