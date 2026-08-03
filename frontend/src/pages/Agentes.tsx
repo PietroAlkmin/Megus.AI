@@ -35,21 +35,20 @@ const TONS: { v: AgenteTone; t: string }[] = [
  * ao agente poder de gerar documento fiscal com o CNPJ da clínica.
  */
 /**
- * `fixa` = faz parte do agente, não é chave que se desliga.
+ * Todas ligadas por padrão, todas desligáveis.
  *
- * Só `agenda` e `fiscal` existem como capacidade no backend. As outras três a
- * tela desenhava como switch e o clique não fazia nada — pior, "Confirmar
- * pagamento" estava amarrado ao `fiscal`, então a clínica que não emite nota
- * (a que está no ar) via **desativado** enquanto o agente confirmava pagamento
- * a noite inteira. Interruptor que não interrompe é pior que ausência de
- * interruptor: some a confiança no resto do painel.
+ * Antes só `agenda` e `fiscal` existiam no backend: as outras três eram switch
+ * de mentira, e "Confirmar pagamento" ainda estava amarrado ao `fiscal` — a
+ * clínica que não emite nota via **desativado** enquanto o agente confirmava
+ * pagamento. Agora cada uma desliga algo de verdade, e o que ela desliga vira
+ * trabalho de humano (handoff), nunca silêncio.
  */
 const HABILIDADES = [
-  { id: "cobrar", nome: "Cobrar", desc: "Envia a cobrança com a chave Pix conforme a régua.", risco: "baixo", fixa: true },
-  { id: "confirmar", nome: "Confirmar pagamento", desc: "Lê o comprovante e confere recebedor, valor e chave Pix.", risco: "médio", fixa: true },
-  { id: "emitir", nome: "Emitir nota fiscal", desc: "Só age após CPF conferido e pagamento confirmado.", risco: "alto", fixa: false },
-  { id: "agendar", nome: "Agendar e remarcar", desc: "Consulta a agenda e oferece horários livres.", risco: "médio", fixa: false },
-  { id: "duvidas", nome: "Tirar dúvidas gerais", desc: "Responde sobre endereço, horários e preços.", risco: "baixo", fixa: true },
+  { id: "cobrar", nome: "Cobrar", desc: "Envia a cobrança com a chave Pix. Desligado, o disparo fica com você.", risco: "baixo" },
+  { id: "confirmar", nome: "Confirmar pagamento", desc: "Lê o comprovante e confere recebedor, valor e chave Pix. Desligado, o comprovante vai para a fila humana.", risco: "médio" },
+  { id: "emitir", nome: "Emitir nota fiscal", desc: "Só age após CPF conferido e pagamento confirmado.", risco: "alto" },
+  { id: "agendar", nome: "Agendar e remarcar", desc: "Consulta a agenda e oferece horários livres.", risco: "médio" },
+  { id: "duvidas", nome: "Tirar dúvidas gerais", desc: "Responde sobre endereço, horários e preços. Desligado, a dúvida vira handoff.", risco: "baixo" },
 ] as const;
 
 const CLS_RISCO = {
@@ -199,15 +198,7 @@ export default function Agentes() {
                     </div>
                     <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{h.desc}</p>
                   </div>
-                  {/* Sem chave onde não há chave: o que o agente sempre faz é
-                      dito, não fingido de configurável. */}
-                  {h.fixa ? (
-                    <span className="mt-0.5 shrink-0 font-mono text-[9.5px] font-medium uppercase tracking-[0.12em] text-menta-ink">
-                      sempre ativo
-                    </span>
-                  ) : (
-                    <Switch checked={on} onCheckedChange={() => alternar(h.id)} />
-                  )}
+                  <Switch checked={on} onCheckedChange={() => alternar(h.id)} />
                 </div>
               );
             })}
@@ -255,12 +246,12 @@ export default function Agentes() {
  */
 function capacidadesLigadas(a: AgentePersona): string[] {
   const c = a.capabilities;
-  // `cobrar`, `confirmar` e `duvidas` não dependem de capacidade nenhuma: o
-  // agente sempre cobra quando há cobrança, sempre confere o comprovante que
-  // chega e sempre responde. "Confirmar pagamento" ficava amarrado ao `fiscal`
-  // e por isso aparecia DESLIGADO na clínica que não emite nota — enquanto o
-  // gate confirmava pagamento normalmente.
-  const ligadas: string[] = ["cobrar", "confirmar", "duvidas"];
+  const ligadas: string[] = [];
+  // `!== false` e não `=== true`: agente salvo antes destes campos existirem não
+  // os traz no payload, e tratar ausente como desligado apagaria o que já roda.
+  if (c.cobranca !== false) ligadas.push("cobrar");
+  if (c.comprovante !== false) ligadas.push("confirmar");
+  if (c.chat !== false) ligadas.push("duvidas");
   if (c.agenda) ligadas.push("agendar");
   if (c.fiscal) ligadas.push("emitir");
   return ligadas;
@@ -268,6 +259,9 @@ function capacidadesLigadas(a: AgentePersona): string[] {
 
 function comCapacidadeAlternada(a: AgentePersona, id: string): AgentePersona {
   const c = { ...a.capabilities };
+  if (id === "cobrar") c.cobranca = c.cobranca === false;
+  if (id === "confirmar") c.comprovante = c.comprovante === false;
+  if (id === "duvidas") c.chat = c.chat === false;
   if (id === "agendar") c.agenda = !c.agenda;
   if (id === "emitir") c.fiscal = !c.fiscal;
   return { ...a, capabilities: c };

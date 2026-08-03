@@ -71,6 +71,19 @@ export interface ChargeSenderDeps {
  * Autorização NÃO mora aqui: cada chamador confere o tenant antes (a rota pelo
  * JWT, o admin pelo número, o agendador porque varre o processo inteiro).
  */
+/**
+ * A clínica desligou "Cobrar" na configuração do agente.
+ *
+ * Erro PRÓPRIO porque o tratamento é outro: falha de envio se tenta de novo
+ * (o WhatsApp volta), permissão desligada não — insistir é loop garantido.
+ */
+export class CobrancaDesligadaError extends Error {
+  constructor() {
+    super("O agente está sem permissão para cobrar (habilidade desligada).");
+    this.name = "CobrancaDesligadaError";
+  }
+}
+
 export class ChargeSender {
   constructor(private readonly d: ChargeSenderDeps) {}
 
@@ -92,6 +105,11 @@ export class ChargeSender {
     const config = this.d.agentConfigs
       ? await this.d.agentConfigs.getByIntegrationId(integration.id)
       : null;
+
+    // Checado AQUI porque este é o único caminho de envio — painel, `/admin
+    // cobrar` e envio agendado passam todos por aqui. Espalhar a checagem pelos
+    // chamadores deixaria um deles de fora mais cedo ou mais tarde.
+    if (config?.capabilities.cobranca === false) throw new CobrancaDesligadaError();
 
     const text = montarMensagemCobranca({
       fullName: contact.fullName,

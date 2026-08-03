@@ -19,7 +19,9 @@ export interface AgenteRoutesDeps {
 // Persona + capabilities (ações) + knowledgeFiles do agente.
 function capabilitiesVazias() {
   return {
-    chat: true as const,
+    chat: true,
+    cobranca: true,
+    comprovante: true,
     agenda: false,
     agendaLink: null as string | null,
     fiscal: false,
@@ -59,6 +61,10 @@ function personaDe(config: AgentConfig) {
 }
 
 const capabilitiesSchema = z.object({
+  // Ausente = ligado: payload antigo (sem estes campos) preserva o comportamento.
+  chat: z.boolean().optional(),
+  cobranca: z.boolean().optional(),
+  comprovante: z.boolean().optional(),
   agenda: z.boolean(),
   agendaLink: z.string().nullable(),
   fiscal: z.boolean(),
@@ -124,18 +130,14 @@ export function agenteRoutes(deps: AgenteRoutesDeps): Router {
       ? {
           ...existing,
           ...persona,
-          capabilities: capsInput
-            ? { chat: true, ...capsInput }
-            : existing.capabilities,
+          capabilities: capsInput ?? existing.capabilities,
           updatedAt: now,
         }
       : {
           id: "ag_" + randomUUID().slice(0, 8),
           integrationId: integ.id,
           ...persona,
-          capabilities: capsInput
-            ? { chat: true, ...capsInput }
-            : capabilitiesVazias(),
+          capabilities: capsInput ?? capabilitiesVazias(),
           knowledgeFiles: [],
           createdAt: now,
           updatedAt: now,

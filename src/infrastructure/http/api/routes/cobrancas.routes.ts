@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { ok, fail } from "../result";
-import type { ChargeSender } from "../../../../application/charges/ChargeSender";
+import { CobrancaDesligadaError, type ChargeSender } from "../../../../application/charges/ChargeSender";
 import { formatar as formatarTelefone } from "../../../../domain/services/telefoneBR";
 import type { AuthContext } from "../authMiddleware";
 import type {
@@ -261,6 +261,12 @@ export function cobrancasRoutes(deps: CobrancasRoutesDeps): Router {
       await deps.sender.send({ ...charge, scheduledFor: null });
       ok(res, { id: charge.id, status: "cobrada" });
     } catch (err) {
+      // Permissão desligada não é indisponibilidade: a clínica precisa saber que
+      // é uma configuração dela, não uma falha do WhatsApp.
+      if (err instanceof CobrancaDesligadaError) {
+        fail(res, "O agente está sem a habilidade \"Cobrar\". Ligue em Agentes para enviar por aqui.", 409, "CHARGE_DISABLED");
+        return;
+      }
       console.warn(`[cobrancas] falha ao enviar cobranca ${id}:`, err instanceof Error ? err.message : err);
       fail(res, "Não foi possível enviar a cobrança.", 502, "CHARGE_SEND_FAILED");
     }

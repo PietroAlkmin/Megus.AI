@@ -1,5 +1,5 @@
 import type { IChargeRepository } from "../../domain/ports/repositories";
-import type { ChargeSender } from "./ChargeSender";
+import { CobrancaDesligadaError, type ChargeSender } from "./ChargeSender";
 
 /** De quanto em quanto tempo o laço procura cobrança vencida. */
 const INTERVALO_PADRAO_MS = 60_000;
@@ -52,6 +52,14 @@ export function startChargeScheduler(deps: ChargeSchedulerDeps): { stop: () => v
         await deps.sender.send(charge);
         console.log(`[cobranca-agendada] enviada ${charge.id} (agendada para ${charge.scheduledFor?.toISOString()})`);
       } catch (err) {
+        // Permissão desligada não é falha transitória: adiar seria tentar de
+        // novo para sempre. O agendamento é DESFEITO e a cobrança volta a ser
+        // trabalho da clínica (segue "pendente", visível no painel).
+        if (err instanceof CobrancaDesligadaError) {
+          console.warn(`[cobranca-agendada] ${charge.id} desmarcada: cobrança desligada na configuração`);
+          await deps.charges.save({ ...charge, scheduledFor: null, updatedAt: new Date() }).catch(() => undefined);
+          continue;
+        }
         console.warn(`[cobranca-agendada] falha ao enviar ${charge.id}, adiando:`, err instanceof Error ? err.message : err);
         const proxima = new Date(Date.now() + ADIAMENTO_NA_FALHA_MS);
         await deps.charges

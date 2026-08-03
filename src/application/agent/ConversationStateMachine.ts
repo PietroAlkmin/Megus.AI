@@ -227,6 +227,16 @@ export class ConversationStateMachine {
 
   /** New/Chatting: o cérebro responde e sinaliza intenção de emitir nota. */
   private async handleChatting(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
+    // Conversa livre DESLIGADA: a clínica quer o agente só no ciclo do dinheiro
+    // (cobrar → conferir → nota) e nada de responder por conta própria. O funil
+    // continua rodando — quem cai aqui é a mensagem que não pertence a ele.
+    if (cfg.capabilities.chat === false) {
+      const instance = integration.evolutionInstance || undefined;
+      await this.send(conv, ["Recebi sua mensagem! Vou chamar alguém da equipe para te responder."], instance);
+      await this.handoff(conv, "conversa livre desligada na configuração", instance);
+      return;
+    }
+
     const notices = inbound.transcribed ? [READBACK_NOTICE] : undefined;
     const decision = await this.d.brain.decide(await this.context(conv, cfg, integration, notices));
     // Observabilidade dos smokes: o que o modelo FEZ neste decide (tools executadas +
@@ -578,6 +588,15 @@ export class ConversationStateMachine {
     if (!isReceiptMedia(inbound)) {
       return this.handleChatting(conv, cfg, integration, inbound);
     }
+    // Conferência automática DESLIGADA pela clínica: o comprovante chegou, mas
+    // quem decide é gente. Nunca cai no silêncio — o paciente é avisado de que
+    // recebemos, e a conversa vai pra fila humana com o motivo.
+    if (cfg.capabilities.comprovante === false) {
+      await this.send(conv, ["Recebi seu comprovante! A equipe vai conferir e confirmar por aqui."], instance);
+      await this.handoff(conv, "conferência de comprovante desligada na configuração", instance);
+      return;
+    }
+
     conv.state = ConversationState.VerifyingComprovante;
     await this.d.conversations.save(conv);
 

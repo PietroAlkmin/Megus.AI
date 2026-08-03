@@ -12,6 +12,16 @@ export interface FewShotDialog {
 
 /** Ações que o agente pode executar (seção "O que o agente faz"). */
 export interface AgenteCapabilities {
+  /**
+   * Ausente = LIGADO. O backend guarda só o que foi salvo, e agente antigo não
+   * tem estes campos — tratá-los como desligados apagaria comportamento que já
+   * está no ar.
+   */
+  chat?: boolean;
+  /** Disparar a cobrança no WhatsApp (botão do painel e envio agendado). */
+  cobranca?: boolean;
+  /** Conferir o comprovante e confirmar o pagamento sozinho. */
+  comprovante?: boolean;
   agenda: boolean;
   agendaLink: string | null;
   fiscal: boolean;
