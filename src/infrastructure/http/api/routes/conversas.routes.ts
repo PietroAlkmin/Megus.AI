@@ -154,6 +154,43 @@ export function createConversasRouters(deps: ConversasRoutesDeps) {
     })));
   });
 
+  /**
+   * GET /api/conversas/:convId/ficha — o cadastro do paciente que a clínica
+   * REDIGITA no sistema dela (Amplimed, na clínica que está no ar).
+   *
+   * Campo AUSENTE do objeto ≠ campo vazio: ausente é "o agente não perguntou ou
+   * o paciente não respondeu". A tela precisa dessa diferença — é ela que mostra
+   * o que falta pedir na conversa, em vez de a clínica descobrir a falta já
+   * dentro do formulário do Amplimed.
+   */
+  conversasRouter.get("/:convId/ficha", async (req: Request, res: Response) => {
+    const { companyId } = req.auth as AuthContext;
+    const convId = String(req.params.convId ?? "");
+
+    const conv = await conversaDoTenant(convId, companyId);
+    if (!conv) {
+      fail(res, "Conversa não encontrada.", 404, "NOT_FOUND");
+      return;
+    }
+
+    const contato = await deps.contacts.findByWhatsapp(conv.integrationId, conv.whatsappNumber);
+    if (!contato) {
+      ok(res, { novo: true });
+      return;
+    }
+
+    const [nome, ...resto] = (contato.fullName ?? "").trim().split(/\s+/).filter(Boolean);
+    ok(res, {
+      ...contato.ficha,
+      ...(nome ? { nome } : {}),
+      ...(resto.length ? { sobrenome: resto.join(" ") } : {}),
+      ...(contato.cpf ? { cpf: contato.cpf } : {}),
+      // "Primeira conversa" muda o rótulo do bloco: paciente novo é quem a
+      // clínica precisa CADASTRAR; os outros ela só confere.
+      novo: !contato.cpf && Object.keys(contato.ficha).length === 0,
+    });
+  });
+
   conversasRouter.post("/:convId/assumir", async (req: Request, res: Response) => {
     const { companyId } = req.auth as AuthContext;
     const convId = String(req.params.convId ?? "");

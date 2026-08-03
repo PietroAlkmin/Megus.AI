@@ -66,8 +66,8 @@ async function seedCenario() {
       { id: "intB", companyId: "c2", displayName: "Recepção Beta", whatsappNumber: "5511922220000", evolutionInstance: "beta-inst", ...base },
     ],
     contacts: [
-      { id: "ctA", integrationId: "intA", whatsappNumber: "5511977776666", fullName: "Maria Souza", cpf: null, cpfNameVerified: false, createdAt: now, updatedAt: now },
-      { id: "ctB", integrationId: "intB", whatsappNumber: "5511988885555", fullName: "Carlos Dias", cpf: null, cpfNameVerified: false, createdAt: now, updatedAt: now },
+      { id: "ctA", integrationId: "intA", whatsappNumber: "5511977776666", fullName: "Maria Souza", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now },
+      { id: "ctB", integrationId: "intB", whatsappNumber: "5511988885555", fullName: "Carlos Dias", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now },
     ],
   });
 

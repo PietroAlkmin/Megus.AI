@@ -1,5 +1,6 @@
 import type { AgentConfig } from "../../domain/entities/AgentConfig";
 import type { Conversation } from "../../domain/entities/Conversation";
+import type { FichaPaciente } from "../../domain/entities/Contact";
 import { ConversationState } from "../../domain/entities/ConversationState";
 import type { Integration } from "../../domain/entities/Integration";
 import { Cpf } from "../../domain/value-objects/Cpf";
@@ -210,7 +211,7 @@ export class ConversationStateMachine {
     // `cpfNameVerified` já obriga a revalidação, que é o ponto do comando.
     const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
     if (contact) {
-      await this.d.contacts.save({ ...contact, cpfNameVerified: false, updatedAt: new Date() });
+      await this.d.contacts.save({ ...contact, cpfNameVerified: false, ficha: {}, updatedAt: new Date() });
     }
 
     conv.state = ConversationState.New;
@@ -251,6 +252,10 @@ export class ConversationStateMachine {
     // no ctx). Checar aqui, sempre, cobre esse turno posterior sem depender de
     // qual sub-caminho (fiscal/cadastro/resposta simples) a decisão segue depois.
     await this.createChargesFromBooking(conv, cfg, integration, decision);
+    // Ficha ANTES de qualquer ramo: o paciente manda endereço e nascimento em
+    // mensagens soltas, fora do funil de identidade. Se dependesse dele, o dado
+    // que a clínica vai redigitar no sistema dela se perderia no histórico.
+    await this.guardaFicha(conv, integration, decision);
 
     const instance = integration.evolutionInstance || undefined;
 
@@ -536,15 +541,15 @@ export class ConversationStateMachine {
       // (criado quando a conversa chegou) ou cria um novo se não houver nenhum.
       const byWhatsapp = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
       if (byWhatsapp) {
-        contact = { ...byWhatsapp, fullName, cpf: cpf.digits, cpfNameVerified: verificado, updatedAt: now };
+        contact = { ...byWhatsapp, fullName, cpf: cpf.digits, cpfNameVerified: verificado, ficha: {}, updatedAt: now };
       } else {
         contact = {
           id: randomUUID(), integrationId: integration.id, whatsappNumber: conv.whatsappNumber,
-          fullName, cpf: cpf.digits, cpfNameVerified: verificado, createdAt: now, updatedAt: now,
+          fullName, cpf: cpf.digits, cpfNameVerified: verificado, ficha: {}, createdAt: now, updatedAt: now,
         };
       }
     } else {
-      contact = { ...contact, fullName, cpfNameVerified: verificado, updatedAt: now };
+      contact = { ...contact, fullName, cpfNameVerified: verificado, ficha: {}, updatedAt: now };
     }
     await this.d.contacts.save(contact);
     await this.d.fiscal.upsertCustomer({
@@ -767,6 +772,35 @@ export class ConversationStateMachine {
 
     conv.state = ConversationState.Done;
     await this.d.conversations.save(conv);
+  }
+
+  /**
+   * Guarda no contato os dados de FICHA que o cliente informou neste turno.
+   *
+   * A clínica no ar recadastra o paciente no sistema dela (Amplimed) na mão, e
+   * as instruções do agente já pedem endereço, nascimento e e-mail no primeiro
+   * contato — mas nada era guardado: ela relia a conversa inteira para preencher.
+   *
+   * Só ACRESCENTA: campo já preenchido não é sobrescrito por um turno posterior
+   * (o modelo repete dado do histórico, e a 2ª leitura pode vir pior que a 1ª —
+   * foi assim que o ID do comprovante saiu com um caractere a menos). Quem
+   * corrige de verdade é a clínica, no sistema dela.
+   */
+  private async guardaFicha(conv: Conversation, integration: Integration, decision: AgentDecision): Promise<void> {
+    const e = decision.extracted;
+    if (!e) return;
+    const novos: FichaPaciente = {};
+    for (const k of ["nascimento", "sexo", "email", "cep", "endereco", "cidade", "uf", "convenio"] as const) {
+      const v = e[k]?.trim();
+      if (v) novos[k] = v;
+    }
+    if (Object.keys(novos).length === 0) return;
+
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    if (!contact) return;
+    const ficha = { ...novos, ...contact.ficha }; // o já gravado vence
+    if (JSON.stringify(ficha) === JSON.stringify(contact.ficha)) return;
+    await this.d.contacts.save({ ...contact, ficha, updatedAt: new Date() });
   }
 
   private async context(conv: Conversation, cfg: AgentConfig, integration: Integration, notices?: string[]): Promise<AgentContext> {

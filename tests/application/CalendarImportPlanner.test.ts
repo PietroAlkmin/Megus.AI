@@ -26,7 +26,7 @@ describe("CalendarImportPlanner", () => {
     const agora = new Date();
     await repos.contacts.save({
       id: "ct-existente", integrationId: "int", whatsappNumber: "5512996526854",
-      fullName: null, cpf: null, cpfNameVerified: false, createdAt: agora, updatedAt: agora,
+      fullName: null, cpf: null, cpfNameVerified: false, ficha: {}, createdAt: agora, updatedAt: agora,
     });
     const planner = new CalendarImportPlanner({ contacts: repos.contacts, charges: repos.charges });
 
@@ -42,7 +42,7 @@ describe("CalendarImportPlanner", () => {
     const agora = new Date();
     await repos.contacts.save({
       id: "ct-1", integrationId: "int", whatsappNumber: "5511911111111",
-      fullName: "Maria Silva", cpf: null, cpfNameVerified: false, createdAt: agora, updatedAt: agora,
+      fullName: "Maria Silva", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: agora, updatedAt: agora,
     });
     const planner = new CalendarImportPlanner({ contacts: repos.contacts, charges: repos.charges });
 

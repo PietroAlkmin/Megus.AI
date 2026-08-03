@@ -105,8 +105,26 @@ export type AgentProposedAction =
 export interface AgentDecision {
   reply: string[]; // bolhas de texto a enviar
   action: AgentProposedAction;
-  /** Dados extraídos da mensagem do cliente (o código valida; a IA só propõe). */
-  extracted?: { fullName?: string; cpf?: string; amount?: number };
+  /**
+   * Dados extraídos da mensagem do cliente (o código valida; a IA só propõe).
+   *
+   * Os campos de FICHA (nascimento em diante) são o cadastro que a clínica
+   * redigita no sistema dela — coletados na conversa e guardados no contato,
+   * para ela não precisar reler o histórico mensagem por mensagem.
+   */
+  extracted?: {
+    fullName?: string;
+    cpf?: string;
+    amount?: number;
+    nascimento?: string;
+    sexo?: string;
+    email?: string;
+    cep?: string;
+    endereco?: string;
+    cidade?: string;
+    uf?: string;
+    convenio?: string;
+  };
   /**
    * Resultados das tools de NEGÓCIO chamadas pelo motor nesta decisão (ex.:
    * GOOGLECALENDAR_CREATE_EVENT) — repassados de `AgentEngineResult.toolResults`

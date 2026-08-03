@@ -155,7 +155,7 @@ describe("ConversationStateMachine — identidade em conversa livre (cadastro, n
     const repos = new InMemoryRepositories();
     repos.seed({
       integrations: [integration],
-      contacts: [{ id: "ct-existing", integrationId: "int1", whatsappNumber: "5511988887777", fullName: null, cpf: null, cpfNameVerified: false, createdAt: new Date(), updatedAt: new Date() }],
+      contacts: [{ id: "ct-existing", integrationId: "int1", whatsappNumber: "5511988887777", fullName: null, cpf: null, cpfNameVerified: false, ficha: {}, createdAt: new Date(), updatedAt: new Date() }],
     });
     const deps = baseDeps(repos);
     (deps.brain.decide as any).mockResolvedValue({

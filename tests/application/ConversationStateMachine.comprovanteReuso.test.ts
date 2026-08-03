@@ -73,7 +73,7 @@ function depsWith(repos: InMemoryRepositories, analysis: ComprovanteAnalysis): S
 async function cenarioDuasIguais(repos: InMemoryRepositories) {
   repos.seed({
     integrations: [integration],
-    contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "Pietro Alkmin", cpf: null, cpfNameVerified: false, createdAt: new Date(), updatedAt: new Date() }],
+    contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "Pietro Alkmin", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: new Date(), updatedAt: new Date() }],
   });
   await repos.companyProfiles.save({
     companyId: "c1", name: "Clínica", fiscalName: "Clínica Ltda", fiscalDoc: "28756515000135",

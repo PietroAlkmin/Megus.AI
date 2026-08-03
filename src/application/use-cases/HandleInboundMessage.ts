@@ -55,7 +55,7 @@ export class HandleInboundMessage {
     if (!contact) {
       contact = {
         id: randomUUID(), integrationId: integration.id, whatsappNumber: inbound.from,
-        fullName: null, cpf: null, cpfNameVerified: false, createdAt: now, updatedAt: now,
+        fullName: null, cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now,
       };
       await this.d.contacts.save(contact);
     }

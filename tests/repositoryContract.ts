@@ -31,7 +31,7 @@ export async function assertRepositoryContract(repos: ReposBundle, hooks?: Contr
 
   try {
     // Contact round-trip + IDOR
-    const cA = { id: randomUUID(), integrationId: A, whatsappNumber: "551111", fullName: "Ana", cpf: "11111111111", cpfNameVerified: true, createdAt: now, updatedAt: now };
+    const cA = { id: randomUUID(), integrationId: A, whatsappNumber: "551111", fullName: "Ana", cpf: "11111111111", cpfNameVerified: true, ficha: {}, createdAt: now, updatedAt: now };
     await repos.contacts.save(cA);
     expect((await repos.contacts.findByCpf(A, "11111111111"))?.fullName).toBe("Ana");
     // tenant B NÃO enxerga o contato de A (IDOR)

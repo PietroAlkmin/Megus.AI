@@ -104,6 +104,8 @@ model Contact {
   fullName        String?
   cpf             String?
   cpfNameVerified Boolean     @default(false)
+  /** Ficha do paciente (JSON) — dados que a clínica recadastra no sistema dela. */
+  fichaJson       String?     @db.NVarChar(Max)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime
   Integration     Integration @relation(fields: [integrationId], references: [id])

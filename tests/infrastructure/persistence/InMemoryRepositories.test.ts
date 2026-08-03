@@ -17,7 +17,7 @@ describe("InMemoryRepositories", () => {
     const now = new Date();
     await repos.contacts.save({
       id: "c1", integrationId: "int1", whatsappNumber: "5511988887777",
-      fullName: "João Silva", cpf: "52998224725", cpfNameVerified: true,
+      fullName: "João Silva", cpf: "52998224725", cpfNameVerified: true, ficha: {},
       createdAt: now, updatedAt: now,
     });
     const dup = await repos.contacts.findByCpf("int1", "52998224725");

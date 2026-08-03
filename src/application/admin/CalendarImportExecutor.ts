@@ -23,7 +23,7 @@ export class CalendarImportExecutor {
         // confirmação administrativa. Portanto, nome + CPF desse primeiro
         // atendimento são uma identidade confiável para o fluxo de cobrança;
         // não é equivalente a dados alegados pelo paciente no WhatsApp.
-        await this.d.contacts.save({ id: contactId, integrationId, whatsappNumber: item.phone, fullName: item.fullName ?? item.patientKey, cpf: item.cpf, cpfNameVerified: true, createdAt: new Date(), updatedAt: new Date() });
+        await this.d.contacts.save({ id: contactId, integrationId, whatsappNumber: item.phone, fullName: item.fullName ?? item.patientKey, cpf: item.cpf, cpfNameVerified: true, ficha: {}, createdAt: new Date(), updatedAt: new Date() });
         resolved.set(item.patientKey, contactId);
       }
       // Paciente que já tinha conversado existe apenas como telefone (o contato

@@ -1,14 +1,17 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronDown, Eye, FileText, Headphones, Image as ImageIcon, MessageSquare, Search, Send, Zap } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Copy, Download, Eye, FileText, Headphones, Image as ImageIcon, MessageSquare, Search, Send, User, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { Rotulo } from "@/components/ui/megus";
 import * as conversasService from "@/services/conversas";
 import type { Conversa, Mensagem } from "@/services/conversas";
 import type { LinhaRaciocinio } from "@/services/raciocinio";
 import * as raciocinioService from "@/services/raciocinio";
+import type { FichaPaciente as Ficha } from "@/services/ficha";
+import * as fichaService from "@/services/ficha";
 import { useNomeAgente } from "@/hooks/useNomeAgente";
 
 /**
@@ -133,6 +136,14 @@ export default function Conversas() {
     enabled: Boolean(selId),
     // Acompanha as mensagens: o raciocínio muda no mesmo turno em que o
     // paciente responde.
+    refetchInterval: 5_000,
+  });
+  // A ficha cresce durante a conversa (o paciente vai respondendo endereço,
+  // nascimento…), então acompanha as mensagens no mesmo ritmo.
+  const fichaQuery = useQuery({
+    queryKey: ["conversas", selId, "ficha"],
+    queryFn: () => fichaService.getFicha(selId!),
+    enabled: Boolean(selId),
     refetchInterval: 5_000,
   });
 
@@ -319,6 +330,11 @@ export default function Conversas() {
                 )}
               </div>
 
+              {/* Ficha acima do raciocínio: a tarefa da recepção (recadastrar o
+                  paciente no sistema da clínica) vem antes da auditoria do que
+                  o agente entendeu. */}
+              <FichaDoPaciente conversa={sel} ficha={fichaQuery.data ?? null} />
+
               <Raciocinio itens={rac} bloqueado={sel.status === "AGUARDANDO"} chave={sel.id} />
 
               <div className="shrink-0 border-t border-border/70 bg-card px-3 py-3 md:px-4">
@@ -360,6 +376,133 @@ export default function Conversas() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+const CAMPOS_FICHA: { k: keyof Ficha | "telefone"; rot: string; largo?: boolean; fmt?: (v: string) => string }[] = [
+  { k: "nome", rot: "Nome" },
+  { k: "sobrenome", rot: "Sobrenome" },
+  { k: "cpf", rot: "CPF" },
+  { k: "nascimento", rot: "Nascimento", fmt: (v) => v.split("-").reverse().join("/") },
+  { k: "sexo", rot: "Sexo", fmt: (v) => (v === "F" ? "Feminino" : v === "M" ? "Masculino" : v) },
+  { k: "telefone", rot: "Telefone" },
+  { k: "email", rot: "E-mail" },
+  { k: "cep", rot: "CEP" },
+  { k: "endereco", rot: "Endereço", largo: true },
+  { k: "cidade", rot: "Cidade" },
+  { k: "uf", rot: "UF" },
+  { k: "convenio", rot: "Convênio" },
+];
+
+/**
+ * A ficha que a clínica vai RECADASTRAR no sistema dela (Amplimed e afins).
+ *
+ * O Megus não é prontuário. A clínica no ar digita o paciente novo no sistema
+ * dela na mão, e as instruções do agente já pedem esses dados no primeiro
+ * contato — mas eles morriam no histórico e ela relia mensagem por mensagem.
+ *
+ * Fica na CONVERSA, não no Financeiro: aqui o paciente é uma pessoa, e é aqui
+ * que o dado foi coletado. No Financeiro ele é uma cobrança, e o que interessa
+ * lá são os campos fiscais.
+ *
+ * **O que falta é tão informativo quanto o que veio.** Campo em branco diz "o
+ * agente não perguntou isso" — por isso os ausentes aparecem em vez de sumirem.
+ */
+function FichaDoPaciente({ conversa, ficha }: { conversa: Conversa; ficha: Ficha | null }) {
+  const [aberto, setAberto] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const f = (ficha ?? {}) as Record<string, string | boolean | undefined>;
+  // O telefone vem da CONVERSA, não da ficha: é o identificador do WhatsApp.
+  const val = (campo: (typeof CAMPOS_FICHA)[number]): string | undefined =>
+    campo.k === "telefone" ? conversa.telefone : (f[campo.k as string] as string | undefined);
+  const mostrar = (campo: (typeof CAMPOS_FICHA)[number], v: string) => (campo.fmt ? campo.fmt(v) : v);
+  const preenchidos = CAMPOS_FICHA.filter((x) => val(x));
+  const faltam = CAMPOS_FICHA.length - preenchidos.length;
+
+  const copiarTudo = () => {
+    void navigator.clipboard.writeText(preenchidos.map((x) => `${x.rot}: ${mostrar(x, val(x)!)}`).join("\n"));
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 1600);
+  };
+
+  const baixarCsv = () => {
+    const cab = preenchidos.map((x) => x.rot).join(",");
+    const vals = preenchidos.map((x) => `"${mostrar(x, val(x)!)}"`).join(",");
+    // BOM para o Excel abrir com acento certo — planilha é o formato que todo
+    // sistema importa, inclusive os que não têm API.
+    const url = URL.createObjectURL(new Blob([`﻿${cab}\n${vals}`], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `paciente-${String(f.nome ?? "sem-nome").toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className={cn("flex min-h-0 flex-col border-t border-border/70 bg-card", aberto ? "shrink" : "shrink-0")}>
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className="flex w-full shrink-0 items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 md:px-4"
+      >
+        <User size={13} className="shrink-0 text-muted-foreground" />
+        <strong className="shrink-0 text-[12px] font-semibold text-foreground">Ficha do paciente</strong>
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground">
+          {faltam === 0 ? "completa" : `${faltam} ${faltam > 1 ? "campos em branco" : "campo em branco"}`}
+          {f.novo ? " · paciente novo" : ""}
+        </span>
+        <ChevronDown
+          size={13}
+          className={cn("shrink-0 text-muted-foreground transition-transform", aberto && "rotate-180")}
+        />
+      </button>
+
+      {aberto && (
+        <div className="max-h-[38vh] min-h-0 overflow-auto border-t border-border/70 px-3 pb-3 pt-2.5 md:px-4">
+          <dl className="grid gap-x-5 sm:grid-cols-2">
+            {CAMPOS_FICHA.map((campo) => {
+              const v = val(campo);
+              return (
+                <div
+                  key={String(campo.k)}
+                  className={cn(
+                    "flex items-baseline justify-between gap-3 border-b border-border/60 py-1.5",
+                    campo.largo && "sm:col-span-2",
+                  )}
+                >
+                  <Rotulo className="shrink-0">{campo.rot}</Rotulo>
+                  {v ? (
+                    /* Clicar num campo copia SÓ ele: às vezes ela precisa de um
+                       dado só, e copiar a ficha toda obrigaria a limpar o resto. */
+                    <button
+                      type="button"
+                      title={mostrar(campo, v)}
+                      onClick={() => void navigator.clipboard.writeText(mostrar(campo, v))}
+                      className="min-w-0 truncate text-right font-mono text-[12px] text-foreground hover:underline"
+                    >
+                      {mostrar(campo, v)}
+                    </button>
+                  ) : (
+                    <span className="text-right text-[11.5px] text-muted-foreground/70">não perguntado</span>
+                  )}
+                </div>
+              );
+            })}
+          </dl>
+
+          <div className="mt-3 flex items-center gap-2">
+            <Button size="sm" variant="outline" className="flex-1" onClick={copiarTudo}>
+              {copiado ? <Check size={12} strokeWidth={2.6} /> : <Copy size={12} />}
+              {copiado ? "Copiado" : "Copiar ficha"}
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1" onClick={baixarCsv}>
+              <Download size={12} /> Baixar CSV
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

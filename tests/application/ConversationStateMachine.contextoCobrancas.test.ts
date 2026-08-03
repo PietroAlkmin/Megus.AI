@@ -56,7 +56,7 @@ function charge(over: Partial<Charge>): Charge {
 async function conversaCom(repos: InMemoryRepositories, charges: Charge[]) {
   repos.seed({
     integrations: [integration],
-    contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "Pietro Alkmin", cpf: null, cpfNameVerified: false, createdAt: new Date(), updatedAt: new Date() }],
+    contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "Pietro Alkmin", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: new Date(), updatedAt: new Date() }],
   });
   for (const c of charges) await repos.charges.save(c);
   const conv = await repos.conversations.getOrCreate("int1", "ct1", "5511988887777");

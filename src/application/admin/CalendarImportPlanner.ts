@@ -58,7 +58,7 @@ export class CalendarImportPlanner {
       const existing = found[0] ?? null;
       plan.push({ kind: "ready", eventId: candidate.calendarEventId, patientKey: candidate.patientKey, amount: candidate.amount!, existingContactId: existing?.id ?? null, createContact: !existing, phone: candidate.phone, fullName: candidate.fullName, cpf: candidate.cpf, warnings: candidate.warnings });
       // Torna um primeiro atendimento elegível para o próximo evento do mesmo lote.
-      if (!existing) known.push({ id: `planned:${candidate.calendarEventId}`, integrationId, whatsappNumber: candidate.phone!, fullName: candidate.fullName ?? candidate.patientKey, cpf: candidate.cpf, cpfNameVerified: false, createdAt: new Date(), updatedAt: new Date() });
+      if (!existing) known.push({ id: `planned:${candidate.calendarEventId}`, integrationId, whatsappNumber: candidate.phone!, fullName: candidate.fullName ?? candidate.patientKey, cpf: candidate.cpf, cpfNameVerified: false, ficha: {}, createdAt: new Date(), updatedAt: new Date() });
     }
     return plan;
   }

@@ -42,7 +42,26 @@ const PROPOSE_NEXT: AITool = {
         },
         required: ["type"],
       },
-      extracted: { type: "object", properties: { fullName: { type: "string" }, cpf: { type: "string" }, amount: { type: "number" } } },
+      // A ficha entra AQUI e não numa tool nova: o modelo já lê a conversa
+      // inteira para responder — pedir os campos junto não custa chamada extra.
+      // Cada um só vem quando o PACIENTE disse; inventar dado de cadastro é pior
+      // que não ter (a clínica digita isso no sistema dela achando que conferiu).
+      extracted: {
+        type: "object",
+        properties: {
+          fullName: { type: "string" },
+          cpf: { type: "string" },
+          amount: { type: "number" },
+          nascimento: { type: "string", description: "Data de nascimento no formato AAAA-MM-DD. Só se o cliente informou." },
+          sexo: { type: "string", description: "Como o cliente informou (ex.: F, M, feminino). Só se ele disse." },
+          email: { type: "string", description: "E-mail, exatamente como o cliente escreveu." },
+          cep: { type: "string", description: "CEP, só dígitos." },
+          endereco: { type: "string", description: "Logradouro, número e complemento, como o cliente escreveu." },
+          cidade: { type: "string" },
+          uf: { type: "string", description: "Sigla de 2 letras." },
+          convenio: { type: "string", description: "Convênio/plano de saúde informado." },
+        },
+      },
     },
     required: ["reply", "action"],
   },

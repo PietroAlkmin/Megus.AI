@@ -3,8 +3,24 @@ import type { IContactRepository } from "../../../domain/ports/repositories";
 import type { Contact } from "../../../domain/entities/Contact";
 import { variantes as variantesTelefone } from "../../../domain/services/telefoneBR";
 
-function toDomain(r: { id: string; integrationId: string; whatsappNumber: string; fullName: string | null; cpf: string | null; cpfNameVerified: boolean; createdAt: Date; updatedAt: Date }): Contact {
-  return { id: r.id, integrationId: r.integrationId, whatsappNumber: r.whatsappNumber, fullName: r.fullName, cpf: r.cpf, cpfNameVerified: r.cpfNameVerified, createdAt: r.createdAt, updatedAt: r.updatedAt };
+/** Ficha sem nenhum campo vira `null` no banco (ausência visível, não `"{}"`). */
+function gravarFicha(ficha: Contact["ficha"]): string | null {
+  return ficha && Object.keys(ficha).length > 0 ? JSON.stringify(ficha) : null;
+}
+
+/** JSON inválido no banco não pode derrubar a conversa — vira ficha vazia. */
+function lerFicha(json: string | null | undefined): Contact["ficha"] {
+  if (!json) return {};
+  try {
+    const v = JSON.parse(json);
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+function toDomain(r: { id: string; integrationId: string; whatsappNumber: string; fullName: string | null; cpf: string | null; cpfNameVerified: boolean; fichaJson?: string | null; createdAt: Date; updatedAt: Date }): Contact {
+  return { id: r.id, integrationId: r.integrationId, whatsappNumber: r.whatsappNumber, fullName: r.fullName, cpf: r.cpf, cpfNameVerified: r.cpfNameVerified, ficha: lerFicha(r.fichaJson), createdAt: r.createdAt, updatedAt: r.updatedAt };
 }
 
 export class PrismaContactRepository implements IContactRepository {
@@ -39,8 +55,10 @@ export class PrismaContactRepository implements IContactRepository {
   async save(contact: Contact): Promise<void> {
     await prisma.contact.upsert({
       where: { id: contact.id },
-      update: { fullName: contact.fullName, cpf: contact.cpf, cpfNameVerified: contact.cpfNameVerified, updatedAt: contact.updatedAt },
-      create: { id: contact.id, integrationId: contact.integrationId, whatsappNumber: contact.whatsappNumber, fullName: contact.fullName, cpf: contact.cpf, cpfNameVerified: contact.cpfNameVerified, createdAt: contact.createdAt, updatedAt: contact.updatedAt },
+      // Ficha vazia grava `null`, não `"{}"`: no banco a ausência tem que ser
+      // visível, senão "não perguntamos" e "perguntamos e não veio" viram iguais.
+      update: { fullName: contact.fullName, cpf: contact.cpf, cpfNameVerified: contact.cpfNameVerified, fichaJson: gravarFicha(contact.ficha), updatedAt: contact.updatedAt },
+      create: { id: contact.id, integrationId: contact.integrationId, whatsappNumber: contact.whatsappNumber, fullName: contact.fullName, cpf: contact.cpf, cpfNameVerified: contact.cpfNameVerified, fichaJson: gravarFicha(contact.ficha), createdAt: contact.createdAt, updatedAt: contact.updatedAt },
     });
   }
 }

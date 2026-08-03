@@ -76,10 +76,10 @@ async function seedCenario() {
       },
     ],
     contacts: [
-      { id: "ct1", integrationId: "intA", whatsappNumber: "5511960000001", fullName: "Marina Lopes", cpf: null, cpfNameVerified: false, createdAt: now, updatedAt: now },
-      { id: "ct2", integrationId: "intA", whatsappNumber: "5511960000002", fullName: null, cpf: null, cpfNameVerified: false, createdAt: now, updatedAt: now },
-      { id: "ct3", integrationId: "intA", whatsappNumber: "5511960000003", fullName: "Helena Prado", cpf: null, cpfNameVerified: false, createdAt: now, updatedAt: now },
-      { id: "ct4", integrationId: "intB", whatsappNumber: "5511960000009", fullName: "Beta Cliente", cpf: null, cpfNameVerified: false, createdAt: now, updatedAt: now },
+      { id: "ct1", integrationId: "intA", whatsappNumber: "5511960000001", fullName: "Marina Lopes", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now },
+      { id: "ct2", integrationId: "intA", whatsappNumber: "5511960000002", fullName: null, cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now },
+      { id: "ct3", integrationId: "intA", whatsappNumber: "5511960000003", fullName: "Helena Prado", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now },
+      { id: "ct4", integrationId: "intB", whatsappNumber: "5511960000009", fullName: "Beta Cliente", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now },
     ],
   });
 

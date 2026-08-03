@@ -40,7 +40,7 @@ async function verifiedConversation(repos: InMemoryRepositories) {
   repos.seed({
     integrations: [integration],
     services: [{ id: "svc1", integrationId: "int1", code: "0107", description: "Massagem", price: 180, issCode: "0107" }],
-    contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "João da Silva", cpf: "52998224725", cpfNameVerified: true, createdAt: new Date(), updatedAt: new Date() }],
+    contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "João da Silva", cpf: "52998224725", cpfNameVerified: true, ficha: {}, createdAt: new Date(), updatedAt: new Date() }],
   });
   const conv = await repos.conversations.getOrCreate("int1", "ct1", "5511988887777");
   conv.contactId = "ct1";
@@ -167,7 +167,7 @@ describe("ConversationStateMachine — cobrança pendente nasce com o evento (Ta
     repos.seed({
       integrations: [integration],
       // SEM services: linkedServiceIds aponta pra um serviço que não existe.
-      contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "João da Silva", cpf: "52998224725", cpfNameVerified: true, createdAt: new Date(), updatedAt: new Date() }],
+      contacts: [{ id: "ct1", integrationId: "int1", whatsappNumber: "5511988887777", fullName: "João da Silva", cpf: "52998224725", cpfNameVerified: true, ficha: {}, createdAt: new Date(), updatedAt: new Date() }],
     });
     const conv = await repos.conversations.getOrCreate("int1", "ct1", "5511988887777");
     conv.contactId = "ct1";
