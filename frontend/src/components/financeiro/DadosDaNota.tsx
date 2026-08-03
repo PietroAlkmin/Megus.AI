@@ -7,7 +7,7 @@ import type { Servico } from "@/services/empresa";
 
 /** Emissor Nacional de NFS-e. Só vale para municípios que adotaram o padrão
  *  nacional — por isso é apenas o *default* do campo em Clínica. */
-const EMISSOR_NACIONAL = "https://www.nfse.gov.br/EmissorNacional/";
+const EMISSOR_NACIONAL = "https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2fEmissorNacional";
 
 /**
  * Copia e confirma no próprio botão — sem toast, porque a confirmação precisa
