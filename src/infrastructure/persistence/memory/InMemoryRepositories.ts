@@ -261,6 +261,8 @@ export class InMemoryRepositories {
     },
     findByPaymentRef: async (integrationId, paymentRef) =>
       this._charges.find((c) => c.integrationId === integrationId && c.paymentRef === paymentRef) ?? null,
+    findByReceiptHash: async (integrationId, receiptHash) =>
+      this._charges.find((c) => c.integrationId === integrationId && c.receiptHash === receiptHash) ?? null,
     listDueScheduled: async (now) =>
       this._charges
         .filter((c) => c.status === "pendente" && c.scheduledFor != null && c.scheduledFor.getTime() <= now.getTime())

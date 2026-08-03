@@ -41,6 +41,8 @@ model Charge {
   paymentRef      String?   @db.NVarChar(120)
   /** Quem pagou, como está no comprovante. */
   paidBy          String?   @db.NVarChar(200)
+  /** SHA-256 do comprovante que quitou — trava determinística (não depende de OCR). */
+  receiptHash     String?   @db.NVarChar(64)
   /** Cliente pediu nota fiscal? null = não perguntado/sem resposta. Recado p/ a clínica emitir. */
   notaSolicitada  Boolean?
   /** Quando a clínica marcou "já emiti" no painel. */

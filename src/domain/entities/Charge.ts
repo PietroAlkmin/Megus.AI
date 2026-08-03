@@ -28,6 +28,16 @@ export interface Charge {
   /** Nome de quem pagou, como está no comprovante (terceiro pagando é rotina). */
   paidBy: string | null;
   /**
+   * SHA-256 dos bytes do comprovante que quitou.
+   *
+   * O `paymentRef` depende da visão LER o identificador, e leitura não é
+   * determinística: o mesmo print saiu como 32 e como 31 caracteres em duas
+   * tentativas, e o reenvio passou. O hash não passa por leitura — arquivo
+   * reenviado é idêntico e bate sempre. Os dois convivem: o hash pega o mesmo
+   * arquivo, o ID pega o comprovante refotografado.
+   */
+  receiptHash: string | null;
+  /**
    * Hora marcada para o disparo automático da cobrança. `null` = sem
    * agendamento (sai na hora do clique, comportamento de sempre).
    *

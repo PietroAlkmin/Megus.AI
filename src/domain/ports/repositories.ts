@@ -132,6 +132,12 @@ export interface IChargeRepository {
    */
   findByPaymentRef(integrationId: string, paymentRef: string): Promise<Charge | null>;
   /**
+   * A cobrança quitada por ESTE arquivo de comprovante (hash dos bytes). Trava
+   * determinística: não depende da visão ler o identificador — e ler não é
+   * confiável (o mesmo print saiu com 32 e com 31 caracteres em prod).
+   */
+  findByReceiptHash(integrationId: string, receiptHash: string): Promise<Charge | null>;
+  /**
    * Cobranças com envio agendado que já venceram (`scheduledFor <= now`) e ainda
    * estão "pendente" — o laço do ChargeScheduler dispara estas. Varre TODAS as
    * empresas de propósito: o laço é do processo, não de um tenant.

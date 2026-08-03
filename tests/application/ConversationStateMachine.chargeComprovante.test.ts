@@ -36,7 +36,7 @@ async function seedVerifiedWithCharge(repos: InMemoryRepositories, opts: { charg
   if (opts.charge) {
     await repos.charges.save({
       id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 180,
-      status: "cobrada", calendarEventId: "evt-1", chargedAt: new Date(), paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: new Date(), updatedAt: new Date(),
+      status: "cobrada", calendarEventId: "evt-1", chargedAt: new Date(), paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, receiptHash: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: new Date(), updatedAt: new Date(),
     });
   }
   return conv;
@@ -64,7 +64,7 @@ describe("duas cobranças em aberto: o comprovante casa PELO VALOR", () => {
     const conv = await seedVerifiedWithCharge(repos); // ch1 = R$180 (mais antiga)
     await repos.charges.save({
       id: "ch2", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 250,
-      status: "pendente", calendarEventId: "evt-2", chargedAt: null, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null,
+      status: "pendente", calendarEventId: "evt-2", chargedAt: null, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, receiptHash: null, notaSolicitada: null, notaEmitidaEm: null,
       createdAt: new Date(Date.now() + 60_000), updatedAt: new Date(), // mais RECENTE
     });
     return conv;

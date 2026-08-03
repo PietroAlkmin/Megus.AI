@@ -49,7 +49,7 @@ function charge(over: Partial<Charge>): Charge {
   return {
     id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: null, description: "Consulta",
     amount: 2, status: "cobrada", calendarEventId: null, chargedAt: now, paidAt: null,
-    scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now, ...over,
+    scheduledFor: null, paymentRef: null, paidBy: null, receiptHash: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now, ...over,
   };
 }
 

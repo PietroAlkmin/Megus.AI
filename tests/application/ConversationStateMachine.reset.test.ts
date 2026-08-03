@@ -112,7 +112,7 @@ describe("ConversationStateMachine — /reset (comando de teste)", () => {
     expect(conv.state).toBe(ConversationState.New);
   });
 
-  it("texto normal NÃO reseta — continua no fluxo do estado (pede comprovante)", async () => {
+  it("texto normal NÃO reseta — estado, histórico e rascunho ficam de pé", async () => {
     const repos = new InMemoryRepositories();
     const deps = depsWith(repos);
     const conv = await conversaEmpacada(repos);
@@ -121,9 +121,12 @@ describe("ConversationStateMachine — /reset (comando de teste)", () => {
     await sm.advance(conv, agentConfig, integration, textInbound("oi, tudo bem?"));
 
     expect(conv.state).toBe(ConversationState.AwaitingComprovante);
-    expect((await repos.conversations.getHistory(conv.id, 20)).length).toBeGreaterThan(3); // histórico preservado (+resposta)
+    expect((await repos.conversations.getHistory(conv.id, 20)).length).toBeGreaterThanOrEqual(3); // nada apagado
     expect(await repos.emissions.getById("em-draft")).not.toBeNull();
-    expect(deps.messaging.sendText).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("comprovante") }));
+    // Quem responde texto neste estado é o CÉREBRO (com as cobranças em aberto no
+    // contexto), não uma frase pronta: o paciente perguntou "tenho algo em aberto?"
+    // duas vezes ao vivo e levou "me envia o comprovante" nas duas.
+    expect(deps.brain.decide).toHaveBeenCalled();
   });
 
   it("mídia com legenda '/reset' NÃO reseta — segue pro gate fiscal (regra de mídia intocada)", async () => {

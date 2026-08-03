@@ -7,14 +7,14 @@ function toDomain(r: {
   description: string; amount: number; status: string; calendarEventId: string | null;
   chargedAt: Date | null; paidAt: Date | null; createdAt: Date; updatedAt: Date;
   notaSolicitada?: boolean | null; notaEmitidaEm?: Date | null; scheduledFor?: Date | null;
-  paymentRef?: string | null; paidBy?: string | null;
+  paymentRef?: string | null; paidBy?: string | null; receiptHash?: string | null;
 }): Charge {
   return {
     id: r.id, integrationId: r.integrationId, contactId: r.contactId, serviceId: r.serviceId,
     description: r.description, amount: r.amount, status: r.status as ChargeStatus,
     calendarEventId: r.calendarEventId, chargedAt: r.chargedAt, paidAt: r.paidAt,
     scheduledFor: r.scheduledFor ?? null,
-    paymentRef: r.paymentRef ?? null, paidBy: r.paidBy ?? null,
+    paymentRef: r.paymentRef ?? null, paidBy: r.paidBy ?? null, receiptHash: r.receiptHash ?? null,
     notaSolicitada: r.notaSolicitada ?? null, notaEmitidaEm: r.notaEmitidaEm ?? null,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
@@ -28,7 +28,7 @@ export class PrismaChargeRepository implements IChargeRepository {
         serviceId: charge.serviceId, description: charge.description, amount: charge.amount,
         status: charge.status, calendarEventId: charge.calendarEventId,
         chargedAt: charge.chargedAt, paidAt: charge.paidAt, scheduledFor: charge.scheduledFor,
-        paymentRef: charge.paymentRef, paidBy: charge.paidBy,
+        paymentRef: charge.paymentRef, paidBy: charge.paidBy, receiptHash: charge.receiptHash,
         notaSolicitada: charge.notaSolicitada, notaEmitidaEm: charge.notaEmitidaEm,
         updatedAt: charge.updatedAt,
       },
@@ -37,7 +37,7 @@ export class PrismaChargeRepository implements IChargeRepository {
         serviceId: charge.serviceId, description: charge.description, amount: charge.amount,
         status: charge.status, calendarEventId: charge.calendarEventId,
         chargedAt: charge.chargedAt, paidAt: charge.paidAt, scheduledFor: charge.scheduledFor,
-        paymentRef: charge.paymentRef, paidBy: charge.paidBy,
+        paymentRef: charge.paymentRef, paidBy: charge.paidBy, receiptHash: charge.receiptHash,
         notaSolicitada: charge.notaSolicitada, notaEmitidaEm: charge.notaEmitidaEm,
         createdAt: charge.createdAt, updatedAt: charge.updatedAt,
       },
@@ -90,6 +90,11 @@ export class PrismaChargeRepository implements IChargeRepository {
   // outro número (ou depois de o cadastro duplicar) não pode quitar de novo.
   async findByPaymentRef(integrationId: string, paymentRef: string): Promise<Charge | null> {
     const r = await prisma.charge.findFirst({ where: { integrationId, paymentRef } });
+    return r ? toDomain(r) : null;
+  }
+
+  async findByReceiptHash(integrationId: string, receiptHash: string): Promise<Charge | null> {
+    const r = await prisma.charge.findFirst({ where: { integrationId, receiptHash } });
     return r ? toDomain(r) : null;
   }
 

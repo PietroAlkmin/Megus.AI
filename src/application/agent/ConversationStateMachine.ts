@@ -14,7 +14,7 @@ import type {
   IChargeRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IServiceRepository, ICompanyProfileRepository,
 } from "../../domain/ports/repositories";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { sanitizeFiscalText } from "../../domain/services/sanitizeFiscalText";
 import { assembleContext } from "./ContextAssembler";
 
@@ -371,6 +371,7 @@ export class ConversationStateMachine {
         scheduledFor: null,
         paymentRef: null,
         paidBy: null,
+        receiptHash: null,
         calendarEventId: extractEventId(booking.output),
         chargedAt: null,
         paidAt: null,
@@ -566,9 +567,16 @@ export class ConversationStateMachine {
     // Só foto/PDF é comprovante — texto e áudio (mesmo transcrito, ex.: "já paguei")
     // pedem o comprovante de verdade. Backstop: o roteamento em advance já filtra,
     // mas o switch por estado (AwaitingComprovante) ainda chega aqui com áudio.
+    // Texto enquanto se espera o comprovante NÃO é "comprovante errado": é o
+    // paciente falando. A guarda antiga respondia sempre a mesma frase pronta —
+    // ao vivo (03/08) ele perguntou "tenho mais algum em aberto?" duas vezes e
+    // levou "me envia o comprovante" nas duas, com a resposta no contexto.
+    //
+    // O cérebro responde (ele tem as cobranças em aberto e sabe o estado), e o
+    // ESTADO NÃO MUDA: a próxima foto continua caindo direto no gate B. Nenhum
+    // gate é afrouxado — quem confirma pagamento segue sendo a conferência.
     if (!isReceiptMedia(inbound)) {
-      await this.send(conv, ["Me envia o comprovante de pagamento como foto ou PDF, por favor."], instance);
-      return;
+      return this.handleChatting(conv, cfg, integration, inbound);
     }
     conv.state = ConversationState.VerifyingComprovante;
     await this.d.conversations.save(conv);
@@ -648,8 +656,16 @@ export class ConversationStateMachine {
     // Sem isto, o mesmo print reenviado quitava as duas e a clínica via R$ 400
     // recebidos tendo recebido R$ 200. Conta como tentativa: insistir chama humano.
     const txId = analysis.transactionId ?? null;
-    if (txId) {
-      const jaUsado = await this.d.charges.findByPaymentRef(integration.id, txId);
+    // DUAS chaves, porque uma delas provou não bastar. O ID da transação depende
+    // da visão LER, e ler não é determinístico: ao vivo (03/08) o mesmo print
+    // saiu como `E30306294...0023MPK4` (32 chars) e `E30306294...023MPK4` (31) —
+    // um zero a menos — e o reenvio quitou uma segunda cobrança. O hash dos
+    // BYTES não passa por leitura nenhuma: arquivo reenviado bate sempre.
+    // Cada um cobre o furo do outro (hash: mesmo arquivo; ID: refotografado).
+    const hash = createHash("sha256").update(inbound.media.base64 ?? inbound.media.url ?? "").digest("hex");
+    const jaUsadoPorHash = await this.d.charges.findByReceiptHash(integration.id, hash);
+    if (txId || jaUsadoPorHash) {
+      const jaUsado = jaUsadoPorHash ?? (txId ? await this.d.charges.findByPaymentRef(integration.id, txId) : null);
       if (jaUsado && jaUsado.id !== charge?.id) {
         const n = (this.attempts.get(tentativasKey) ?? 0) + 1;
         this.attempts.set(tentativasKey, n);
@@ -671,7 +687,7 @@ export class ConversationStateMachine {
     this.attempts.delete(tentativasKey);
 
     /** Dados do pagamento que quitou — trava de reuso e "quem pagou" pra clínica. */
-    const pagamento = { paymentRef: txId, paidBy: analysis.payerName ?? null };
+    const pagamento = { paymentRef: txId, paidBy: analysis.payerName ?? null, receiptHash: hash };
 
     // Cobrança sem fiscal: confirmar e quitar é o ponto final do DINHEIRO. Não
     // cria EmissionIntent nem chama provedor fiscal. Só resta perguntar se o

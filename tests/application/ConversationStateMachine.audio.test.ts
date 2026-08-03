@@ -66,7 +66,7 @@ describe("transcrição de áudio no state machine", () => {
     const repos = new InMemoryRepositories(); seed(repos);
     const now = new Date();
     await repos.contacts.save({ id: "ct1", integrationId: "int1", whatsappNumber: FROM, fullName: "João da Silva", cpf: "52998224725", cpfNameVerified: true, createdAt: now, updatedAt: now });
-    await repos.charges.save({ id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 180, status: "pendente", calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now });
+    await repos.charges.save({ id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: "svc1", description: "Massagem", amount: 180, status: "pendente", calendarEventId: null, chargedAt: null, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, receiptHash: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now });
     const d = deps(repos);
     const sm = new ConversationStateMachine(d);
     const conv = await repos.conversations.getOrCreate("int1", "ct1", FROM);
@@ -91,7 +91,7 @@ describe("transcrição de áudio no state machine", () => {
     expect(conv.state).toBe(estadoAntes);
   });
 
-  it("áudio (mesmo transcrito) aguardando comprovante → pede foto/PDF, NÃO manda voz pra visão", async () => {
+  it("áudio (mesmo transcrito) aguardando comprovante → NÃO manda voz pra visão; quem responde é o cérebro", async () => {
     const repos = new InMemoryRepositories(); seed(repos);
     const d = deps(repos);
     const sm = new ConversationStateMachine(d);
@@ -101,8 +101,11 @@ describe("transcrição de áudio no state machine", () => {
 
     await sm.advance(conv, agentConfig, integration, audioComTexto("já fiz o pix"));
 
+    // A garantia que importa: voz JAMAIS vira comprovante.
     expect(d.comprovante.analyze).not.toHaveBeenCalled();
-    expect(bubbles(d)).toContain("foto ou PDF");
+    // E a resposta sai do cérebro, que tem estado e cobranças em aberto no
+    // contexto — não da frase pronta que ignorava o que o paciente disse.
+    expect(d.brain.decide).toHaveBeenCalled();
   });
 
   it("regressão: FOTO aguardando comprovante ainda dispara o gate B (visão)", async () => {
