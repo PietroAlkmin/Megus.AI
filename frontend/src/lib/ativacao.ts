@@ -1,94 +1,35 @@
-import { CalendarDays, CreditCard, FileText, MessageCircle, type LucideIcon } from "lucide-react";
-
 /**
- * Os cinco passos de ativação do Megus.
+ * Os passos de ativação do Megus — as conexões que o Kaua precisa para trabalhar.
  *
- * As conexões que o Kaua precisa para trabalhar. Não é um wizard: a lista mede
- * o que falta, e Integrações é onde se resolve.
+ * **Não é um wizard.** Havia um onboarding em 4 camadas (boas-vindas, cartão de
+ * ativação, simulação do agente, dicas contextuais) — todo removido. O que sobrou
+ * é só a medição: quais conexões faltam. Quem resolve é a tela de Integrações.
  *
- * Contexto histórico: havia um 5º passo ("ver o Kaua atender") que abria uma
- * num ambiente seguro, sim. Por isso a simulação é o momento de valor e fecha
- * a checklist.
- *
- * Cada passo carrega dois textos distintos, e a diferença é proposital:
- *   porque  — por que ISTO importa (o que quebra sem ele)
- *   detalhe — o que vai acontecer quando clicar (tira o medo do próximo passo)
+ * Por isso este módulo não tem mais ícone, CTA nem textos explicativos: eles
+ * existiam para o cartão de ativação. Ficaram `id`, `nome` e a regra de
+ * capacidade — o que de fato é consumido.
  */
 export type PassoId = "whatsapp" | "agenda" | "servicos" | "fiscal";
 
 export interface PassoAtivacao {
   id: PassoId;
   nome: string;
-  icon: LucideIcon;
-  /** Uma linha, para a tela de boas-vindas. */
-  curto: string;
-  porque: string;
-  detalhe: string;
-  cta: string;
-  /** Para onde o CTA leva. `null` = abre a simulação (não é uma rota). */
-  to: string | null;
-  /** Destaca o passo na lista — o que muda a percepção do produto. */
-  destaque?: boolean;
   /**
    * Passo que só existe se a capacidade correspondente estiver ligada no agente.
    *
    * `fiscal` é o caso: há clínica que **emite a nota por fora** e nunca vai
-   * conectar provedor. Cobrar esse passo dela trava a barra em 80% para sempre e
-   * torna "Tudo pronto" inalcançável. Quem manda é a capacidade configurada, não
-   * o que por acaso está conectado.
+   * conectar provedor. Cobrar esse passo dela trava o contador num número menor
+   * que o total para sempre, e "tudo conectado" vira inalcançável. Quem manda é a
+   * capacidade configurada, não o que por acaso está conectado.
    */
   exigeCapacidade?: "fiscal" | "agenda";
 }
 
 export const PASSOS_ATIVACAO: PassoAtivacao[] = [
-  {
-    id: "whatsapp",
-    nome: "Conectar o WhatsApp",
-    icon: MessageCircle,
-    curto: "O número que o agente usa para atender.",
-    porque:
-      "É por aqui que tudo acontece. O agente lê e responde as mensagens dos seus pacientes neste número — o mesmo que eles já conhecem.",
-    detalhe:
-      "Você lê um QR code, como no WhatsApp Web. Leva menos de um minuto e o número continua funcionando normalmente no seu celular.",
-    cta: "Conectar número",
-    to: "/integracoes",
-  },
-  {
-    id: "agenda",
-    nome: "Conectar a agenda",
-    icon: CalendarDays,
-    curto: "De onde vêm as consultas do dia.",
-    porque:
-      "Sem a agenda o agente não sabe quem atender nem quanto cobrar. Ele lê as consultas do dia e monta a fila de cobrança sozinho.",
-    detalhe: "Funciona com Google Calendar. Nada é alterado na sua agenda — o Megus apenas lê os compromissos.",
-    cta: "Conectar agenda",
-    to: "/integracoes",
-  },
-  {
-    id: "servicos",
-    nome: "Serviços e chave Pix",
-    icon: CreditCard,
-    curto: "O que cobrar e para onde o dinheiro vai.",
-    porque:
-      "O valor da cobrança vem do serviço, e a conferência do comprovante compara o recebedor com a sua chave. Sem isso o agente não confirma pagamento nenhum.",
-    detalhe:
-      "Cadastre os serviços com valor e código ISS, e a chave Pix da clínica. Você pode ajustar depois a qualquer momento.",
-    cta: "Cadastrar serviços",
-    to: "/clinica",
-  },
-  {
-    id: "fiscal",
-    nome: "Provedor fiscal",
-    icon: FileText,
-    curto: "Quem emite a NFS-e de verdade.",
-    porque:
-      "Enquanto isso não estiver ligado, o agente faz todo o resto mas para antes de emitir — e avisa você. Nenhuma nota é emitida em modo simulado.",
-    detalhe:
-      "Conectamos ao provedor da sua prefeitura ou ao seu ERP. É o único passo que costuma precisar do seu contador por perto.",
-    cta: "Configurar emissão",
-    to: "/integracoes",
-    exigeCapacidade: "fiscal",
-  },
+  { id: "whatsapp", nome: "Conectar o WhatsApp" },
+  { id: "agenda", nome: "Conectar a agenda" },
+  { id: "servicos", nome: "Serviços e chave Pix" },
+  { id: "fiscal", nome: "Provedor fiscal", exigeCapacidade: "fiscal" },
 ];
 
 /**

@@ -6,10 +6,12 @@ import { toast } from "@/components/ui/sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import KanbanFinanceiro from "@/components/financeiro/KanbanFinanceiro";
 import Agendador, { formatarQuando } from "@/components/financeiro/Agendador";
+import DadosDaNota from "@/components/financeiro/DadosDaNota";
 import { BotaoAtualizar } from "@/components/hoje/SecoesHoje";
 import { cn, formatarBRL } from "@/lib/utils";
 import { Rotulo } from "@/components/ui/megus";
 import * as cobrancasService from "@/services/cobrancas";
+import * as empresaService from "@/services/empresa";
 import type { Cobranca } from "@/services/cobrancas";
 import { ETAPAS, etapaDe, paradoDe, situacaoNota, temperatura, type EtapaId } from "@/services/pipeline";
 
@@ -41,6 +43,11 @@ export default function Financeiro() {
     queryFn: cobrancasService.getMetricas,
     refetchInterval: 60_000,
   });
+  // Serviços trazem o código ISS, e a empresa o endereço do emissor — os dois
+  // entram na gaveta quando a tarefa é emitir a nota. Sem intervalo: cadastro
+  // só muda por ação de quem está olhando.
+  const servicosQuery = useQuery({ queryKey: ["servicos"], queryFn: empresaService.listServicos });
+  const empresaQuery = useQuery({ queryKey: ["empresa"], queryFn: empresaService.getEmpresa });
   const todas = cobrancasQuery.data ?? [];
 
   const cobrar = useMutation({
@@ -236,6 +243,8 @@ export default function Financeiro() {
           onCobrar={() => cobrar.mutate(aberta)}
           onAgendar={(quando) => agendar.mutate({ c: aberta, quando })}
           onEmitir={() => emitir.mutate(aberta)}
+          servico={(servicosQuery.data ?? []).find((s) => s.description === aberta.servico)}
+          portal={(empresaQuery.data as { portalNfse?: string | null } | undefined)?.portalNfse}
         />
       )}
     </div>
@@ -249,14 +258,23 @@ function Gaveta({
   onCobrar,
   onAgendar,
   onEmitir,
+  servico,
+  portal,
 }: {
   c: Cobranca;
   onFechar: () => void;
   onCobrar: () => void;
   onAgendar: (quando: Date | null) => void;
   onEmitir: () => void;
+  servico?: empresaService.Servico;
+  portal?: string | null;
 }) {
   const [marcando, setMarcando] = useState(false);
+  // Pediu nota e ainda não saiu → a tarefa é emitir, e os dados do tomador vêm
+  // primeiro. Nos outros estados a gaveta segue sendo o histórico da cobrança.
+  const paraEmitir = situacaoNota(c) === "pedida";
+  /** ISO → dd/mm/aaaa. Sem isso a gaveta mostrava "2026-08-02T22:18:11.594Z". */
+  const dt = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : null);
   const dias = paradoDe(c);
   const temp = temperatura(dias);
   const nota = situacaoNota(c);
@@ -295,14 +313,21 @@ function Gaveta({
           </div>
         )}
 
-        <div className="flex-1 overflow-auto px-5 py-5">
+        <div className="flex-1 overflow-auto">
+          {/* Quem abre um card em "Nota pedida" tem UMA tarefa: passar os dados
+              para o emissor da prefeitura. O estado interno da cobrança (etapa,
+              cobrado, pago) serve para depurar, não para emitir — desce. */}
+          {paraEmitir && <DadosDaNota c={c} servico={servico} portal={portal} />}
+
+          <div className="px-5 py-5">
+            {paraEmitir && <Rotulo className="mb-1 block">Histórico</Rotulo>}
           <dl className="flex flex-col">
             {[
               ["Etapa", etapa?.label ?? "—"],
               ["Valor", formatarBRL(c.valor)],
-              ["Agendamento", c.agendamento ?? "—"],
-              ["Cobrado", c.cobrado ? (c.cobradoEm ?? "sim") : "não"],
-              ["Pago", c.pago ? (c.pagoEm ?? "sim") : "não"],
+              ["Agendamento", dt(c.agendamento) ?? "—"],
+              ["Cobrado", c.cobrado ? (dt(c.cobradoEm) ?? "sim") : "não"],
+              ["Pago", c.pago ? (dt(c.pagoEm) ?? "sim") : "não"],
               [
                 "Nota",
                 nota === "emitida"
@@ -324,6 +349,7 @@ function Gaveta({
               </div>
             ))}
           </dl>
+          </div>
         </div>
 
         {!c.pago ? (
