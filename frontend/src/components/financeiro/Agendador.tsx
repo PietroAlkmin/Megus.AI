@@ -34,6 +34,20 @@ const HORAS = (() => {
   return out;
 })();
 
+/**
+ * As horas que ainda dá para escolher NAQUELE dia.
+ *
+ * Oferecer 09:00 às 21h era pior do que parece: a data já passou, e o backend
+ * trata passado como "enviar agora" — a pessoa pedia um agendamento e a
+ * mensagem saía na hora, sem aviso. Hoje mostra só o que ainda vem; dia futuro
+ * mostra a grade inteira.
+ */
+function horasDisponiveis(dia: Date | null): string[] {
+  if (!dia || !mesmoDia(dia, new Date())) return HORAS;
+  const agora = new Date();
+  return HORAS.filter((h) => comHora(dia, h) > agora);
+}
+
 const DIAS_SEM = ["D", "S", "T", "Q", "Q", "S", "S"];
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -136,6 +150,13 @@ export default function Agendador({
   const [aberto, setAberto] = useState(Boolean(inicial)); // calendário visível?
   const [dia, setDia] = useState<Date | null>(inicial);
   const [hora, setHora] = useState(inicial ? naGrade(inicial) : `${String(HORA_PADRAO).padStart(2, "0")}:00`);
+
+  // Hoje só oferece o que ainda vem. Se a hora escolhida deixou de existir na
+  // lista (trocou de dia, ou o tempo passou), cai na primeira válida — senão o
+  // <select> mostraria uma hora e o estado guardaria outra.
+  const horas = horasDisponiveis(dia);
+  const horaValida = horas.includes(hora) ? hora : horas[0];
+  const semHorario = horas.length === 0;
   const [mes, setMes] = useState(() => {
     const d = inicial ?? new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -251,11 +272,12 @@ export default function Agendador({
       <div className="mt-2.5 flex items-center gap-2 border-t border-border pt-2.5">
         <Rotulo className="shrink-0">Às</Rotulo>
         <select
-          value={hora}
+          value={horaValida ?? ""}
           onChange={(e) => setHora(e.target.value)}
+          disabled={semHorario}
           className="h-8 rounded-[6px] border border-border bg-card px-2 font-mono text-[12px] tabular-nums text-foreground outline-none focus:ring-2 focus:ring-ring"
         >
-          {HORAS.map((h) => (
+          {horas.map((h) => (
             <option key={h} value={h}>
               {h}
             </option>
@@ -265,7 +287,7 @@ export default function Agendador({
         <Button size="sm" variant="quieto" onClick={onCancelar}>
           Cancelar
         </Button>
-        <Button size="sm" disabled={!dia} onClick={() => dia && onConfirmar(comHora(dia, hora))}>
+        <Button size="sm" disabled={!dia || semHorario} onClick={() => dia && horaValida && onConfirmar(comHora(dia, horaValida))}>
           Marcar
         </Button>
       </div>
