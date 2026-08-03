@@ -117,6 +117,31 @@ function buildCobrancasBlock(ctx: AgentContext): string | null {
 }
 
 /**
+ * O cadastro que a clínica quer coletar — o TOGGLE virando instrução.
+ *
+ * Antes isso vivia no texto livre da persona: a clínica escrevia "peça nome,
+ * CPF, endereço…" à mão. Duas dependências para o mesmo efeito (lembrar de
+ * escrever E de ligar), e a esquecida mandava no resultado. Agora a lista
+ * marcada no painel gera este bloco sozinha.
+ *
+ * Só o que FALTA entra (o assembler já subtrai o que o paciente respondeu):
+ * repetir pergunta respondida é o jeito mais rápido de ele desistir.
+ *
+ * As duas últimas linhas são o limite: coletar cadastro não pode virar
+ * interrogatório nem pedágio. Quem procura a clínica quer resolver algo — o
+ * cadastro acompanha o atendimento, não o bloqueia.
+ */
+function buildCadastroBlock(ctx: AgentContext): string | null {
+  if (ctx.cadastroPendente.length === 0) return null;
+  return (
+    `Cadastro que esta clínica coleta (ainda faltam):\n${ctx.cadastroPendente.map((c) => `- ${c}`).join("\n")}\n` +
+    `Peça no máximo DOIS por mensagem, na ordem acima, e nunca repita o que o cliente já informou. ` +
+    `Se ele não quiser informar ou preferir depois, siga o atendimento normalmente — NUNCA condicione ` +
+    `a resposta ou o atendimento à entrega desses dados.`
+  );
+}
+
+/**
  * Cadastro é GENÉRICO (des-overfit, bateria 3 de 12/07): a regra de identidade
  * morava dentro da regra da nota e o modelo aprendeu "nome+CPF = emissão de
  * nota" — recebia cadastro de um agendamento e derivava pra "vou seguir com a
@@ -179,6 +204,9 @@ export function composePrompt(ctx: AgentContext, tools: PromptToolInfo[] = []): 
   // (cobrança vinda da agenda tem preço próprio do evento).
   const cobrancas = buildCobrancasBlock(ctx);
   if (cobrancas) blocks.push(cobrancas);
+
+  const cadastro = buildCadastroBlock(ctx);
+  if (cadastro) blocks.push(cadastro);
 
   blocks.push(buildCadastroRuleBlock());
   blocks.push(buildFiscalRuleBlock(ctx));

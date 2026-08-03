@@ -22,6 +22,9 @@ function capabilitiesVazias() {
     chat: true,
     cobranca: true,
     comprovante: true,
+    // Cadastro nasce DESLIGADO: pedir dado de paciente é decisão da clínica, e
+    // um default que pergunta CPF sozinho seria uma surpresa desagradável.
+    cadastro: { ligado: false, campos: [] as string[] },
     agenda: false,
     agendaLink: null as string | null,
     fiscal: false,
@@ -65,6 +68,7 @@ const capabilitiesSchema = z.object({
   chat: z.boolean().optional(),
   cobranca: z.boolean().optional(),
   comprovante: z.boolean().optional(),
+  cadastro: z.object({ ligado: z.boolean(), campos: z.array(z.string()) }).optional(),
   agenda: z.boolean(),
   agendaLink: z.string().nullable(),
   fiscal: z.boolean(),

@@ -22,6 +22,11 @@ export interface AgenteCapabilities {
   cobranca?: boolean;
   /** Conferir o comprovante e confirmar o pagamento sozinho. */
   comprovante?: boolean;
+  /**
+   * Cadastro coletado na primeira conversa. O que está marcado aqui vira o
+   * bloco do prompt — o toggle É a instrução, não um lembrete para escrever uma.
+   */
+  cadastro?: { ligado: boolean; campos: string[] };
   agenda: boolean;
   agendaLink: string | null;
   fiscal: boolean;

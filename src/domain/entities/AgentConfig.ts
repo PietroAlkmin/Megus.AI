@@ -23,6 +23,17 @@ export interface AgentCapabilities {
   cobranca?: boolean;
   /** Conferir o comprovante e dar o pagamento por confirmado. Desligado: chama humano. */
   comprovante?: boolean;
+  /**
+   * Coletar o cadastro do paciente na PRIMEIRA conversa.
+   *
+   * O toggle É a instrução: antes, a clínica precisava escrever "peça nome,
+   * CPF, endereço…" no prompt E lembrar de ligar alguma coisa — duas
+   * dependências para o mesmo efeito, e a que ela esquece manda no resultado.
+   * Aqui a lista de campos vira o bloco do prompt sozinha.
+   *
+   * Ausente/desligado = o agente não pede nada por conta própria.
+   */
+  cadastro?: { ligado: boolean; campos: string[] };
   agenda: boolean;
   agendaLink: string | null;
   fiscal: boolean;

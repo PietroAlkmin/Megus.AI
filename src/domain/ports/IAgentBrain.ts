@@ -76,6 +76,11 @@ export interface AgentContext {
   collected: AgentCollected;
   /** Cobranças em aberto do cliente da conversa. Vazio = nada devendo (bloco omitido). */
   openCharges: AgentOpenCharge[];
+  /**
+   * Dados de cadastro que a clínica pediu para coletar e o paciente AINDA não
+   * informou (rótulos prontos). Vazio = nada a pedir — o bloco some do prompt.
+   */
+  cadastroPendente: string[];
   today: string; // data corrente PT-BR (ex.: "sábado, 5 de julho de 2026")
   /** Avisos TRANSIENTES do sistema para ESTE turno (ex.: "cadastro validado agora —
    *  conclua a ação pendente"). Mecanismo genérico de sinal de FLUXO — nunca regra

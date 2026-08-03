@@ -7,7 +7,7 @@ function ctx(over: Partial<AgentContext> = {}): AgentContext {
     companyId: "c1",
     persona: { name: "Kaua", segment: "saude", tone: "equilibrado", emojis: true, lang: "pt", instructions: "Seja gentil.", fewShotDialogs: [] },
     business: { companyName: "Clínica X", profile: null, services: [{ description: "Massagem", price: 180, emissivel: true }, { description: "Consulta", price: 250, emissivel: false }] },
-    state: "new", history: [], openCharges: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null }, today: "sábado, 5 de julho de 2026",
+    state: "new", history: [], openCharges: [], cadastroPendente: [], collected: { cpfNameVerified: false, fullNameMasked: null, cpfMasked: null, emissionStatus: null }, today: "sábado, 5 de julho de 2026",
     ...over,
   };
 }
@@ -144,6 +144,33 @@ describe("composePrompt", () => {
     )[0]!.content as string;
     expect(sys).toContain("- Consulta: R$ 200,00 (cobrança já enviada)");
     expect(sys).toContain("- Colete: R$ 180,00");
+  });
+
+  /**
+   * O toggle É a instrução. Antes a clínica escrevia "peça nome, CPF…" no texto
+   * livre da persona E precisava lembrar de ligar algo — duas dependências para
+   * o mesmo efeito. Este bloco nasce do que ela marcou no painel.
+   */
+  it("cadastro pendente vira bloco com os campos que faltam", () => {
+    const sys = composePrompt(ctx({ cadastroPendente: ["Nome completo", "CPF", "Endereço completo com CEP"] }))[0]!
+      .content as string;
+
+    expect(sys).toContain("Cadastro que esta clínica coleta");
+    expect(sys).toContain("- Nome completo");
+    expect(sys).toContain("- Endereço completo com CEP");
+    expect(sys).toContain("no máximo DOIS por mensagem");
+  });
+
+  it("o bloco PROÍBE condicionar o atendimento à entrega dos dados", () => {
+    // Coletar cadastro não pode virar pedágio: quem procura a clínica quer
+    // resolver algo, e o cadastro acompanha o atendimento — não o bloqueia.
+    const sys = composePrompt(ctx({ cadastroPendente: ["CPF"] }))[0]!.content as string;
+    expect(sys).toContain("NUNCA condicione");
+  });
+
+  it("nada pendente (desligado, ou o paciente já respondeu tudo) → sem bloco", () => {
+    const sys = composePrompt(ctx())[0]!.content as string;
+    expect(sys).not.toContain("Cadastro que esta clínica coleta");
   });
 
   it("campos ausentes do cadastro NÃO viram linha (sem placeholder no prompt)", () => {

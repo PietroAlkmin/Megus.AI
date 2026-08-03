@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Shield } from "lucide-react";
+import { Check, Plus, Shield } from "lucide-react";
 import { Marca } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { Marco, Rotulo } from "@/components/ui/megus";
 import * as agenteService from "@/services/agente";
 import type { AgentePersona, AgenteTone } from "@/services/agente";
 
@@ -34,6 +35,121 @@ const TONS: { v: AgenteTone; t: string }[] = [
  * "Tirar dúvidas" numa lista de switches iguais. Quem liga a primeira está dando
  * ao agente poder de gerar documento fiscal com o CNPJ da clínica.
  */
+/**
+ * Os campos que a clínica pode pedir no primeiro contato.
+ *
+ * `peso` é o ATRITO da pergunta: endereço custa duas ou três mensagens, sexo
+ * custa uma palavra. Mostrar isso importa porque cada campo marcado é uma
+ * pergunta a mais entre o paciente e o que ele veio buscar — e quem marca não
+ * sente esse custo, quem responde sente.
+ *
+ * Espelha `CAMPOS_CADASTRO` do backend (domain/services/camposCadastro): as
+ * chaves têm que bater, senão a clínica marca e o agente não pergunta.
+ */
+const CAMPOS_CADASTRO = [
+  { k: "nome", rot: "Nome completo", peso: "leve", nota: "Ele já ia dizer de qualquer jeito." },
+  { k: "cpf", rot: "CPF", peso: "leve", nota: "Necessário para a nota fiscal." },
+  { k: "nascimento", rot: "Data de nascimento", peso: "leve", nota: "Rápido de responder." },
+  { k: "sexo", rot: "Sexo", peso: "leve", nota: "Uma palavra." },
+  { k: "email", rot: "E-mail", peso: "medio", nota: "Ele costuma ter que procurar." },
+  { k: "endereco", rot: "Endereço completo com CEP", peso: "pesado", nota: "Duas ou três mensagens só para isto." },
+  { k: "convenio", rot: "Convênio", peso: "medio", nota: "Gera dúvida: número da carteirinha, plano…" },
+] as const;
+
+const PESO_ROT = { leve: "rápido", medio: "demora", pesado: "pesado" } as const;
+const PESO_TOM = { leve: "ok", medio: "quente", pesado: "alerta" } as const;
+
+/**
+ * O toggle É a instrução.
+ *
+ * Antes a clínica precisava escrever "peça nome, CPF, endereço…" no texto livre
+ * da persona E lembrar de ligar algo — duas dependências para o mesmo efeito, e
+ * a que ela esquece manda no resultado. Agora o que está marcado aqui vira o
+ * bloco do prompt sozinho, e some quando o paciente já respondeu.
+ */
+function CadastroPrimeira({
+  valor,
+  onChange,
+}: {
+  valor: { ligado: boolean; campos: string[] } | null;
+  onChange: (v: { ligado: boolean; campos: string[] }) => void;
+}) {
+  const cfg = valor ?? { ligado: false, campos: [] };
+  const marcados = CAMPOS_CADASTRO.filter((c) => cfg.campos.includes(c.k));
+  const pesados = marcados.filter((c) => c.peso !== "leve").length;
+
+  const alternar = (k: string) =>
+    onChange({ ...cfg, campos: cfg.campos.includes(k) ? cfg.campos.filter((x) => x !== k) : [...cfg.campos, k] });
+
+  return (
+    <>
+      <label className="flex cursor-pointer items-center gap-3 rounded-[8px] border border-border bg-background px-3.5 py-3">
+        <Switch checked={cfg.ligado} onCheckedChange={(v) => onChange({ ...cfg, ligado: v })} />
+        <span className="min-w-0 flex-1">
+          <strong className="block text-[13px] font-semibold text-foreground">Perguntar na primeira conversa</strong>
+          <span className="mt-0.5 block text-[11.5px] leading-relaxed text-muted-foreground">
+            Número que nunca falou com a clínica: o agente coleta os dados durante o atendimento.
+          </span>
+        </span>
+      </label>
+
+      {cfg.ligado && (
+        <div className="mt-3">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <Rotulo>O que perguntar</Rotulo>
+            {/* O número que faz pensar duas vezes antes de marcar o sétimo. */}
+            <span className="text-[11.5px] text-muted-foreground">
+              {marcados.length === 0
+                ? "nenhum campo — o agente não vai perguntar nada"
+                : `${marcados.length} ${marcados.length > 1 ? "perguntas" : "pergunta"} durante o atendimento`}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            {CAMPOS_CADASTRO.map((campo) => {
+              const on = cfg.campos.includes(campo.k);
+              return (
+                <button
+                  key={campo.k}
+                  type="button"
+                  onClick={() => alternar(campo.k)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-[7px] border px-3 py-2.5 text-left transition-colors",
+                    on ? "border-menta bg-menta-soft/40" : "border-border bg-card hover:border-border-strong",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[4px] border",
+                      on ? "border-menta-dark bg-menta-dark text-white" : "border-border-strong",
+                    )}
+                  >
+                    {on && <Check size={11} strokeWidth={3} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[12.5px] font-semibold text-foreground">{campo.rot}</span>
+                    <span className="block text-[11px] text-muted-foreground">{campo.nota}</span>
+                  </span>
+                  <Marco t={PESO_ROT[campo.peso]} tom={PESO_TOM[campo.peso]} className="shrink-0 text-[10px]" />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Só aparece quando ela de fato passou do ponto — alerta que aparece
+              sempre vira paisagem. */}
+          {pesados >= 3 && (
+            <p className="mt-2.5 text-[11.5px] leading-relaxed text-terra-ink">
+              São {pesados} perguntas trabalhosas antes de o paciente conseguir o que veio buscar. Vale checar se todas
+              precisam vir pelo WhatsApp.
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 /**
  * Todas ligadas por padrão, todas desligáveis.
  *
@@ -168,6 +284,19 @@ export default function Agentes() {
               </span>
             </label>
           </div>
+        </section>
+
+        <section className="rounded-[10px] border border-border bg-card p-5 shadow-sutil">
+          <header className="mb-3.5">
+            <strong className="text-[14px] font-bold text-foreground">Cadastro na primeira conversa</strong>
+            <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+              O que o agente pergunta a quem nunca falou com a clínica. Aparece na ficha do paciente, em Conversas.
+            </p>
+          </header>
+          <CadastroPrimeira
+            valor={agente.capabilities.cadastro ?? null}
+            onChange={(cadastro) => setRascunho({ ...agente, capabilities: { ...agente.capabilities, cadastro } })}
+          />
         </section>
 
         <section className="rounded-[10px] border border-border bg-card p-5 shadow-sutil">

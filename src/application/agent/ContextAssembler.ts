@@ -1,5 +1,6 @@
 import type { AgentConfig } from "../../domain/entities/AgentConfig";
 import type { Charge } from "../../domain/entities/Charge";
+import { cadastroPendente } from "../../domain/services/camposCadastro";
 import type { CompanyProfile } from "../../domain/entities/CompanyProfile";
 import type { Contact } from "../../domain/entities/Contact";
 import type { Conversation } from "../../domain/entities/Conversation";
@@ -102,6 +103,9 @@ export function assembleContext(input: AssembleContextInput): AgentContext {
     },
     state: conversation.state,
     history,
+    // O que a clínica marcou MENOS o que o paciente já respondeu: repetir
+    // pergunta respondida é o jeito mais rápido de ele desistir.
+    cadastroPendente: cadastroPendente(agentConfig.capabilities.cadastro, contact),
     // O valor vai para o prompt como está no banco — nunca arredondado nem
     // reescrito aqui: é o mesmo número que o gate B usa para casar o comprovante.
     openCharges: (openCharges ?? []).map((c) => ({
