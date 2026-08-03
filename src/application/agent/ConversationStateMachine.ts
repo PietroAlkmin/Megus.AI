@@ -252,7 +252,13 @@ export class ConversationStateMachine {
     // conversa pro fluxo de nota; quem responde é o cérebro.
     const fullName = (decision.extracted?.fullName ?? "").trim();
     const cpfRaw = (decision.extracted?.cpf ?? "").trim();
-    if (fullName && cpfRaw) {
+    // `extracted` sai do CONTEXTO, e o contexto inclui o histórico: numa mensagem
+    // sem texto (foto do comprovante) o modelo re-extraía nome e CPF ditos meia
+    // hora antes, e o código tratava como "o cliente acabou de mandar identidade"
+    // — daí a foto ser respondida com "o nome não bateu com o CPF". Identidade só
+    // é processada quando ESTA mensagem tem texto (legenda de foto conta).
+    const temTexto = Boolean(inbound.text?.trim());
+    if (fullName && cpfRaw && temTexto) {
       // Uma configuração sem fiscal jamais pode armar o funil de nota apenas
       // porque o modelo escolheu intent_emit. O comportamento do agente segue
       // a capacidade persistida, não uma inferência do LLM.
@@ -469,8 +475,26 @@ export class ConversationStateMachine {
     // Nome e CPF foram fornecidos: valida CPF e cruzamento nome↔CPF.
     const cpf = Cpf.tryCreate(cpfRaw);
     const lookup = cpf ? await this.d.cpf.lookupName(cpf.digits) : { found: false, name: null };
-    const ok = !!cpf && lookup.found && lookup.name != null && nameMatch(fullName, lookup.name);
-    if (!ok) {
+    const verificado = !!cpf && lookup.found && lookup.name != null && nameMatch(fullName, lookup.name);
+
+    /**
+     * `found: false` NÃO é "o nome está errado" — é "ninguém conferiu".
+     *
+     * Em produção o provedor é o `UnavailableCpfProvider` (o oficial não está
+     * integrado): ele devolve `found:false` SEMPRE. O código tratava isso como
+     * divergência e respondia *"O nome não bateu com o CPF informado"* — uma
+     * frase que afirma uma comparação que nunca aconteceu. O paciente mandava o
+     * dado certo, ouvia que estava errado e repetia sem fim (visto ao vivo:
+     * 3× seguidas, e de novo respondendo a uma FOTO).
+     *
+     * No CADASTRO — clínica sem emissão, como a que está no ar — guardar o dado
+     * como NÃO verificado é melhor que rejeitar quem acertou. O dígito
+     * verificador (offline, logo abaixo) continua barrando typo de verdade.
+     *
+     * No FISCAL nada muda: sem fonte de CPF não se emite nota. Fail-closed.
+     */
+    const seguirSemVerificar = mode === "cadastro" && !!cpf && !lookup.found;
+    if (!verificado && !seguirSemVerificar) {
       const msg = cpf
         ? "O nome não bateu com o CPF informado. Pode conferir e mandar de novo?"
         : "Esse CPF não parece válido. Pode conferir e mandar de novo?";
@@ -501,15 +525,15 @@ export class ConversationStateMachine {
       // (criado quando a conversa chegou) ou cria um novo se não houver nenhum.
       const byWhatsapp = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
       if (byWhatsapp) {
-        contact = { ...byWhatsapp, fullName, cpf: cpf.digits, cpfNameVerified: true, updatedAt: now };
+        contact = { ...byWhatsapp, fullName, cpf: cpf.digits, cpfNameVerified: verificado, updatedAt: now };
       } else {
         contact = {
           id: randomUUID(), integrationId: integration.id, whatsappNumber: conv.whatsappNumber,
-          fullName, cpf: cpf.digits, cpfNameVerified: true, createdAt: now, updatedAt: now,
+          fullName, cpf: cpf.digits, cpfNameVerified: verificado, createdAt: now, updatedAt: now,
         };
       }
     } else {
-      contact = { ...contact, fullName, cpfNameVerified: true, updatedAt: now };
+      contact = { ...contact, fullName, cpfNameVerified: verificado, updatedAt: now };
     }
     await this.d.contacts.save(contact);
     await this.d.fiscal.upsertCustomer({

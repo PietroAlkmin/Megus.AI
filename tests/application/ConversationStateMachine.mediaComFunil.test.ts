@@ -20,8 +20,21 @@ const agentConfig: AgentConfig = {
   knowledgeFiles: [], fewShotDialogs: [], createdAt: new Date(), updatedAt: new Date(),
 };
 
+/**
+ * Foto COM LEGENDA — que é como a identidade chega junto do comprovante no
+ * WhatsApp: o paciente anexa o recibo e escreve nome+CPF na mesma mensagem.
+ *
+ * O fixture antes usava `text: null` (foto sem legenda) e mesmo assim esperava
+ * identidade processada. Só que identidade é TEXTO: numa foto muda o nome só
+ * poderia vir do histórico — e era exatamente isso que fazia o agente responder
+ * "o nome não bateu com o CPF" a um comprovante reenviado.
+ */
 function mediaInbound(): InboundMessage {
-  return { providerMessageId: "m-img", from: "5511988887777", to: "5511999990000", kind: "image", text: null, media: { mimetype: "image/jpeg", base64: "recibo" }, timestamp: new Date() };
+  return {
+    providerMessageId: "m-img", from: "5511988887777", to: "5511999990000", kind: "image",
+    text: "João da Silva, CPF 529.982.247-25",
+    media: { mimetype: "image/jpeg", base64: "recibo" }, timestamp: new Date(),
+  };
 }
 
 function seed(repos: InMemoryRepositories) {
