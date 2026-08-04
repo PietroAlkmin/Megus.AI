@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { Campo, TituloPagina } from "@/components/ui/megus";
@@ -33,7 +32,6 @@ export default function Clinica() {
   const [aba, setAba] = useState<AbaId>("dados");
   const [rascunho, setRascunho] = useState<empresaService.EmpresaProfile | null>(null);
   const [form, setForm] = useState<ServicoForm | null>(null);
-  const [regua, setRegua] = useState(REGUA_PADRAO);
 
   // Descarta o rascunho quando o servidor devolve dado novo (ex.: trocou de tenant).
   useEffect(() => {
@@ -265,37 +263,6 @@ export default function Clinica() {
             />
           </div>
 
-          <div className="mt-4">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.04em] text-secondary-foreground">
-              Régua de cobrança
-            </div>
-            <div className="flex flex-col gap-2">
-              {regua.map((r, i) => (
-                <div
-                  key={r.id}
-                  className={cn(
-                    "flex items-center gap-3 rounded-[10px] border border-border bg-background px-3.5 py-2.5 transition-opacity",
-                    !r.on && "opacity-50",
-                  )}
-                >
-                  <span className="grid h-[19px] w-[19px] shrink-0 place-items-center rounded-[3px] bg-primary font-mono text-[10px] font-medium text-white">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-bold text-foreground">{r.quando}</div>
-                    <div className="mt-px text-[11.5px] text-muted-foreground">{r.txt}</div>
-                  </div>
-                  <Switch
-                    checked={r.on}
-                    onCheckedChange={(v) => setRegua((x) => x.map((y) => (y.id === r.id ? { ...y, on: v } : y)))}
-                  />
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[11.5px] text-muted-foreground">
-              ⚠️ A régua ainda é local — depende de campos novos em <code>/api/empresa</code>.
-            </p>
-          </div>
           </div>
         )}
 
@@ -345,16 +312,3 @@ type ServicoForm = {
   price: string;
 };
 
-/**
- * Régua de cobrança — quando o agente insiste.
- *
- * Existe porque cobrança automática sem limite visível vira spam, e o dono da
- * clínica é quem paga essa conta na reputação dela. Ver os degraus e poder
- * desligar o último é o que torna a automação aceitável.
- */
-const REGUA_PADRAO = [
-  { id: "r1", quando: "No dia da consulta, às 18h", txt: "Primeira cobrança com a chave Pix", on: true },
-  { id: "r2", quando: "2 dias depois", txt: "Lembrete gentil", on: true },
-  { id: "r3", quando: "5 dias depois", txt: "Último lembrete e aviso ao consultório", on: true },
-  { id: "r4", quando: "10 dias depois", txt: "Marcar como inadimplente", on: false },
-];
