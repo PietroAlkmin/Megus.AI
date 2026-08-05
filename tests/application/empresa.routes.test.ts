@@ -44,8 +44,11 @@ describe("PUT /api/empresa — gravação parcial", () => {
       body: JSON.stringify(body),
     });
 
-  const ler = async (url: string) =>
-    (await (await fetch(`${url}/api/empresa`, { headers: { Authorization: `Bearer ${token}` } })).json()).data;
+  const ler = async (url: string): Promise<Record<string, string>> => {
+    const r = await fetch(`${url}/api/empresa`, { headers: { Authorization: `Bearer ${token}` } });
+    const body = (await r.json()) as { data: Record<string, string> };
+    return body.data;
+  };
 
   it("salvar UM campo preserva todos os outros", async () => {
     const { url } = await sobe();
