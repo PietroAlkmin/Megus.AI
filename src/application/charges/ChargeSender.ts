@@ -32,8 +32,22 @@ export function montarMensagemCobranca(params: {
   amount: number;
   pixType: string | null | undefined;
   pixKey: string | null | undefined;
+  /** Existe uma 2ª conta (para quem pede nota)? Então a chave NÃO vai nesta mensagem. */
+  temChaveDeNota?: boolean;
   fiscalEnabled: boolean;
 }): string {
+  // Duas contas ⇒ a chave depende de uma resposta que ainda não temos. Mandar a
+  // principal "por padrão" põe metade dos pagamentos na conta errada — então a
+  // cobrança PERGUNTA primeiro, e a chave sai no turno seguinte (o agente tem as
+  // duas no contexto, com a regra de qual usar).
+  if (params.temChaveDeNota) {
+    const nome = primeiroNome(params.fullName);
+    return [
+      `${nome ? `Olá, ${nome}!` : "Olá!"} Passando para combinar o pagamento da sua ${params.description}: ${formatBRL(params.amount)}.`,
+      "Antes de te mandar os dados para pagamento: você vai precisar de *nota fiscal* deste atendimento?",
+      "Se precisar, me envie também *nome completo*, *CPF* e *e-mail* — assim que você responder eu te passo a chave certinha. 😊",
+    ].join("\n\n");
+  }
   const nome = primeiroNome(params.fullName);
   const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
   const partes = [
@@ -117,6 +131,7 @@ export class ChargeSender {
       amount: charge.amount,
       pixType: profile?.pixType,
       pixKey: profile?.pixKey,
+      temChaveDeNota: Boolean(profile?.pixKeyNota?.trim()),
       fiscalEnabled: config?.capabilities.fiscal === true,
     });
 
