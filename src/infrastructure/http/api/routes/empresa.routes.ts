@@ -77,7 +77,20 @@ export function empresaRoutes(deps: EmpresaRoutesDeps): Router {
       fail(res, parsed.error.issues[0]?.message ?? "Dados inválidos.", 400, "VALIDATION");
       return;
     }
-    const profile = { ...perfilVazio(companyId), ...parsed.data, companyId, updatedAt: new Date() };
+    /**
+     * Parte do que JÁ ESTÁ salvo, não de um perfil vazio.
+     *
+     * Antes montava `{...perfilVazio, ...payload}`: todo campo ausente do corpo
+     * virava string vazia. Salvar um campo apagava o resto da aba — a clínica
+     * preenchia a descrição da chave e perdia a chave, o endereço, o CNPJ.
+     * Todos os campos do schema são opcionais justamente para permitir gravação
+     * parcial; o handler é que não honrava isso.
+     *
+     * Zod OMITE a chave quando o campo não vem (nenhum tem `.default()`), então
+     * o spread não sobrescreve o existente com `undefined`.
+     */
+    const atual = await deps.profiles.getByCompanyId(companyId);
+    const profile = { ...perfilVazio(companyId), ...atual, ...parsed.data, companyId, updatedAt: new Date() };
     await deps.profiles.save(profile);
     ok(res, profile, "Dados da empresa salvos.");
   });
