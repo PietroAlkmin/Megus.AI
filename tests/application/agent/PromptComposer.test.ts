@@ -14,7 +14,7 @@ function ctx(over: Partial<AgentContext> = {}): AgentContext {
 
 const PROFILE_CHEIO = {
   fantasyName: "Clínica Sorriso", address: "Al. Rio Negro, 1200", city: "São Paulo", state: "SP", phone: "(11) 4002-8922",
-  email: "oi@sorriso.com", pixType: "cnpj", pixKey: "11222333000181", paymentInstructions: "Envie o comprovante aqui.",
+  email: "oi@sorriso.com", pixType: "cnpj", pixKey: "11222333000181", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "Envie o comprovante aqui.",
 };
 describe("composePrompt", () => {
   it("system carrega nome, empresa, catálogo com preços e a data", () => {
@@ -68,6 +68,48 @@ describe("composePrompt", () => {
     expect(sys).toContain("Envie o comprovante aqui.");
     expect(sys).toContain("não invente o que não está aqui");
   });
+  /**
+   * A clínica recebe em contas DIFERENTES conforme o paciente peça ou não nota
+   * fiscal. Mandar a chave errada põe dinheiro na conta errada — problema de
+   * contador, não de software.
+   */
+  it("com duas chaves: o prompt separa as contas e manda descobrir a nota ANTES de enviar", () => {
+    const sys = composePrompt(
+      ctx({
+        business: {
+          companyName: "Clínica Sorriso Ltda",
+          profile: {
+            ...PROFILE_CHEIO,
+            pixDescricao: "conta da clínica",
+            pixTypeNota: "cnpj",
+            pixKeyNota: "99888777000166",
+            pixDescricaoNota: "conta PJ, com emissão de nota",
+          },
+          services: [],
+        },
+      }),
+    )[0]!.content as string;
+
+    expect(sys).toContain("SEM nota fiscal");
+    expect(sys).toContain("chave 11222333000181 — conta da clínica");
+    expect(sys).toContain("COM nota fiscal");
+    expect(sys).toContain("chave 99888777000166 — conta PJ, com emissão de nota");
+    expect(sys).toContain("ANTES de enviar a chave");
+    expect(sys).toContain("Nunca mande as duas");
+  });
+
+  it("com UMA chave só: nem menciona a distinção de nota", () => {
+    // Clínica de conta única não pode ver o agente perguntando sobre nota
+    // apenas para escolher chave — a pergunta não teria consequência.
+    const sys = composePrompt(
+      ctx({ business: { companyName: "X", profile: { ...PROFILE_CHEIO, pixDescricao: "conta da clínica" }, services: [] } }),
+    )[0]!.content as string;
+
+    expect(sys).toContain("Pix (cnpj), chave 11222333000181 — conta da clínica");
+    expect(sys).not.toContain("SEM nota fiscal");
+    expect(sys).not.toContain("A conta MUDA");
+  });
+
   it("sem cadastro (profile null): sem bloco de empresa e apresentação pela razão social", () => {
     const sys = composePrompt(ctx())[0]!.content as string;
     expect(sys).toContain("atendente da Clínica X.");

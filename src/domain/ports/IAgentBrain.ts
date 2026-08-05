@@ -34,6 +34,12 @@ export interface AgentBusinessProfile {
   email: string | null;
   pixType: string | null;
   pixKey: string | null;
+  /** O que a chave principal é, em palavras ("conta da clínica"). */
+  pixDescricao: string | null;
+  /** Chave de quem PRECISA de nota fiscal. null ⇒ a principal vale para todos. */
+  pixTypeNota: string | null;
+  pixKeyNota: string | null;
+  pixDescricaoNota: string | null;
   paymentInstructions: string | null;
 }
 

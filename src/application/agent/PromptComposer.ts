@@ -70,7 +70,29 @@ function buildEmpresaBlock(ctx: AgentContext): string | null {
   else if (p.state) linhas.push(`- UF: ${p.state}`);
   if (p.phone) linhas.push(`- Telefone: ${p.phone}`);
   if (p.email) linhas.push(`- E-mail: ${p.email}`);
-  if (p.pixKey) linhas.push(`- Pagamento: Pix${p.pixType ? ` (${p.pixType})` : ""}, chave ${p.pixKey}`);
+  if (p.pixKey) {
+    const desc = p.pixDescricao ? ` — ${p.pixDescricao}` : "";
+    // Duas contas: a clínica recebe em lugares diferentes conforme o paciente
+    // peça ou não nota fiscal. Mandar a chave errada põe dinheiro na conta
+    // errada — problema de contador, não de software. Quando só existe uma
+    // chave, o prompt nem menciona a distinção (a clínica com uma conta só não
+    // pode ver o agente perguntando sobre nota para escolher chave).
+    if (p.pixKeyNota) {
+      linhas.push(
+        `- Pagamento SEM nota fiscal: Pix${p.pixType ? ` (${p.pixType})` : ""}, chave ${p.pixKey}${desc}`,
+      );
+      linhas.push(
+        `- Pagamento COM nota fiscal: Pix${p.pixTypeNota ? ` (${p.pixTypeNota})` : ""}, chave ${p.pixKeyNota}` +
+          (p.pixDescricaoNota ? ` — ${p.pixDescricaoNota}` : ""),
+      );
+      linhas.push(
+        `- A conta MUDA conforme a nota: descubra se o cliente vai precisar de nota fiscal ANTES de enviar a chave, ` +
+          `e envie apenas a chave correspondente. Nunca mande as duas nem escolha por conta própria.`,
+      );
+    } else {
+      linhas.push(`- Pagamento: Pix${p.pixType ? ` (${p.pixType})` : ""}, chave ${p.pixKey}${desc}`);
+    }
+  }
   if (p.paymentInstructions) linhas.push(`- Instruções de pagamento: ${p.paymentInstructions}`);
   if (linhas.length === 0) return null;
 

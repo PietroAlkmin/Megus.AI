@@ -27,7 +27,7 @@ async function seed(repos: InMemoryRepositories) {
   repos.seed({ integrations: [integration], services: [] });
   await repos.contacts.save({ id: "ct1", integrationId: "int1", whatsappNumber: FROM, fullName: "João da Silva", cpf: null, cpfNameVerified: false, ficha: {}, createdAt: now, updatedAt: now });
   await repos.charges.save({ id: "ch1", integrationId: "int1", contactId: "ct1", serviceId: null, description: "Consulta", amount: 200, status: "cobrada", calendarEventId: "evt-1", chargedAt: now, paidAt: null, scheduledFor: null, paymentRef: null, paidBy: null, receiptHash: null, notaSolicitada: null, notaEmitidaEm: null, createdAt: now, updatedAt: now });
-  await repos.companyProfiles.save({ companyId: "c1", name: "Clínica Alfa", fiscalName: "Clínica Alfa Ltda", fiscalDoc: "11222333000181", municipalRegistration: "", email: "", phone: "", zip: "", address: "", city: "", state: "", pixType: "cnpj", pixKey: "11222333000181", paymentInstructions: "", updatedAt: now });
+  await repos.companyProfiles.save({ companyId: "c1", name: "Clínica Alfa", fiscalName: "Clínica Alfa Ltda", fiscalDoc: "11222333000181", municipalRegistration: "", email: "", phone: "", zip: "", address: "", city: "", state: "", pixType: "cnpj", pixKey: "11222333000181", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "", updatedAt: now });
   const conv = await repos.conversations.getOrCreate("int1", "ct1", FROM);
   conv.contactId = "ct1";
   await repos.conversations.save(conv);

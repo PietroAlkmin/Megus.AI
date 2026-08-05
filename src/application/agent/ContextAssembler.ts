@@ -67,10 +67,20 @@ function toBusinessProfile(p: CompanyProfile | null): AgentBusinessProfile | nul
     email: cheio(p.email),
     pixType: cheio(p.pixType),
     pixKey: cheio(p.pixKey),
+    pixDescricao: cheio(p.pixDescricao),
+    pixTypeNota: cheio(p.pixTypeNota),
+    pixKeyNota: cheio(p.pixKeyNota),
+    pixDescricaoNota: cheio(p.pixDescricaoNota),
     paymentInstructions: cheio(p.paymentInstructions),
   };
   // pixType sozinho (default "cnpj" do cadastro) não informa nada — exige a chave.
   if (!profile.pixKey) profile.pixType = null;
+  // Chave de nota sem chave preenchida é só um rótulo solto — e faria o prompt
+  // anunciar uma segunda conta que não existe.
+  if (!profile.pixKeyNota) {
+    profile.pixTypeNota = null;
+    profile.pixDescricaoNota = null;
+  }
   const temAlgo = Object.values(profile).some((v) => v !== null);
   return temAlgo ? profile : null;
 }

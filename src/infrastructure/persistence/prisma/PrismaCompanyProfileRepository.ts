@@ -25,6 +25,7 @@ export class PrismaCompanyProfileRepository implements ICompanyProfileRepository
       state: c.state ?? "",
       pixType: c.pixType ?? "cnpj",
       pixKey: c.pixKey ?? "",
+      pixDescricao: c.pixDescricao ?? "", pixTypeNota: c.pixTypeNota ?? "", pixKeyNota: c.pixKeyNota ?? "", pixDescricaoNota: c.pixDescricaoNota ?? "",
       paymentInstructions: c.paymentInstructions ?? "",
       updatedAt: c.updatedAt,
     };
@@ -44,6 +45,7 @@ export class PrismaCompanyProfileRepository implements ICompanyProfileRepository
       state: p.state || null,
       pixType: p.pixType || null,
       pixKey: p.pixKey || null,
+      pixDescricao: p.pixDescricao || null, pixTypeNota: p.pixTypeNota || null, pixKeyNota: p.pixKeyNota || null, pixDescricaoNota: p.pixDescricaoNota || null,
       paymentInstructions: p.paymentInstructions || null,
       updatedAt: new Date(),
     };

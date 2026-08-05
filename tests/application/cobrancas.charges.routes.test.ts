@@ -75,7 +75,7 @@ async function seedCenario() {
   await repos.companyProfiles.save({
     companyId: "c1", name: "Clínica Alfa", fiscalName: "Alfa LTDA", fiscalDoc: "11222333000181",
     municipalRegistration: "", email: "", phone: "", zip: "", address: "", city: "", state: "",
-    pixType: "celular", pixKey: "11999998888", paymentInstructions: "", updatedAt: now,
+    pixType: "celular", pixKey: "11999998888", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "", updatedAt: now,
   });
 
   const chargePendente: Charge = {

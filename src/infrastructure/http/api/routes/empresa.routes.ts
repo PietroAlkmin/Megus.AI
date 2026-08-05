@@ -21,7 +21,7 @@ function perfilVazio(companyId: string) {
     companyId,
     name: "", fiscalName: "", fiscalDoc: "", municipalRegistration: "",
     email: "", phone: "", zip: "", address: "", city: "", state: "",
-    pixType: "cnpj", pixKey: "", paymentInstructions: "",
+    pixType: "cnpj", pixKey: "", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "",
     updatedAt: new Date(),
   };
 }
@@ -39,6 +39,12 @@ const empresaSchema = z.object({
   state: z.string().optional(),
   pixType: z.string().optional(),
   pixKey: z.string().optional(),
+  pixDescricao: z.string().optional(),
+  // Segunda chave: a clínica recebe em conta diferente quando o paciente pede
+  // nota. Vazia ⇒ a principal vale para todo mundo (quem tem uma conta só).
+  pixTypeNota: z.string().optional(),
+  pixKeyNota: z.string().optional(),
+  pixDescricaoNota: z.string().optional(),
   paymentInstructions: z.string().optional(),
 });
 

@@ -23,6 +23,17 @@ export interface EmpresaProfile {
   state: string;
   pixType: string;
   pixKey: string;
+  /** O que a chave é, em palavras — o agente diz ao paciente para onde o dinheiro vai. */
+  pixDescricao: string;
+  /**
+   * Conta de quem PEDE nota fiscal — a clínica recebe em lugar diferente.
+   * Vazia ⇒ a chave principal vale para todos, e o agente nem menciona a
+   * distinção (clínica com uma conta só não pode ver o agente perguntando
+   * sobre nota apenas para escolher chave).
+   */
+  pixTypeNota: string;
+  pixKeyNota: string;
+  pixDescricaoNota: string;
   paymentInstructions: string;
   updatedAt: string;
 }

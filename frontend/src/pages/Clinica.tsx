@@ -254,12 +254,60 @@ export default function Clinica() {
             </label>
             <Campo rot="Chave Pix" valor={e.pixKey} onChange={set("pixKey")} mono />
             <Campo
+              rot="O que é essa conta"
+              valor={e.pixDescricao}
+              onChange={set("pixDescricao")}
+              className="sm:col-span-2"
+              dica="Ex.: “conta da clínica”. A chave sozinha é só um número — a descrição é o que o agente usa para dizer ao paciente para onde está mandando."
+            />
+
+            {/*
+              Segunda conta: a clínica recebe em lugar diferente conforme o
+              paciente peça ou não nota fiscal. Deixar em branco é o caso comum
+              (uma conta só) — e aí o agente nem menciona a distinção.
+            */}
+            <div className="sm:col-span-2 mt-1 border-t border-border pt-4">
+              <div className="text-[11px] font-bold uppercase tracking-[0.04em] text-secondary-foreground">
+                Conta para quem pede nota fiscal
+              </div>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
+                Preencha só se o dinheiro de quem pede nota entra em outra conta. Em branco, o agente usa a chave acima
+                para todo mundo.
+              </p>
+            </div>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-secondary-foreground">
+                Tipo de chave (com nota)
+              </span>
+              <Select value={e.pixTypeNota || "cnpj"} onValueChange={set("pixTypeNota")}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresaService.PIX_TYPES.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <Campo rot="Chave Pix (com nota)" valor={e.pixKeyNota} onChange={set("pixKeyNota")} mono />
+            <Campo
+              rot="O que é essa conta"
+              valor={e.pixDescricaoNota}
+              onChange={set("pixDescricaoNota")}
+              className="sm:col-span-2"
+              dica="Ex.: “conta PJ, com emissão de nota”."
+            />
+
+            <Campo
               rot="Mensagem de cobrança"
               valor={e.paymentInstructions}
               onChange={set("paymentInstructions")}
               area
-              className="sm:col-span-2"
-              dica="{valor} e {pix} são trocados automaticamente. O agente adapta ao próprio tom."
+              className="sm:col-span-2 mt-1 border-t border-border pt-4"
+              dica="O agente usa isto como orientação e adapta ao próprio tom — não é enviado literalmente."
             />
           </div>
 

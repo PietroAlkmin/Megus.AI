@@ -78,7 +78,7 @@ async function cenarioDuasIguais(repos: InMemoryRepositories) {
   await repos.companyProfiles.save({
     companyId: "c1", name: "Clínica", fiscalName: "Clínica Ltda", fiscalDoc: "28756515000135",
     municipalRegistration: "", email: "", phone: "", zip: "", address: "", city: "", state: "",
-    pixType: "cnpj", pixKey: "28756515000135", paymentInstructions: "", updatedAt: new Date(),
+    pixType: "cnpj", pixKey: "28756515000135", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "", updatedAt: new Date(),
   });
   await repos.charges.save(charge({ id: "ch-antiga", createdAt: new Date(2026, 7, 1) }));
   await repos.charges.save(charge({ id: "ch-nova", createdAt: new Date(2026, 7, 2) }));

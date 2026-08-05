@@ -24,12 +24,16 @@ describe("ContextAssembler", () => {
     const companyProfile: any = {
       companyId: "c1", name: "Clínica Sorriso", fiscalName: "Clínica Sorriso Ltda", fiscalDoc: "11222333000181",
       municipalRegistration: "", email: "", phone: "(11) 4002-8922", zip: "", address: "", city: "São Paulo", state: "SP",
-      pixType: "cnpj", pixKey: "11222333000181", paymentInstructions: "  ", updatedAt: new Date(),
+      pixType: "cnpj", pixKey: "11222333000181", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "  ", updatedAt: new Date(),
     };
     const ctx = assembleContext({ conversation: { state: "new" } as any, agentConfig, integration, companyProfile, services, contact: null, history: [], today: "hoje" });
     expect(ctx.business.profile).toEqual({
       fantasyName: "Clínica Sorriso", address: null, city: "São Paulo", state: "SP", phone: "(11) 4002-8922",
-      email: null, pixType: "cnpj", pixKey: "11222333000181", paymentInstructions: null,
+      // Campo vazio vira null (não entra no prompt). A chave de nota em branco
+      // zera também tipo e descrição — senão o prompt anunciaria uma segunda
+      // conta que não existe.
+      email: null, pixType: "cnpj", pixKey: "11222333000181", pixDescricao: null,
+      pixTypeNota: null, pixKeyNota: null, pixDescricaoNota: null, paymentInstructions: null,
     });
   });
 
@@ -37,7 +41,7 @@ describe("ContextAssembler", () => {
     const vazio: any = {
       companyId: "c1", name: "", fiscalName: "", fiscalDoc: "", municipalRegistration: "",
       email: "", phone: "", zip: "", address: "", city: "", state: "",
-      pixType: "cnpj", pixKey: "", paymentInstructions: "", updatedAt: new Date(),
+      pixType: "cnpj", pixKey: "", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "", updatedAt: new Date(),
     };
     const ctx = assembleContext({ conversation: { state: "new" } as any, agentConfig, integration, companyProfile: vazio, services, contact: null, history: [], today: "hoje" });
     expect(ctx.business.profile).toBeNull();

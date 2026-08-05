@@ -77,6 +77,12 @@ model Company {
   state                 String?
   pixType               String?
   pixKey                String?
+  /** O que essa chave é, em palavras — a Nina explica ao paciente para onde está mandando. */
+  pixDescricao          String?       @db.NVarChar(200)
+  /** Chave usada quando o paciente PRECISA de nota fiscal. Vazia = usa a principal. */
+  pixTypeNota           String?       @db.NVarChar(20)
+  pixKeyNota            String?       @db.NVarChar(200)
+  pixDescricaoNota      String?       @db.NVarChar(200)
   paymentInstructions   String?       @db.NVarChar(Max)
   Integration           Integration[]
   Membership            Membership[]

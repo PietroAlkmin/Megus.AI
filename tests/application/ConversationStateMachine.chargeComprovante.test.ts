@@ -141,7 +141,7 @@ describe("costura Cobrar→comprovante: mídia em estado livre com cobrança em 
     await repos.companyProfiles.save({
       companyId: "c1", name: "Clínica Alfa", fiscalName: "Clínica Alfa Ltda", fiscalDoc: "11222333000181",
       municipalRegistration: "", email: "", phone: "", zip: "", address: "", city: "", state: "",
-      pixType: "cnpj", pixKey: "11222333000181", paymentInstructions: "", updatedAt: new Date(),
+      pixType: "cnpj", pixKey: "11222333000181", pixDescricao: "", pixTypeNota: "", pixKeyNota: "", pixDescricaoNota: "", paymentInstructions: "", updatedAt: new Date(),
     });
 
     await sm.advance(conv, semFiscal, integration, mediaInbound());
