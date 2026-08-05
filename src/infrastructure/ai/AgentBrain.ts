@@ -60,6 +60,11 @@ const PROPOSE_NEXT: AITool = {
           cidade: { type: "string" },
           uf: { type: "string", description: "Sigla de 2 letras." },
           convenio: { type: "string", description: "Convênio/plano de saúde informado." },
+          precisaNota: {
+            type: "boolean",
+            description:
+              "O cliente disse se vai precisar de NOTA FISCAL? true = precisa, false = não precisa. Só preencha quando ele responder isso de forma clara; se não falou do assunto, não preencha.",
+          },
         },
       },
     },

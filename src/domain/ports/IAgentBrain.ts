@@ -135,6 +135,15 @@ export interface AgentDecision {
     cidade?: string;
     uf?: string;
     convenio?: string;
+    /**
+     * O cliente respondeu se vai precisar de nota fiscal.
+     *
+     * A resposta pode vir ANTES do pagamento (é ela que decide em qual conta o
+     * dinheiro entra) — e nesse caso não existia lugar para gravá-la: o agente
+     * dizia "já registrei" e o sistema não registrava nada, então perguntava de
+     * novo depois do pagamento.
+     */
+    precisaNota?: boolean;
   };
   /**
    * Resultados das tools de NEGÓCIO chamadas pelo motor nesta decisão (ex.:

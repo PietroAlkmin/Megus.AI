@@ -256,6 +256,7 @@ export class ConversationStateMachine {
     // mensagens soltas, fora do funil de identidade. Se dependesse dele, o dado
     // que a clínica vai redigitar no sistema dela se perderia no histórico.
     await this.guardaFicha(conv, integration, decision);
+    await this.guardaRespostaNota(conv, integration, decision);
 
     const instance = integration.evolutionInstance || undefined;
 
@@ -721,6 +722,24 @@ export class ConversationStateMachine {
       if (charge) {
         const quitadaEm = new Date();
         await this.d.charges.save({ ...charge, ...pagamento, status: "paga", paidAt: quitadaEm, updatedAt: quitadaEm });
+
+        // Com duas contas, a nota já foi perguntada ANTES do pagamento (é ela
+        // que decide a conta). Repetir a pergunta depois faz o paciente
+        // responder duas vezes a mesma coisa — e se as respostas divergirem, a
+        // clínica fica com a errada. Só pergunta quem ainda não respondeu.
+        if (charge.notaSolicitada !== null) {
+          conv.state = ConversationState.Done;
+          await this.d.conversations.save(conv);
+          await this.send(
+            conv,
+            charge.notaSolicitada
+              ? ["✅ Pagamento confirmado, obrigada!", "Sua nota fiscal já está anotada — a clínica emite e te envia."]
+              : ["✅ Pagamento confirmado, obrigada!"],
+            instance,
+          );
+          return;
+        }
+
         conv.state = ConversationState.AwaitingNotaAnswer;
         await this.d.conversations.save(conv);
         await this.send(conv, ["✅ Pagamento confirmado, obrigada!", "Você vai precisar de nota fiscal deste atendimento?"], instance);
@@ -801,6 +820,33 @@ export class ConversationStateMachine {
     const ficha = { ...novos, ...contact.ficha }; // o já gravado vence
     if (JSON.stringify(ficha) === JSON.stringify(contact.ficha)) return;
     await this.d.contacts.save({ ...contact, ficha, updatedAt: new Date() });
+  }
+
+  /**
+   * Grava na cobrança a resposta do cliente sobre NOTA FISCAL.
+   *
+   * Com duas contas, essa resposta vem ANTES do pagamento — é ela que decide em
+   * qual conta o dinheiro entra. E não havia onde gravá-la: o agente respondia
+   * "já registrei" (fala do modelo, não ato do sistema) e o campo seguia vazio,
+   * então depois do pagamento o funil perguntava tudo de novo. Visto ao vivo
+   * (05/08): o paciente respondeu "vou precisar sim" às 22:33 e às 22:34 ouviu
+   * a mesma pergunta.
+   *
+   * Escreve em TODAS as cobranças em aberto do contato: a resposta vale para o
+   * atendimento, e a semana pode ter mais de uma sessão pendente.
+   */
+  private async guardaRespostaNota(conv: Conversation, integration: Integration, decision: AgentDecision): Promise<void> {
+    const resposta = decision.extracted?.precisaNota;
+    if (typeof resposta !== "boolean") return;
+
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+    if (!contact) return;
+    const abertas = await this.d.charges.listChargeableByContact(integration.id, contact.id);
+    const agora = new Date();
+    for (const c of abertas) {
+      if (c.notaSolicitada === resposta) continue;
+      await this.d.charges.save({ ...c, notaSolicitada: resposta, updatedAt: agora });
+    }
   }
 
   private async context(conv: Conversation, cfg: AgentConfig, integration: Integration, notices?: string[]): Promise<AgentContext> {
