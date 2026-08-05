@@ -57,6 +57,54 @@ function field(description: string, names: string[]): string | null {
 }
 
 /**
+ * Rótulo SEM dois-pontos, no meio da linha: `Cpf 04373972974`, `Tel 11987789989`.
+ *
+ * A clínica escreve tudo numa linha só, do jeito que sai — e o `field()` acima
+ * só enxerga `Rótulo: valor` no começo da linha. Medido na agenda real (04/08):
+ * de 17 eventos, os únicos que passavam eram os TRÊS que nós mesmos criamos.
+ */
+function fieldSolto(description: string, names: string[]): string | null {
+  const alvo = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const m = new RegExp(`\\b(?:${alvo})\\b[:\\s]*([\\d.\\-/() ]{8,})`, "iu").exec(normalized(description));
+  return m?.[1]?.trim() || null;
+}
+
+/**
+ * Valor escrito como ela escreve: `R$280`, `R$ 1.500,00`, `280,00`.
+ *
+ * Exige `R$` ou vírgula decimal quando não há rótulo `Valor:` — número solto na
+ * descrição é telefone ou CPF muito mais vezes do que é preço, e cobrar
+ * "R$ 11.942.842.271" seria pior que não importar.
+ */
+function valorSolto(description: string): string | null {
+  const comMoeda = /r\$\s*([\d.,]+)/iu.exec(description);
+  if (comMoeda?.[1]) return comMoeda[1];
+  const comVirgula = /(?:^|\s)(\d{1,3}(?:\.\d{3})*,\d{2})(?:\s|$)/u.exec(description);
+  return comVirgula?.[1] ?? null;
+}
+
+/**
+ * Números soltos na descrição, separados em CPF e telefone SEM rótulo nenhum —
+ * `11942842271` sozinho é telefone; `04373972974` sozinho é CPF.
+ *
+ * O que desempata é o formato, não a ordem: DDD válido (11-99) com 10/11
+ * dígitos é telefone; 11 dígitos com dígito verificador correto é CPF. Chutar
+ * aqui manda cobrança para o número errado, então na dúvida devolve nada.
+ */
+function numerosSoltos(description: string): { telefone: string | null; cpf: string | null } {
+  let telefone: string | null = null;
+  let cpf: string | null = null;
+  for (const bruto of description.match(/[\d][\d.\-() ]{8,}[\d]/gu) ?? []) {
+    const d = bruto.replace(/\D/g, "");
+    const ddd = Number(d.slice(0, 2));
+    const ehTelefone = (d.length === 10 || d.length === 11) && ddd >= 11 && ddd <= 99 && (d.length === 10 || d[2] === "9");
+    if (!telefone && ehTelefone) telefone = d;
+    else if (!cpf && d.length === 11 && Cpf.isValid(d)) cpf = d;
+  }
+  return { telefone, cpf };
+}
+
+/**
  * Nome do paciente a partir do TÍTULO, seja como for que a clínica escreva:
  * "Consulta Maria", "Bê consulta", "ANTONIO VIOLA-CONSULTA 60MIN" ou só o nome.
  * A palavra "consulta" (opcional), a duração e os separadores são ruído —
@@ -104,9 +152,16 @@ export function parseValorBR(raw: string | null | undefined): number {
 export function parseCalendarAppointment(event: CalendarEventInput): CalendarAppointmentCandidate {
   const summary = (event.summary ?? "").replace(/^\[[^\]]+\]\s*/u, "").trim();
   const description = textoPuro(event.description ?? "");
-  const rawAmount = field(description, ["valor"]);
-  const rawPhone = field(description, ["telefone", "celular", "whatsapp"]);
-  const rawCpf = field(description, ["cpf"]);
+  // Três camadas, da mais explícita para a mais solta — a clínica escreve tudo
+  // numa linha só ("Cpf 04373972974 Tel: 11987789989 R$280") e o formato
+  // `Rótulo: valor` por linha era o único que o parser enxergava.
+  const soltos = numerosSoltos(description);
+  const rawAmount = field(description, ["valor"]) ?? valorSolto(description);
+  const rawPhone =
+    field(description, ["telefone", "celular", "whatsapp"]) ??
+    fieldSolto(description, ["telefone", "celular", "whatsapp", "tel", "cel", "fone"]) ??
+    soltos.telefone;
+  const rawCpf = field(description, ["cpf"]) ?? fieldSolto(description, ["cpf"]) ?? soltos.cpf;
   const fullName = field(description, ["nome completo", "nome"]);
   // Quem o paciente é: o "Nome completo" da descrição manda (é o dado explícito);
   // sem ele, o título limpo. Assim o título pode ser escrito de qualquer jeito.

@@ -148,3 +148,63 @@ describe("parseCalendarAppointment", () => {
     expect(r.warnings).toEqual([]);
   });
 });
+
+/**
+ * Como a clínica ESCREVE de verdade — medido na agenda dela em 04/08/2026.
+ *
+ * Dos 17 eventos daquele intervalo, só passavam TRÊS: exatamente os que nós
+ * mesmos tínhamos criado nos testes. Nenhum evento real dela era importável,
+ * porque o parser exigia `Rótulo: valor` por linha e ela escreve tudo numa
+ * linha só, sem rótulo no valor.
+ *
+ * O CPF saiu de cena: quem pergunta ao paciente é o agente, na mensagem de
+ * cobrança. O evento precisa de nome, telefone e valor.
+ */
+describe("formatos REAIS da agenda da clínica", () => {
+  const evento = (summary: string, description: string) =>
+    parseCalendarAppointment({ id: "e1", summary, description, start: { dateTime: "2026-08-04T17:00:00-03:00" } });
+
+  it("telefone solto + R$ sem rótulo: `11942842271 R$280`", () => {
+    const r = evento("Bê Baran", "11942842271 R$280");
+    expect(r.errors).toEqual([]);
+    expect(r.phone).toBe("5511942842271");
+    expect(r.amount).toBe(280);
+    expect(r.patientKey).toBe("Bê Baran");
+  });
+
+  it("tudo numa linha, rótulos sem dois-pontos: `Cpf 04373972974 Tel: 11987789989 R$280`", () => {
+    const r = evento("Danniel Luiz Farias", "Cpf 04373972974 Tel: 11987789989 R$280");
+    expect(r.errors).toEqual([]);
+    expect(r.phone).toBe("5511987789989");
+    expect(r.cpf).toBe("04373972974");
+    expect(r.amount).toBe(280);
+  });
+
+  it("número solto de 11 dígitos com DDD é TELEFONE, não CPF", () => {
+    const r = evento("Antônio colombo", "11 996560166 R$180");
+    expect(r.phone).toBe("5511996560166");
+    expect(r.cpf).toBeNull();
+  });
+
+  it("número solto que é CPF válido não vira telefone", () => {
+    const r = evento("Danniel", "04373972974 R$280");
+    expect(r.cpf).toBe("04373972974");
+    expect(r.phone).toBeNull();
+  });
+
+  it("`R$ 1.500,00` e `280,00` são lidos como dinheiro", () => {
+    expect(evento("X", "11942842271 R$ 1.500,00").amount).toBe(1500);
+    expect(evento("X", "11942842271 280,00").amount).toBe(280);
+  });
+
+  it("número solto SEM R$ não vira valor (seria o telefone virando preço)", () => {
+    const r = evento("Antônio colombo", "11 996560166");
+    expect(r.amount).toBeNull();
+    expect(r.errors[0]).toContain("Valor");
+    expect(r.phone).toBe("5511996560166"); // o telefone foi lido mesmo assim
+  });
+
+  it("título é só o nome, sem a palavra consulta", () => {
+    expect(evento("Fabio Valle", "11987654321 R$200").patientKey).toBe("Fabio Valle");
+  });
+});
