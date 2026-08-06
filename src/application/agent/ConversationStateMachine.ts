@@ -17,6 +17,7 @@ import type {
 } from "../../domain/ports/repositories";
 import { createHash, randomUUID } from "node:crypto";
 import { sanitizeFiscalText } from "../../domain/services/sanitizeFiscalText";
+import { montarDadosPagamento } from "../charges/ChargeSender";
 import { assembleContext } from "./ContextAssembler";
 
 /**
@@ -163,6 +164,8 @@ export class ConversationStateMachine {
       case ConversationState.AwaitingComprovante:
       case ConversationState.VerifyingComprovante:
         return this.handleComprovante(conversation, agentConfig, integration, inbound);
+      case ConversationState.AwaitingNotaChoice:
+        return this.handleNotaChoice(conversation, agentConfig, integration, inbound);
       case ConversationState.AwaitingNotaAnswer:
         return this.handleNotaAnswer(conversation, integration, inbound);
       default:
@@ -180,6 +183,28 @@ export class ConversationStateMachine {
             const chargeable = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
             if (chargeable) {
               return this.handleComprovante(conversation, agentConfig, integration, inbound);
+            }
+          }
+        }
+        // Costura Cobrar→escolha-de-nota (fluxo de DUAS contas): a cobrança perguntou
+        // "quer nota?" e a conversa ficou livre. Uma resposta de TEXTO, com cobrança
+        // aberta ainda sem escolha registrada e clínica com 2ª conta configurada, é
+        // essa escolha — e ela decide a chave Pix. Determinístico, não passa pelo
+        // cérebro (é dinheiro caindo em conta). Só texto aciona; mídia/áudio seguem
+        // as regras acima. [Decisão de arquitetura — ver guia; o Pietro referenda.]
+        if (inbound.kind === "text" && inbound.text) {
+          const profile = integration.companyId
+            ? await this.d.companyProfiles.getByCompanyId(integration.companyId)
+            : null;
+          const temDuasContas = Boolean(profile?.pixKeyNota?.trim());
+          if (temDuasContas) {
+            const contact = await this.d.contacts.findByWhatsapp(integration.id, conversation.whatsappNumber);
+            if (contact) {
+              const aberta = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
+              // Só quando a escolha ainda não foi feita — senão é conversa normal.
+              if (aberta && aberta.notaSolicitada === null) {
+                return this.handleNotaChoice(conversation, agentConfig, integration, inbound);
+              }
             }
           }
         }
@@ -405,6 +430,52 @@ export class ConversationStateMachine {
    * de leitura só re-pergunta. Não passa pelo cérebro: é pergunta fechada, e um
    * "quer nota" errado vira trabalho (ou falta dele) do lado da clínica.
    */
+  /**
+   * Resposta do "quer nota?" que veio ANTES do pagamento (fluxo de DUAS contas).
+   * A resposta decide qual chave Pix enviar. Determinístico de propósito: dinheiro
+   * caindo em conta não pode depender do palpite do cérebro. Registra a escolha na
+   * cobrança (para a clínica saber depois) e avança para esperar o comprovante.
+   */
+  private async handleNotaChoice(conv: Conversation, cfg: AgentConfig, integration: Integration, inbound: InboundMessage): Promise<void> {
+    const instance = integration.evolutionInstance || undefined;
+    const querNota = inbound.text ? interpretaSimNao(inbound.text) : null;
+
+    if (querNota === null) {
+      await this.send(conv, ["Só pra confirmar: você vai precisar de nota fiscal deste atendimento? (sim ou não)"], instance);
+      return; // segue em AwaitingNotaChoice
+    }
+
+    const profile = integration.companyId
+      ? await this.d.companyProfiles.getByCompanyId(integration.companyId)
+      : null;
+    const contact = await this.d.contacts.findByWhatsapp(integration.id, conv.whatsappNumber);
+
+    // A cobrança pendente/cobrada mais recente deste contato é a deste atendimento.
+    const doContato = (await this.d.charges.listByCompanyId(integration.companyId ?? ""))
+      .filter((c) => c.contactId === contact?.id && (c.status === "pendente" || c.status === "cobrada"));
+    const alvo = doContato[0];
+
+    if (alvo) {
+      await this.d.charges.save({ ...alvo, notaSolicitada: querNota, updatedAt: new Date() });
+    }
+
+    const texto = montarDadosPagamento({
+      fullName: contact?.fullName,
+      amount: alvo?.amount ?? 0,
+      querNota,
+      pixType: profile?.pixType,
+      pixKey: profile?.pixKey,
+      pixDescricao: profile?.pixDescricao,
+      pixTypeNota: profile?.pixTypeNota,
+      pixKeyNota: profile?.pixKeyNota,
+      pixDescricaoNota: profile?.pixDescricaoNota,
+    });
+
+    conv.state = ConversationState.AwaitingComprovante;
+    await this.d.conversations.save(conv);
+    await this.send(conv, [texto], instance);
+  }
+
   private async handleNotaAnswer(conv: Conversation, integration: Integration, inbound: InboundMessage): Promise<void> {
     const instance = integration.evolutionInstance || undefined;
     const resposta = inbound.text ? interpretaSimNao(inbound.text) : null;

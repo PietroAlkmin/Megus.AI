@@ -64,6 +64,38 @@ export function montarMensagemCobranca(params: {
   return partes.join("\n\n");
 }
 
+/**
+ * Turno seguinte à pergunta de nota (fluxo de DUAS contas): a resposta já decidiu
+ * a conta, então aqui montamos os dados de pagamento com a chave CERTA. É
+ * determinístico de propósito — a escolha da conta é dinheiro caindo em lugar, não
+ * pode depender do "melhor palpite" do modelo. Quando `querNota` e há chave de
+ * nota, usa a conta de nota; senão, a principal.
+ */
+export function montarDadosPagamento(params: {
+  fullName: string | null | undefined;
+  amount: number;
+  querNota: boolean;
+  pixType: string | null | undefined;
+  pixKey: string | null | undefined;
+  pixDescricao: string | null | undefined;
+  pixTypeNota: string | null | undefined;
+  pixKeyNota: string | null | undefined;
+  pixDescricaoNota: string | null | undefined;
+}): string {
+  const nome = primeiroNome(params.fullName);
+  const usaNota = params.querNota && Boolean((params.pixKeyNota ?? "").trim());
+  const tipo = (usaNota ? params.pixTypeNota : params.pixType)?.trim() || "";
+  const chave = (usaNota ? params.pixKeyNota : params.pixKey)?.trim() || "";
+  const descricao = (usaNota ? params.pixDescricaoNota : params.pixDescricao)?.trim() || "";
+
+  const linhas = [`${nome ? `Combinado, ${nome}!` : "Combinado!"} Seguem os dados para pagamento:`];
+  if (descricao) linhas.push(descricao); // nome do titular / razão social / banco
+  if (chave) linhas.push(`Pix${tipo ? ` (${tipo})` : ""}: ${chave}`);
+  linhas.push(formatBRL(params.amount));
+  linhas.push("Favor me enviar o comprovante de pagamento para baixa no sistema. ✨");
+  return linhas.join("\n\n");
+}
+
 export interface ChargeSenderDeps {
   charges: IChargeRepository;
   contacts: IContactRepository;
