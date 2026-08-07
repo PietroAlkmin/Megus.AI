@@ -195,6 +195,23 @@ async function bootstrap(): Promise<void> {
     env.TRANSCRIBE_PROVIDER === "mock"
       ? new MockAudioTranscriber()
       : new OpenAiAudioTranscriber(openaiAudio, env.AI_MODEL_TRANSCRIBE);
+  // Disparo da cobrança em UM lugar: painel, `/admin cobrar` e envio agendado
+  // mandam a mesma mensagem porque usam este mesmo objeto. Criado ANTES do
+  // stateMachine porque a Fatia B (liberar cobrança ao completar cadastro) usa ele.
+  // O callback `iniciarCadastro` é preenchido DEPOIS do stateMachine existir
+  // (ciclo de instância: sender→stateMachine p/ cadastro, stateMachine→sender p/ liberar).
+  const chargeSenderDeps = {
+    charges: repos.charges,
+    contacts: repos.contacts,
+    integrations: repos.integrations,
+    conversations: repos.conversations,
+    companyProfiles: repos.companyProfiles,
+    agentConfigs: repos.agentConfigs,
+    messaging,
+    iniciarCadastro: undefined as undefined | ((contactId: string, integrationId: string) => Promise<void>),
+  };
+  const chargeSender = new ChargeSender(chargeSenderDeps);
+
   const stateMachine = new ConversationStateMachine({
     brain: new AgentBrain(agentEngine, env.AI_MODEL_CHAT, [currentDateTimeTool], env.AI_MAX_STEPS, toolsProvider),
     cpf,
@@ -207,23 +224,19 @@ async function bootstrap(): Promise<void> {
     services: repos.services,
     companyProfiles: repos.companyProfiles,
     charges: repos.charges,
+    agentConfigs: repos.agentConfigs,
+    sender: chargeSender,
+    integrations: repos.integrations,
     config: {
       cpfMaxAttempts: env.CPF_MAX_ATTEMPTS,
       comprovanteMinConfidence: env.COMPROVANTE_MIN_CONFIDENCE,
     },
   });
 
-  // Disparo da cobrança em UM lugar: painel, `/admin cobrar` e envio agendado
-  // mandam a mesma mensagem porque usam este mesmo objeto.
-  const chargeSender = new ChargeSender({
-    charges: repos.charges,
-    contacts: repos.contacts,
-    integrations: repos.integrations,
-    conversations: repos.conversations,
-    companyProfiles: repos.companyProfiles,
-    agentConfigs: repos.agentConfigs,
-    messaging,
-  });
+  // Fecha o ciclo: agora que o stateMachine existe, o ChargeSender sabe iniciar o
+  // cadastro da 1ª consulta (em vez de cobrar). Vale para TODO envio — /admin e agendado.
+  chargeSenderDeps.iniciarCadastro = (contactId, integrationId) =>
+    stateMachine.iniciarCadastroPrimeiraConsulta(contactId, integrationId);
 
   const handle = new HandleInboundMessage({
     integrations: repos.integrations,

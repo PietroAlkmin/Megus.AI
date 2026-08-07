@@ -9,6 +9,7 @@ import type {
   IConversationRepository,
   IIntegrationRepository,
 } from "../../domain/ports/repositories";
+import { precisaCadastrarAntesDeCobrar } from "../../domain/services/camposCadastro";
 
 /** Primeiro nome do contato pra saudação — nunca inventa nome (sem nome: "Olá!" liso). */
 function primeiroNome(fullName: string | null | undefined): string {
@@ -104,6 +105,13 @@ export interface ChargeSenderDeps {
   companyProfiles: ICompanyProfileRepository;
   agentConfigs?: IAgentConfigRepository;
   messaging: IMessagingProvider;
+  /**
+   * Fatia B: inicia a apresentação + cadastro na PRIMEIRA consulta, em vez de
+   * cobrar. Callback (não o StateMachine direto) para evitar import circular —
+   * o main injeta apontando para iniciarCadastroPrimeiraConsulta. Ausente ⇒
+   * comportamento de sempre (cobra direto), sem regressão.
+   */
+  iniciarCadastro?: (contactId: string, integrationId: string) => Promise<void>;
 }
 
 /**
@@ -156,6 +164,18 @@ export class ChargeSender {
     // cobrar` e envio agendado passam todos por aqui. Espalhar a checagem pelos
     // chamadores deixaria um deles de fora mais cedo ou mais tarde.
     if (config?.capabilities.cobranca === false) throw new CobrancaDesligadaError();
+
+    // PRIMEIRA CONSULTA (Fatia B) — checado AQUI pelo mesmo motivo da linha acima:
+    // este é o funil único de envio (painel, /admin cobrar E envio agendado passam
+    // por aqui). Se falta cadastro, NÃO cobra: segura a cobrança (não marca
+    // "cobrada", segue "pendente") e dispara a apresentação + pedido de dados via
+    // callback (injetado no main p/ evitar ciclo com o StateMachine). A cobrança
+    // será liberada quando o cadastro completar (guardaFicha no StateMachine).
+    // Lado seguro: na dúvida sobre completude, segura em vez de cobrar.
+    if (this.d.iniciarCadastro && precisaCadastrarAntesDeCobrar(config?.capabilities.cadastro, contact)) {
+      await this.d.iniciarCadastro(charge.contactId, integration.id);
+      return; // cobrança permanece "pendente" — não marca, não envia
+    }
 
     const text = montarMensagemCobranca({
       fullName: contact.fullName,

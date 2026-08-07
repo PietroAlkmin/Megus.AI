@@ -46,3 +46,21 @@ export function cadastroPendente(
   if (!cadastro?.ligado) return [];
   return CAMPOS_CADASTRO.filter((c) => cadastro.campos.includes(c.k) && !jaTem(contact, c.k)).map((c) => c.rotulo);
 }
+
+/**
+ * A cobrança deste paciente deve ESPERAR o cadastro da primeira consulta?
+ *
+ * Regra (decisão do Baran): só na primeira vez — quando o cadastro está ligado E
+ * ainda falta algum campo. Recorrente (ficha completa) ⇒ falso ⇒ cobra direto.
+ * Cadastro desligado ⇒ falso ⇒ comportamento de hoje, sem regressão para as demais
+ * clínicas. Função PURA: não envia nada, não toca em cobrança — só decide.
+ *
+ * O lado seguro é o "true": na dúvida sobre estar completo, segura a cobrança em
+ * vez de disparar. É melhor um cadastro pedido a mais do que uma cobrança indevida.
+ */
+export function precisaCadastrarAntesDeCobrar(
+  cadastro: { ligado: boolean; campos: string[] } | undefined,
+  contact: Contact | null,
+): boolean {
+  return cadastroPendente(cadastro, contact).length > 0;
+}

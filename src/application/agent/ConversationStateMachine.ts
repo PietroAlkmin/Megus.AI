@@ -14,10 +14,12 @@ import type { IMessagingProvider, InboundMessage, InboundMedia } from "../../dom
 import type {
   IChargeRepository, IContactRepository, IConversationRepository,
   IEmissionIntentRepository, IServiceRepository, ICompanyProfileRepository,
+  IAgentConfigRepository, IIntegrationRepository,
 } from "../../domain/ports/repositories";
 import { createHash, randomUUID } from "node:crypto";
 import { sanitizeFiscalText } from "../../domain/services/sanitizeFiscalText";
-import { montarDadosPagamento } from "../charges/ChargeSender";
+import { montarDadosPagamento, type ChargeSender } from "../charges/ChargeSender";
+import { cadastroPendente } from "../../domain/services/camposCadastro";
 import { assembleContext } from "./ContextAssembler";
 
 /**
@@ -108,6 +110,12 @@ export interface StateMachineDeps {
   companyProfiles: ICompanyProfileRepository;
   /** Cobranças (Task 3, Plano 7) — handleChatting cria a "pendente" quando o evento de agenda é marcado. */
   charges: IChargeRepository;
+  /** Fatia B: config do agente (p/ saber se o cadastro está ligado e liberar a cobrança segurada). Opcional p/ não quebrar montagens/testes que não usam. */
+  agentConfigs?: IAgentConfigRepository;
+  /** Fatia B: dispara a cobrança segurada quando o cadastro completa. Opcional pelo mesmo motivo. */
+  sender?: ChargeSender;
+  /** Fatia B: resolver a integração ao iniciar cadastro a partir do disparo. Opcional. */
+  integrations?: IIntegrationRepository;
   config: {
     cpfMaxAttempts: number;
     comprovanteMinConfidence: number;
@@ -119,6 +127,56 @@ export interface StateMachineDeps {
 export class ConversationStateMachine {
   private readonly attempts = new Map<string, number>();
   constructor(private readonly d: StateMachineDeps) {}
+
+  /**
+   * Inicia a conversa de PRIMEIRA CONSULTA a partir do disparo administrativo (A2):
+   * o /admin cobrar detectou que o paciente é novo e SEGUROU a cobrança; aqui o
+   * módulo de conversa manda a apresentação + pede os dados e deixa a conversa
+   * pronta para coletar. Quem cuida de validar/salvar e depois LIBERAR a cobrança
+   * é o fluxo normal de cadastro (handleChatting/processIdentity).
+   *
+   * A apresentação aqui é uma base; o tom fino (persona da Nina) e os campos exatos
+   * já entram no prompt do fluxo de coleta. Mensagem determinística de abertura para
+   * garantir que a primeira coisa que o paciente vê NÃO seja a cobrança.
+   */
+  async iniciarCadastroPrimeiraConsulta(contactId: string, integrationId: string): Promise<void> {
+    const integration = await this.d.integrations?.getById(integrationId);
+    if (!integration) return;
+    const agentConfig = this.d.agentConfigs ? await this.d.agentConfigs.getByIntegrationId(integrationId) : null;
+    if (!agentConfig) return;
+    const contact = await this.d.contacts.getById(contactId);
+    if (!contact) return;
+    const pendentes = cadastroPendente(agentConfig.capabilities.cadastro, contact);
+    if (pendentes.length === 0) return; // nada a pedir — não deveria chegar aqui
+
+    let conv = await this.d.conversations.findByWhatsappNumber(integration.id, contact.whatsappNumber);
+    if (!conv) {
+      const now = new Date();
+      conv = {
+        id: randomUUID(), integrationId: integration.id, contactId,
+        whatsappNumber: contact.whatsappNumber, state: ConversationState.New,
+        humanHandoff: false, lastInboundAt: now, createdAt: now, updatedAt: now,
+      };
+    }
+    // Estado de coleta: o próximo turno do paciente cai no fluxo de cadastro.
+    conv.state = ConversationState.CollectingIdentity;
+    await this.d.conversations.save(conv);
+
+    const primeiroNomePaciente = (contact.fullName ?? "").trim().split(/\s+/)[0] || "";
+    const saudacao = primeiroNomePaciente ? `Olá, ${primeiroNomePaciente}!` : "Olá!";
+    const nomeAgente = agentConfig.name || "atendente";
+    const listaCampos = pendentes.join(", ");
+    const instance = integration.evolutionInstance || undefined;
+
+    await this.send(
+      conv,
+      [
+        `${saudacao} Aqui é ${nomeAgente}. Seja muito bem-vindo(a)! 😊`,
+        `Para a sua primeira consulta, preciso de alguns dados, por favor: ${listaCampos}.`,
+      ],
+      instance,
+    );
+  }
 
   async advance(
     conversation: Conversation,
@@ -890,7 +948,27 @@ export class ConversationStateMachine {
     if (!contact) return;
     const ficha = { ...novos, ...contact.ficha }; // o já gravado vence
     if (JSON.stringify(ficha) === JSON.stringify(contact.ficha)) return;
-    await this.d.contacts.save({ ...contact, ficha, updatedAt: new Date() });
+    const atualizado = { ...contact, ficha, updatedAt: new Date() };
+    await this.d.contacts.save(atualizado);
+
+    // LIBERAÇÃO da cobrança segurada (Fatia B): se o cadastro ACABOU de completar
+    // (nada mais pendente) e havia uma cobrança segurada, dispara agora.
+    // Idempotência: só age em cobrança "pendente"; o sender marca "cobrada" só no
+    // sucesso do envio. Uma segunda passagem encontra "cobrada" e não redispara —
+    // sem cobrança dupla. Se o cadastro está desligado, cadastroPendente=[] e isto
+    // nunca segura nada (sem regressão).
+    const cfg = await this.d.agentConfigs?.getByIntegrationId(integration.id);
+    if (cfg && cadastroPendente(cfg.capabilities.cadastro, atualizado).length === 0) {
+      const segurada = await this.d.charges.findLatestChargeableByContact(integration.id, contact.id);
+      if (segurada && segurada.status === "pendente" && this.d.sender) {
+        try {
+          await this.d.sender.send({ ...segurada, scheduledFor: null });
+        } catch {
+          // Falha de envio não desfaz o cadastro. A cobrança segue "pendente" e
+          // visível no painel — a clínica pode disparar de novo pelo /admin.
+        }
+      }
+    }
   }
 
   /**
