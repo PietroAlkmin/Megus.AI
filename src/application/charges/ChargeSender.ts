@@ -9,7 +9,7 @@ import type {
   IConversationRepository,
   IIntegrationRepository,
 } from "../../domain/ports/repositories";
-import { precisaCadastrarAntesDeCobrar } from "../../domain/services/camposCadastro";
+import { cadastroPendente, precisaCadastrarAntesDeCobrar } from "../../domain/services/camposCadastro";
 
 /** Primeiro nome do contato pra saudação — nunca inventa nome (sem nome: "Olá!" liso). */
 function primeiroNome(fullName: string | null | undefined): string {
@@ -172,6 +172,10 @@ export class ChargeSender {
     // callback (injetado no main p/ evitar ciclo com o StateMachine). A cobrança
     // será liberada quando o cadastro completar (guardaFicha no StateMachine).
     // Lado seguro: na dúvida sobre completude, segura em vez de cobrar.
+    // [DIAGNÓSTICO FATIA B] — remove depois de achar a causa. Mostra, no envio real,
+    // exatamente o que a detecção de 1ª consulta enxerga.
+    console.log(`[fatiaB] contato=${contact.id} temCallback=${Boolean(this.d.iniciarCadastro)} cadastroLigado=${Boolean(config?.capabilities.cadastro?.ligado)} campos=[${config?.capabilities.cadastro?.campos?.join(",") ?? ""}] jaTemNome=${Boolean(contact.fullName?.trim())} jaTemCpf=${Boolean(contact.cpf)} pendentes=[${cadastroPendente(config?.capabilities.cadastro, contact).join(",")}] vaiBarrar=${Boolean(this.d.iniciarCadastro) && precisaCadastrarAntesDeCobrar(config?.capabilities.cadastro, contact)}`);
+
     if (this.d.iniciarCadastro && precisaCadastrarAntesDeCobrar(config?.capabilities.cadastro, contact)) {
       await this.d.iniciarCadastro(charge.contactId, integration.id);
       return; // cobrança permanece "pendente" — não marca, não envia
